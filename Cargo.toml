@@ -1,0 +1,8 @@
+[package]
+name = "cdecao"
+version = "0.1.0"
+authors = ["Michael Thies <mail@mhthies.de>"]
+edition = "2018"
+
+[dependencies]
+ndarray = "0.12"
