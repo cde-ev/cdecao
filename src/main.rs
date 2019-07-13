@@ -1,4 +1,4 @@
-use cdecao::{Course, Participant, caobab};
+use cdecao::{caobab, Course, Participant};
 use std::sync::Arc;
 
 fn main() {

@@ -4,9 +4,9 @@ use std::sync::Arc;
 /// Parameter set for one subproblem of the Branch and Bound algorithm
 struct BABNode {
     /// Indexes of the cancelled courses in this node
-    cancelled_courses: Vec<u32>,
+    cancelled_courses: Vec<usize>,
     /// Indexes of the courses with enforced minimum participant number
-    enforced_courses: Vec<u32>,
+    enforced_courses: Vec<usize>,
 }
 
 // As we want to do a pseudo depth-first search, BABNodes are ordered by their depth in the Branch and Bound tree for
@@ -47,11 +47,26 @@ impl PartialEq for BABNode {
 /// be 2MB in size, which is easily cachable.
 type EdgeWeight = u16;
 
+/// Highest value for edge weights to be used. See docs of `EdgeWeight` for more thoughts on that topic
+const WEIGHT_OFFSET: EdgeWeight = 50000;
+/// Generate edge weight from course choice
+fn edge_weight(choice_index: usize) -> EdgeWeight {
+    WEIGHT_OFFSET - (choice_index as EdgeWeight)
+}
+
 /// Precomputed problem definition for the hungarian method, that can be reused for every Branch and Bound node
 struct PreComputedProblem {
+    /// Adjacency matrix generated from course choices. Each row represents one participant (or dummy participant),
+    /// each column represents one place in a course.
     adjacency_matrix: ndarray::Array2<EdgeWeight>,
-    mandatory_y: ndarray::Array1<bool>,
-    dummy_x: ndarray::Array1<bool>, // TODO mapping between entrys and courses
+    /// Marks all the rows in the adjacency matrix that do not represent an actual participant (may not be used to
+    /// fill mandatory course places)
+    dummy_x: ndarray::Array1<bool>,
+    /// Marks all the columns in the adjacency matrix that represet a mandatory course place (may not be matched with a
+    /// dummy participant)
+    course_map: ndarray::Array1<usize>,
+    /// maps Course index to the first column index of its first course places
+    inverse_course_map: Vec<usize>,
 }
 
 /// Generate the general precomputed problem defintion (esp. the adjacency matrix) based on the Course and Participant
@@ -60,11 +75,44 @@ fn build_pre_computed_problem(
     courses: &Vec<Course>,
     participants: &Vec<Participant>,
 ) -> PreComputedProblem {
-    // TODO
+    // Calculate adjacency matrix size to allocate 1D-Arrays
+    let n = courses.iter().map(|c| c.num_max).fold(0, |acc, x| acc + x);
+
+    // Generate course_map, inverse_course_map and madatory_y from course list
+    let mut course_map = ndarray::Array1::<usize>::zeros([n]);
+    let mut inverse_course_map = Vec::<usize>::new();
+    let mut k = 0;
+    for (i, c) in courses.iter().enumerate() {
+        for j in 0..c.num_max {
+            course_map[k + j] = i;
+        }
+        inverse_course_map.push(k);
+        k += c.num_max;
+    }
+
+    // Generate dummy_x
+    let mut dummy_x = ndarray::Array1::from_elem([n], false);
+    for i in participants.len()..n {
+        dummy_x[i] = true;
+    }
+
+    // Generate adjacency matrix
+    let mut adjacency_matrix = ndarray::Array2::<EdgeWeight>::zeros([n, n]);
+    for (x, p) in participants.iter().enumerate() {
+        for (i, c) in p.choices.iter().enumerate() {
+            // TODO check c < inverse_course_map.len() ?
+            for j in 0..courses[*c].num_max {
+                let y = inverse_course_map[*c] + j;
+                adjacency_matrix[[x, y]] = edge_weight(i);
+            }
+        }
+    }
+
     PreComputedProblem {
-        adjacency_matrix: ndarray::Array2::default([0, 0]),
-        mandatory_y: ndarray::Array1::default([0]),
-        dummy_x: ndarray::Array1::default([0]),
+        adjacency_matrix,
+        dummy_x,
+        course_map,
+        inverse_course_map,
     }
 }
 
@@ -77,8 +125,78 @@ fn run_bab_node(
     pre_computed_problem: &PreComputedProblem,
     node: &BABNode,
 ) -> super::bab::NodeResult<BABNode, Mapping> {
-    // TODO
-    super::bab::NodeResult::NoSolution
+    let n = pre_computed_problem.adjacency_matrix.dim().0;
+
+    // Check for general feasibility
+    if node
+        .enforced_courses
+        .iter()
+        .map(|c| courses[*c].num_min)
+        .fold(0, |acc, x| acc + x)
+        > participants.len()
+    {
+        print!("Skipping this branch, since too much course places are enforced");
+        return super::bab::NodeResult::NoSolution;
+    }
+    if (n - node
+        .cancelled_courses
+        .iter()
+        .map(|c| courses[*c].num_max)
+        .fold(0, |acc, x| acc + x))
+        < participants.len()
+    {
+        print!("Skipping this branch, since not enough course places are left");
+        return super::bab::NodeResult::NoSolution;
+    }
+    for p in participants {
+        if p.choices.iter().all(
+            |x| match node.cancelled_courses.iter().position(|y| y == x) {
+                None => false,
+                Some(_) => true,
+            },
+        ) {
+            print!("Skipping this branch, since not all course choices can be fulfilled");
+            return super::bab::NodeResult::NoSolution;
+        }
+    }
+
+    // Generate skip_x from course instructors of non-cancelled courses
+    let mut skip_x = ndarray::Array1::from_elem([n], false);
+    for (i, c) in courses.iter().enumerate() {
+        if let None = node.cancelled_courses.iter().position(|x| *x == i) {
+            for instr in c.instructors.iter() {
+                skip_x[*instr] = true;
+            }
+        }
+    }
+
+    // Generate skip_y from cancelled courses
+    let mut skip_y = ndarray::Array1::from_elem([n], false);
+    for c in node.cancelled_courses.iter() {
+        for j in 0..courses[*c].num_max {
+            let y = pre_computed_problem.inverse_course_map[*c] + j;
+            skip_y[y] = true;
+        }
+    }
+
+    // Generate mandatory_y from enforced courses
+    let mut mandatory_y = ndarray::Array1::from_elem([n], false);
+    for c in node.enforced_courses.iter() {
+        for j in 0..courses[*c].num_min {
+            let y = pre_computed_problem.inverse_course_map[*c] + j;
+            mandatory_y[y] = true;
+        }
+    }
+
+    // TODO run hungarian method
+
+    // TODO check feasibility of the solution for the Branch and Bound algorithm and, if not, the most conflicting course
+    // TODO add course instructors to matching and score
+        // TODO return Feasible
+    // TODO if not feasible but found a conflicting course, generate new sub-branches, based on conflicting course
+        // TODO return IsFeasible
+
+    return super::bab::NodeResult::NoSolution;
 }
 
 /// Main method of the module to solve a course assignement problem using the branch and bound method together with the

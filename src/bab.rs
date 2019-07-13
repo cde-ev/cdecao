@@ -1,11 +1,11 @@
 //! This module provides a generic implementation of the branch and bound algorithm using a parallel pseudo-depth-first
 //! search.
-//! 
+//!
 //! The basic idea is to spawn a number of worker threads to solve the subproblems in parallel. The pending subproblems
 //! (nodes in the Branch and Bound tree) are stored on a heap (priority queue), ordered by their depth in the tree. This
 //! way, the worker threads can work in parallel, while preferring to dig into the depth of the Branch and Bound tree,
 //! which will give good lower bounds for bounding the branches sooner.
-//! 
+//!
 //! The best feasible solution, found so far, is kept with the subproblem queue in a shared data structure. Its score is
 //! used as a lower bound for branches' scores.
 //!
@@ -13,7 +13,7 @@
 //! produce new pending subproblems).
 
 use std::collections::BinaryHeap;
-use std::sync::{Condvar, Mutex, Arc};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 
 type Score = u32;
@@ -46,7 +46,7 @@ pub enum NodeResult<SubProblem, Solution> {
     /// and the solution's score to bound the branches by comparing the solution with the current best solution.
     Infeasible(Vec<SubProblem>, Score),
     /// A feasible solution for the main problem (including the solution's score to compare to other solutions)
-    Feasible(Solution, Score)
+    Feasible(Solution, Score),
 }
 
 /// Main function of this module to solve a generic problem by doing pseudo-depth-first parallel branch and bound
@@ -58,7 +58,7 @@ pub enum NodeResult<SubProblem, Solution> {
 pub fn solve<SubProblem: 'static + Ord + Send, Solution: 'static + Send, F: 'static>(
     node_solver: F,
     base_problem: SubProblem,
-    num_threads: u32
+    num_threads: u32,
 ) -> Option<(Solution, Score)>
 where
     F: (Fn(&SubProblem) -> NodeResult<SubProblem, Solution>) + Send + Sync,
@@ -82,7 +82,7 @@ where
     for _i in 0..num_threads {
         let bab_clone = bab.clone();
         let node_solver_clone = node_solver.clone();
-        thread::spawn(move || { worker(bab_clone, node_solver_clone) });
+        workers.push(thread::spawn(move || worker(bab_clone, node_solver_clone)));
     }
 
     // Wait for worker threads to finish
@@ -95,7 +95,7 @@ where
     return match shared_state.best_result.take() {
         None => None,
         Some(x) => Some((x, shared_state.best_score)),
-    }
+    };
 }
 
 /// Worker thread entry point for the parallel branch and bound solving
@@ -124,8 +124,8 @@ fn worker<SubProblem: Ord + Send, Solution: Send>(
                         shared_state.best_result = Some(solution);
                         shared_state.best_score = score;
                     }
-                },
-                
+                }
+
                 NodeResult::Infeasible(new_problems, score) => {
                     // Only consider more restricted new_problems, if solution is better then best solution known so
                     // far. I.e. bound branch if score is worse then best known feasible solution
