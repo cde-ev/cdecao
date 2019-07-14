@@ -124,15 +124,15 @@ pub fn hungarian_algorithm(
                         nlxt_neighbour_of[yy] = z;
                     }
                 }
-                
+
             } else {
                 // Yay, our alternating tree contains an augmenting path. Let's reconstruct it and augment the
                 // matching with it.
                 let mut yy = y;
                 let mut xx = nlxt_neighbour_of[yy];
                 let mut i = 1; //only for debugging
+                m[yy] = true;
                 loop {
-                    m[yy] = true;
                     m_match[yy] = xx;
                     if xx == u {
                         break;
@@ -140,8 +140,8 @@ pub fn hungarian_algorithm(
                     yy = s_parents[xx];
                     xx = t_parents[yy];
                     i += 2;
-                    print!("Added {}~{} with {}-ary aug. path", xx, yy, i);
                 }
+                print!("Added {}~{} with {}-ary aug. path", xx, yy, i);
                 break;
             }
         }
