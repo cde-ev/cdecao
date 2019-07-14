@@ -12,6 +12,7 @@
 //! The worker threads are stopped, as soon as no pending subproblems are left *and* no thread is still busy (and could
 //! produce new pending subproblems).
 
+use log::debug;
 use std::collections::BinaryHeap;
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
@@ -124,7 +125,7 @@ fn worker<SubProblem: Ord + Send, Solution: Send, Score: Ord>(
 
                 NodeResult::Feasible(solution, score) => {
                     if score > shared_state.best_score {
-                        print!("Wow, this is the best solution, we found so far. Let's store it.");
+                        debug!("Wow, this is the best solution, we found so far. Let's store it.");
                         shared_state.best_result = Some(solution);
                         shared_state.best_score = score;
                     }
@@ -144,7 +145,7 @@ fn worker<SubProblem: Ord + Send, Solution: Send, Score: Ord>(
                             }
                         }
                     } else {
-                        print!("Bounding this branch, since score is already worse then best known feasible solution.");
+                        debug!("Bounding this branch, since score is already worse then best known feasible solution.");
                     }
                 }
             }

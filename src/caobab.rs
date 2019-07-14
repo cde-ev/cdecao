@@ -7,6 +7,7 @@
 use super::bab::NodeResult::{Feasible, Infeasible, NoSolution};
 use super::hungarian::{EdgeWeight, Score};
 use super::{Assignment, Course, Participant};
+use log::debug;
 use std::sync::Arc;
 
 /// Main method of the module to solve a course assignement problem using the branch and bound method together with the
@@ -157,6 +158,10 @@ fn run_bab_node(
 
     // We will modify the current_node later for creating a new subproblem. Until then, we want to use it readonly.
     let node = &current_node;
+    debug!(
+        "Solving subproblem with cancelled courses {:?} and enforced courses {:?}",
+        node.cancelled_courses, node.enforced_courses
+    );
 
     // Check for general feasibility
     if node
@@ -166,7 +171,7 @@ fn run_bab_node(
         .fold(0, |acc, x| acc + x)
         > participants.len()
     {
-        print!("Skipping this branch, since too much course places are enforced");
+        debug!("Skipping this branch, since too much course places are enforced");
         return NoSolution;
     }
     if (n - node
@@ -176,7 +181,7 @@ fn run_bab_node(
         .fold(0, |acc, x| acc + x))
         < participants.len()
     {
-        print!("Skipping this branch, since not enough course places are left");
+        debug!("Skipping this branch, since not enough course places are left");
         return NoSolution;
     }
     for p in participants {
@@ -184,7 +189,7 @@ fn run_bab_node(
             .iter()
             .all(|x| node.cancelled_courses.contains(&x))
         {
-            print!("Skipping this branch, since not all course choices can be fulfilled");
+            debug!("Skipping this branch, since not all course choices can be fulfilled");
             return NoSolution;
         }
     }
@@ -247,7 +252,7 @@ fn run_bab_node(
     let (feasible, participant_problem, branch_course) =
         check_feasibility(courses, participants, &assignment, &node, &skip_x);
     if feasible {
-        print!("Yes! We found a feasible solution with score {}.", score);
+        debug!("Yes! We found a feasible solution with score {}.", score);
         return Feasible(assignment, score);
     } else {
         let mut branches = Vec::<BABNode>::new();

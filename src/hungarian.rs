@@ -1,3 +1,4 @@
+use log::trace;
 use ndarray::{Array1, Array2, Axis};
 
 /// Return type of the hungarian algorithm. Represents a mapping of columns to rows (i.e. course places to participants)
@@ -124,7 +125,6 @@ pub fn hungarian_algorithm(
                         nlxt_neighbour_of[yy] = z;
                     }
                 }
-
             } else {
                 // Yay, our alternating tree contains an augmenting path. Let's reconstruct it and augment the
                 // matching with it.
@@ -141,7 +141,7 @@ pub fn hungarian_algorithm(
                     xx = t_parents[yy];
                     i += 2;
                 }
-                print!("Added {}~{} with {}-ary aug. path", xx, yy, i);
+                trace!("Added {}~{} with {}-ary aug. path", xx, yy, i);
                 break;
             }
         }
