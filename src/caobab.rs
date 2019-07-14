@@ -1,38 +1,38 @@
+//! A specialization of the generic branch and bound algorithm from `super::bab`. For our specific problem.
+//!
+//! The module provides data types for subproblems and solutions, as well as the `run_bab_node()` function to solve a
+//! subproblem of the course assignment prblem. All the data conversion from Course/Participant objects to matrices and
+//! vectors for the `hungarian_algorithm()` happens within this function.
+
 use super::bab::NodeResult::{Feasible, Infeasible, NoSolution};
 use super::{Assignment, Course, Participant};
 use std::sync::Arc;
 
-/// Parameter set for one subproblem of the Branch and Bound algorithm
-#[derive(Clone)]
-struct BABNode {
-    /// Indexes of the cancelled courses in this node
-    cancelled_courses: Vec<usize>,
-    /// Indexes of the courses with enforced minimum participant number
-    enforced_courses: Vec<usize>,
-}
+/// Main method of the module to solve a course assignement problem using the branch and bound method together with the
+/// hungarian method.
+///
+/// It takes a list of Courses and a list of Participants to create an optimal assignment of courses to participants.
+pub fn solve(
+    courses: Arc<Vec<Course>>,
+    participants: Arc<Vec<Participant>>,
+) -> Option<(Assignment, u32)> {
+    let pre_computed_problem = Arc::new(precompute_problem(&*courses, &*participants));
 
-// As we want to do a pseudo depth-first search, BABNodes are ordered by their depth in the Branch and Bound tree for
-// the prioritization by the parallel workers.
-impl Ord for BABNode {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        (self.cancelled_courses.len() + self.enforced_courses.len())
-            .cmp(&(other.cancelled_courses.len() + other.enforced_courses.len()))
-    }
-}
-
-impl PartialOrd for BABNode {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Eq for BABNode {}
-
-impl PartialEq for BABNode {
-    fn eq(&self, other: &Self) -> bool {
-        (self.cancelled_courses.len() + self.enforced_courses.len())
-            == (other.cancelled_courses.len() + other.enforced_courses.len())
-    }
+    super::bab::solve(
+        move |sub_problem| -> super::bab::NodeResult<BABNode, Assignment> {
+            run_bab_node(
+                &*courses,
+                &*participants,
+                &*pre_computed_problem,
+                sub_problem,
+            )
+        },
+        BABNode {
+            cancelled_courses: Vec::new(),
+            enforced_courses: Vec::new(),
+        },
+        4, // TODO guess number of threads
+    )
 }
 
 /// Type to use as edge weights in the adjacency matrix.
@@ -117,9 +117,48 @@ fn precompute_problem(
     }
 }
 
+/// Parameter set for one subproblem of the Branch and Bound algorithm
+#[derive(Clone)]
+struct BABNode {
+    /// Indexes of the cancelled courses in this node
+    cancelled_courses: Vec<usize>,
+    /// Indexes of the courses with enforced minimum participant number
+    enforced_courses: Vec<usize>,
+}
+
+// As we want to do a pseudo depth-first search, BABNodes are ordered by their depth in the Branch and Bound tree for
+// the prioritization by the parallel workers.
+impl Ord for BABNode {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        (self.cancelled_courses.len() + self.enforced_courses.len())
+            .cmp(&(other.cancelled_courses.len() + other.enforced_courses.len()))
+    }
+}
+
+impl PartialOrd for BABNode {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Eq for BABNode {}
+
+impl PartialEq for BABNode {
+    fn eq(&self, other: &Self) -> bool {
+        (self.cancelled_courses.len() + self.enforced_courses.len())
+            == (other.cancelled_courses.len() + other.enforced_courses.len())
+    }
+}
+
 /// Solver for a single branch and bound node/subproblem. It takes the precomputed problem description and the
 /// additional restrictions for the specific node and solves the resulting matching subproblem using the hungarian
 /// method.
+///
+/// To do so, we first need to calculate some vectors specific for this subproblem (mandatory course places (from
+/// enforced courses), skipped participants (from course instructors), skipped courses). Afterwards we can use the
+/// `hungarian::hungarian_algorithm()` function to solve the optimization problem. Then, we need to transform the
+/// mapping of participants to course places into an assignment of participants to courses and check the feasibility
+/// of the solution for our overall problem.
 fn run_bab_node(
     courses: &Vec<Course>,
     participants: &Vec<Participant>,
@@ -303,31 +342,4 @@ fn check_feasibility(
         }
     }
     return (course == None, false, course);
-}
-
-/// Main method of the module to solve a course assignement problem using the branch and bound method together with the
-/// hungarian method.
-///
-/// It takes a list of Courses and a list of Participants to create an optimal assignment of courses to participants.
-pub fn solve(
-    courses: Arc<Vec<Course>>,
-    participants: Arc<Vec<Participant>>,
-) -> Option<(Assignment, u32)> {
-    let pre_computed_problem = Arc::new(precompute_problem(&*courses, &*participants));
-
-    super::bab::solve(
-        move |sub_problem| -> super::bab::NodeResult<BABNode, Assignment> {
-            run_bab_node(
-                &*courses,
-                &*participants,
-                &*pre_computed_problem,
-                sub_problem,
-            )
-        },
-        BABNode {
-            cancelled_courses: Vec::new(),
-            enforced_courses: Vec::new(),
-        },
-        4, // TODO guess number of threads
-    )
 }
