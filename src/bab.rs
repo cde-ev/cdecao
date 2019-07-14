@@ -16,17 +16,15 @@ use std::collections::BinaryHeap;
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 
-type Score = u32;
-
 /// Struct to hold the synchronization information for the parallel execution. It contains a mutex-ed SharedState object
 /// And a Candvar to allow worker threads to sleep-wait for new subproblems to solve.
-struct BranchAndBound<SubProblem: Ord + Send, Solution: Send> {
-    shared_state: Mutex<SharedState<SubProblem, Solution>>,
+struct BranchAndBound<SubProblem: Ord + Send, Solution: Send, Score> {
+    shared_state: Mutex<SharedState<SubProblem, Solution, Score>>,
     condvar: Condvar,
 }
 
 /// The shared state of the worker threads of the parallel branch and bound execution
-struct SharedState<SubProblem: Ord, Solution> {
+struct SharedState<SubProblem: Ord, Solution, Score> {
     /// The prioritized queue of pending subproblems
     pending_nodes: BinaryHeap<SubProblem>,
     /// The number of currently busy worker threads. It is used to determine the end of execution (no pending problems
@@ -39,7 +37,7 @@ struct SharedState<SubProblem: Ord, Solution> {
 }
 
 /// Result type for solving a single branch and bound node.
-pub enum NodeResult<SubProblem, Solution> {
+pub enum NodeResult<SubProblem, Solution, Score> {
     /// No solution at all (subproblem was infeasible)
     NoSolution,
     /// An infeasible solution for the main problem with an iterable of more restricted SubProblems ("branches") to try
@@ -55,13 +53,18 @@ pub enum NodeResult<SubProblem, Solution> {
 /// returns either a feasible solution to be considered for the result or a `Vec` of new subproblems to try (see
 /// `NodeResult` type). When all branches of the branch and bound tree are evaluated (or bound), the best result is
 /// returned. It may be possible, that no result is found at all.
-pub fn solve<SubProblem: 'static + Ord + Send, Solution: 'static + Send, F: 'static>(
+pub fn solve<
+    SubProblem: 'static + Ord + Send,
+    Solution: 'static + Send,
+    Score: 'static + Ord + From<u32> + Send + Copy,
+    F: 'static,
+>(
     node_solver: F,
     base_problem: SubProblem,
     num_threads: u32,
 ) -> Option<(Solution, Score)>
 where
-    F: (Fn(SubProblem) -> NodeResult<SubProblem, Solution>) + Send + Sync,
+    F: (Fn(SubProblem) -> NodeResult<SubProblem, Solution, Score>) + Send + Sync,
 {
     // Create shared data structure with base problem
     let mut pending_nodes = BinaryHeap::<SubProblem>::new();
@@ -71,7 +74,7 @@ where
             pending_nodes: pending_nodes,
             busy_threads: 0,
             best_result: None,
-            best_score: 0,
+            best_score: Score::from(0),
         }),
         condvar: Condvar::new(),
     });
@@ -99,9 +102,9 @@ where
 }
 
 /// Worker thread entry point for the parallel branch and bound solving
-fn worker<SubProblem: Ord + Send, Solution: Send>(
-    bab: Arc<BranchAndBound<SubProblem, Solution>>,
-    node_solver: Arc<Fn(SubProblem) -> NodeResult<SubProblem, Solution>>,
+fn worker<SubProblem: Ord + Send, Solution: Send, Score: Ord>(
+    bab: Arc<BranchAndBound<SubProblem, Solution, Score>>,
+    node_solver: Arc<Fn(SubProblem) -> NodeResult<SubProblem, Solution, Score>>,
 ) {
     let mut shared_state = bab.shared_state.lock().unwrap();
     loop {

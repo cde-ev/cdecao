@@ -1,10 +1,11 @@
-//! A specialization of the generic branch and bound algorithm from `super::bab`. For our specific problem.
+//! A specialization of the generic branch and bound algorithm from `bab` for our specific problem.
 //!
 //! The module provides data types for subproblems and solutions, as well as the `run_bab_node()` function to solve a
 //! subproblem of the course assignment prblem. All the data conversion from Course/Participant objects to matrices and
 //! vectors for the `hungarian_algorithm()` happens within this function.
 
 use super::bab::NodeResult::{Feasible, Infeasible, NoSolution};
+use super::hungarian::{EdgeWeight, Score};
 use super::{Assignment, Course, Participant};
 use std::sync::Arc;
 
@@ -19,7 +20,7 @@ pub fn solve(
     let pre_computed_problem = Arc::new(precompute_problem(&*courses, &*participants));
 
     super::bab::solve(
-        move |sub_problem| -> super::bab::NodeResult<BABNode, Assignment> {
+        move |sub_problem| -> super::bab::NodeResult<BABNode, Assignment, Score> {
             run_bab_node(
                 &*courses,
                 &*participants,
@@ -35,21 +36,8 @@ pub fn solve(
     )
 }
 
-/// Type to use as edge weights in the adjacency matrix.
-///
-/// Should not be to long, to allow the whole adjacency matrix to fit into a CPU's cache. The adjacency matrix will
-/// consist of n^2 entries of this type, where n is the total number of maximum course places. On the other hand, we
-/// must be able to represent the required weights. All actual edge weights must be x times larger than the number of
-/// participants, where x is the difference between first course choices edge weight and last course choices edge
-/// weight, to ensure that assigning every participant to its last choice is a better solution than assigning any
-/// participant to an unchosen course.
-///
-/// With ten course choices per participant, quadratic weighting (x = 100) and 450 participants, edge weights should be
-/// in the range 45001 -- 45101, so u16 is still sufficient. With 50 courses and max 20 places in each, the matrix will
-/// be 2MB in size, which is easily cachable.
-type EdgeWeight = u16;
-
-/// Highest value for edge weights to be used. See docs of `EdgeWeight` for more thoughts on that topic
+/// Highest value for edge weights to be used. See docs of `super::hungarian::EdgeWeight` for more thoughts on that
+/// topic
 const WEIGHT_OFFSET: EdgeWeight = 50000;
 /// Generate edge weight from course choice
 fn edge_weight(choice_index: usize) -> EdgeWeight {
@@ -157,14 +145,14 @@ impl PartialEq for BABNode {
 /// To do so, we first need to calculate some vectors specific for this subproblem (mandatory course places (from
 /// enforced courses), skipped participants (from course instructors), skipped courses). Afterwards we can use the
 /// `hungarian::hungarian_algorithm()` function to solve the optimization problem. Then, we need to transform the
-/// mapping of participants to course places into an assignment of participants to courses and check the feasibility
+/// matching of participants with course places into an assignment of participants to courses and check the feasibility
 /// of the solution for our overall problem.
 fn run_bab_node(
     courses: &Vec<Course>,
     participants: &Vec<Participant>,
     pre_computed_problem: &PreComputedProblem,
     mut current_node: BABNode,
-) -> super::bab::NodeResult<BABNode, Assignment> {
+) -> super::bab::NodeResult<BABNode, Assignment, Score> {
     let n = pre_computed_problem.adjacency_matrix.dim().0;
 
     // We will modify the current_node later for creating a new subproblem. Until then, we want to use it readonly.
@@ -230,7 +218,7 @@ fn run_bab_node(
     }
 
     // Run hungarian method
-    let (mapping, mut score) = super::hungarian::hungarian_algorithm(
+    let (matching, mut score) = super::hungarian::hungarian_algorithm(
         &pre_computed_problem.adjacency_matrix,
         &pre_computed_problem.dummy_x,
         &mandatory_y,
@@ -238,8 +226,8 @@ fn run_bab_node(
         &skip_y,
     );
 
-    // Convert course place mapping to course assignment
-    let mut assignment: Assignment = mapping
+    // Convert course place matching to course assignment
+    let mut assignment: Assignment = matching
         .iter()
         .take(participants.len())
         .map(|cp| pre_computed_problem.course_map[*cp])
