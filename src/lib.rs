@@ -30,4 +30,6 @@ pub struct Course {
     instructors: Vec<usize>,
 }
 
-pub type Mapping = Vec<(usize, usize)>;
+/// A course assignment as result of the overall algorithm. It maps the participant index to the course index, such that
+/// the course of participants[i] is courses[assignment[i]].
+pub type Assignment = Vec<usize>;

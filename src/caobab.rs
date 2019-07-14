@@ -1,7 +1,9 @@
-use super::{Course, Mapping, Participant};
+use super::bab::NodeResult::{Feasible, Infeasible, NoSolution};
+use super::{Assignment, Course, Participant};
 use std::sync::Arc;
 
 /// Parameter set for one subproblem of the Branch and Bound algorithm
+#[derive(Clone)]
 struct BABNode {
     /// Indexes of the cancelled courses in this node
     cancelled_courses: Vec<usize>,
@@ -62,8 +64,7 @@ struct PreComputedProblem {
     /// Marks all the rows in the adjacency matrix that do not represent an actual participant (may not be used to
     /// fill mandatory course places)
     dummy_x: ndarray::Array1<bool>,
-    /// Marks all the columns in the adjacency matrix that represet a mandatory course place (may not be matched with a
-    /// dummy participant)
+    /// Maps each column in the adjacency matrix to the course's index, the represented course place is belonging to
     course_map: ndarray::Array1<usize>,
     /// maps Course index to the first column index of its first course places
     inverse_course_map: Vec<usize>,
@@ -71,7 +72,7 @@ struct PreComputedProblem {
 
 /// Generate the general precomputed problem defintion (esp. the adjacency matrix) based on the Course and Participant
 /// objects
-fn build_pre_computed_problem(
+fn precompute_problem(
     courses: &Vec<Course>,
     participants: &Vec<Participant>,
 ) -> PreComputedProblem {
@@ -123,9 +124,12 @@ fn run_bab_node(
     courses: &Vec<Course>,
     participants: &Vec<Participant>,
     pre_computed_problem: &PreComputedProblem,
-    node: &BABNode,
-) -> super::bab::NodeResult<BABNode, Mapping> {
+    mut current_node: BABNode,
+) -> super::bab::NodeResult<BABNode, Assignment> {
     let n = pre_computed_problem.adjacency_matrix.dim().0;
+
+    // We will modify the current_node later for creating a new subproblem. Until then, we want to use it readonly.
+    let node = &current_node;
 
     // Check for general feasibility
     if node
@@ -136,7 +140,7 @@ fn run_bab_node(
         > participants.len()
     {
         print!("Skipping this branch, since too much course places are enforced");
-        return super::bab::NodeResult::NoSolution;
+        return NoSolution;
     }
     if (n - node
         .cancelled_courses
@@ -146,24 +150,22 @@ fn run_bab_node(
         < participants.len()
     {
         print!("Skipping this branch, since not enough course places are left");
-        return super::bab::NodeResult::NoSolution;
+        return NoSolution;
     }
     for p in participants {
-        if p.choices.iter().all(
-            |x| match node.cancelled_courses.iter().position(|y| y == x) {
-                None => false,
-                Some(_) => true,
-            },
-        ) {
+        if p.choices
+            .iter()
+            .all(|x| node.cancelled_courses.contains(&x))
+        {
             print!("Skipping this branch, since not all course choices can be fulfilled");
-            return super::bab::NodeResult::NoSolution;
+            return NoSolution;
         }
     }
 
     // Generate skip_x from course instructors of non-cancelled courses
     let mut skip_x = ndarray::Array1::from_elem([n], false);
     for (i, c) in courses.iter().enumerate() {
-        if let None = node.cancelled_courses.iter().position(|x| *x == i) {
+        if !node.cancelled_courses.contains(&i) {
             for instr in c.instructors.iter() {
                 skip_x[*instr] = true;
             }
@@ -188,29 +190,133 @@ fn run_bab_node(
         }
     }
 
-    // TODO run hungarian method
+    // Run hungarian method
+    let (mapping, mut score) = super::hungarian::hungarian_algorithm(
+        &pre_computed_problem.adjacency_matrix,
+        &pre_computed_problem.dummy_x,
+        &mandatory_y,
+        &skip_x,
+        &skip_y,
+    );
 
-    // TODO check feasibility of the solution for the Branch and Bound algorithm and, if not, the most conflicting course
-    // TODO add course instructors to matching and score
-        // TODO return Feasible
-    // TODO if not feasible but found a conflicting course, generate new sub-branches, based on conflicting course
-        // TODO return IsFeasible
+    // Convert course place mapping to course assignment
+    let mut assignment: Assignment = mapping
+        .iter()
+        .take(participants.len())
+        .map(|cp| pre_computed_problem.course_map[*cp])
+        .collect();
+    // FIXME handle course instructors (skip_x)
 
-    return super::bab::NodeResult::NoSolution;
+    // Check feasibility of the solution for the Branch and Bound algorithm and, if not, get the most conflicting course
+    let (feasible, participant_problem, branch_course) =
+        check_feasibility(courses, participants, &assignment, &node);
+    if feasible {
+        print!("Yes! We found a feasible solution with score {}.", score);
+        // Add KLs to matching and increase score w.r.t. KLs
+        for (c, course) in courses.iter().enumerate() {
+            if !node.cancelled_courses.contains(&c) {
+                for instr in course.instructors.iter() {
+                    assignment[*instr] = c;
+                }
+                score += (course.instructors.len() as u32) * (WEIGHT_OFFSET as u32);
+            }
+        }
+        return Feasible(assignment, score);
+    } else {
+        let mut branches = Vec::<BABNode>::new();
+        if let Some(c) = branch_course {
+            // If we didn't fail at an unresolvable wrong assignment error, create new subproblem with course enforced
+            if !participant_problem {
+                let mut new_node = current_node.clone();
+                new_node.enforced_courses.push(c);
+                branches.push(new_node);
+            }
+
+            // Return modified subproblem with course in cancelled courses
+            current_node.cancelled_courses.push(c);
+            branches.push(current_node);
+        }
+
+        return Infeasible(branches, score); // FIXME: We must consider the KLs in the score!
+    }
+}
+
+/// Check if the given matching is a feasible solution in terms of the Branch and Bound algorithm. If not, find the
+/// most conflicting course, to apply a constraint to it in the following nodes.
+///
+/// If any participant is in an unwanted course (wrong assignment), the solution is infeasible. We try to find a
+/// course with an instructor, who chose this course, to try to cancel that course. This type of infeasibility
+/// sets the second return flag. It may be, that no such course is found, which is signalled by returning None. In
+/// this case, additional restrictions are pointless and we can abandon the node.
+///
+/// Additionally, the solution is infeasible, if any course has less participants than demanded. In this case we
+/// return the course with the highest discrepancy to apply further restrictions on it.
+fn check_feasibility(
+    courses: &Vec<Course>,
+    participants: &Vec<Participant>,
+    assignment: &Assignment,
+    node: &BABNode,
+) -> (bool, bool, Option<usize>) {
+    // Calculate course sizes
+    let mut course_size = vec![0usize; courses.len()];
+    // FIXME handle course instructors
+    for c in assignment {
+        course_size[*c] += 1;
+    }
+
+    // Check if solution is infeasible, such that any participant is in an un-chosen course
+    for (p, c) in assignment.iter().enumerate() {
+        // FIXME handle course instructors
+        if !participants[p].choices.contains(c) {
+            // If so, get smallest non-constrained course, that has an instructor, who chose c
+            let mut relevant_courses: Vec<usize> = (0..courses.len())
+                .filter(|rc| node.cancelled_courses.contains(rc))
+                .filter(|rc| node.enforced_courses.contains(rc))
+                .filter(|rc| {
+                    courses[*rc]
+                        .instructors
+                        .iter()
+                        .any(|instr| participants[*instr].choices.contains(c))
+                })
+                .collect();
+            if relevant_courses.len() == 0 {
+                return (false, true, None);
+            } else {
+                relevant_courses.sort_by_key(|rc| course_size[*rc]);
+                return (false, true, Some(relevant_courses[0]));
+            }
+        }
+    }
+
+    // Check if solution is feasible, such that any course has its minimum participant number violated
+    let mut max_score = 0;
+    let mut course: Option<usize> = None;
+    for (c, size) in course_size.iter().enumerate() {
+        if !node.cancelled_courses.contains(&c) && !node.enforced_courses.contains(&c) {
+            if *size < courses[c].num_min {
+                let score = courses[c].num_min - size;
+                if score > max_score {
+                    max_score = score;
+                    course = Some(c);
+                }
+            }
+        }
+    }
+    return (course == None, false, course);
 }
 
 /// Main method of the module to solve a course assignement problem using the branch and bound method together with the
 /// hungarian method.
 ///
-/// It takes a list of Courses and a list of Participants to create an optimal mapping of courses to participants.
+/// It takes a list of Courses and a list of Participants to create an optimal assignment of courses to participants.
 pub fn solve(
     courses: Arc<Vec<Course>>,
     participants: Arc<Vec<Participant>>,
-) -> Option<(Mapping, u32)> {
-    let pre_computed_problem = Arc::new(build_pre_computed_problem(&*courses, &*participants));
+) -> Option<(Assignment, u32)> {
+    let pre_computed_problem = Arc::new(precompute_problem(&*courses, &*participants));
 
     super::bab::solve(
-        move |sub_problem| -> super::bab::NodeResult<BABNode, Mapping> {
+        move |sub_problem| -> super::bab::NodeResult<BABNode, Assignment> {
             run_bab_node(
                 &*courses,
                 &*participants,

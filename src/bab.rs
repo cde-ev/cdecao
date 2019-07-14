@@ -61,7 +61,7 @@ pub fn solve<SubProblem: 'static + Ord + Send, Solution: 'static + Send, F: 'sta
     num_threads: u32,
 ) -> Option<(Solution, Score)>
 where
-    F: (Fn(&SubProblem) -> NodeResult<SubProblem, Solution>) + Send + Sync,
+    F: (Fn(SubProblem) -> NodeResult<SubProblem, Solution>) + Send + Sync,
 {
     // Create shared data structure with base problem
     let mut pending_nodes = BinaryHeap::<SubProblem>::new();
@@ -101,7 +101,7 @@ where
 /// Worker thread entry point for the parallel branch and bound solving
 fn worker<SubProblem: Ord + Send, Solution: Send>(
     bab: Arc<BranchAndBound<SubProblem, Solution>>,
-    node_solver: Arc<Fn(&SubProblem) -> NodeResult<SubProblem, Solution>>,
+    node_solver: Arc<Fn(SubProblem) -> NodeResult<SubProblem, Solution>>,
 ) {
     let mut shared_state = bab.shared_state.lock().unwrap();
     loop {
@@ -111,7 +111,7 @@ fn worker<SubProblem: Ord + Send, Solution: Send>(
 
             // Unlock shared_state and solve subproblem
             std::mem::drop(shared_state);
-            let result = node_solver(&subproblem);
+            let result = node_solver(subproblem);
 
             // Reacquire shared_state lock and interpret subproblem result
             shared_state = bab.shared_state.lock().unwrap();
@@ -121,6 +121,7 @@ fn worker<SubProblem: Ord + Send, Solution: Send>(
 
                 NodeResult::Feasible(solution, score) => {
                     if score > shared_state.best_score {
+                        print!("Wow, this is the best solution, we found so far. Let's store it.");
                         shared_state.best_result = Some(solution);
                         shared_state.best_score = score;
                     }
@@ -139,6 +140,8 @@ fn worker<SubProblem: Ord + Send, Solution: Send>(
                                 bab.condvar.notify_one();
                             }
                         }
+                    } else {
+                        print!("Bounding this branch, since score is already worse then best known feasible solution.");
                     }
                 }
             }
