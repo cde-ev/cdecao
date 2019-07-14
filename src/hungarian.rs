@@ -33,8 +33,8 @@ pub fn hungarian_algorithm(
     let n = adjacency_matrix.dim().0;
 
     // Initialize labels
-    let mut labels_x = Array1::<EdgeWeight>::zeros([n]);
-    let mut labels_y = adjacency_matrix.fold_axis(Axis(1), 0, |acc, x| std::cmp::max(*acc, *x));
+    let mut labels_x = adjacency_matrix.fold_axis(Axis(1), 0, |acc, x| std::cmp::max(*acc, *x));
+    let mut labels_y = Array1::<EdgeWeight>::zeros([n]);
 
     // Current matched y (column) nodes
     let mut m = Array1::<bool>::from_elem([n], false);
@@ -80,8 +80,9 @@ pub fn hungarian_algorithm(
                 // To update the labels, calculate minimal delta between edge weight and sum of nodes' labels. In the
                 // same turn, we can keep track of the new equality graph neighbourhood.
                 let mut delta_min = LARGE_WEIGHT;
+                // TODO speed up, by only considering columns where s[x]
                 for ((x, y), weight) in adjacency_matrix.indexed_iter() {
-                    if s[x] && !t[y] && !skip_y[y] && (!dummy_x[u] || !mandatory_y[y]) {
+                    if s[x] && !t[y] && !skip_y[y] && (!dummy_x[x] || !mandatory_y[y]) {
                         let delta = labels_x[x] + labels_y[y] - weight;
                         if delta == delta_min {
                             nlxt[y] = true;
@@ -118,8 +119,8 @@ pub fn hungarian_algorithm(
                 for yy in 0..n {
                     if !t[yy]
                         && !skip_y[yy]
-                        && adjacency_matrix[[u, y]] == labels_x[u] + labels_y[y]
-                        && (!dummy_x[u] || !mandatory_y[y])
+                        && adjacency_matrix[[z, yy]] == labels_x[z] + labels_y[yy]
+                        && (!dummy_x[z] || !mandatory_y[yy])
                     {
                         nlxt[yy] = true;
                         nlxt_neighbour_of[yy] = z;
@@ -141,13 +142,20 @@ pub fn hungarian_algorithm(
                     xx = t_parents[yy];
                     i += 2;
                 }
-                trace!("Added {}~{} with {}-ary aug. path", xx, yy, i);
+                trace!("Added {}~{} with {}-ary aug. path\n", xx, yy, i);
                 break;
             }
         }
     }
 
-    return (m_match, 0);
+    // Calculate score and return results
+    let score = m_match
+        .iter()
+        .enumerate()
+        .map(|(y, x)| adjacency_matrix[(*x, y)] as Score)
+        .fold(Score::from(0u8), |acc, x| acc + x);
+    return (m_match, score);
+}
 
 // =============================================================================
 // Tests
