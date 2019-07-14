@@ -205,22 +205,21 @@ fn run_bab_node(
         .take(participants.len())
         .map(|cp| pre_computed_problem.course_map[*cp])
         .collect();
-    // FIXME handle course instructors (skip_x)
+    // Add instructors to matching and increase score w.r.t. instructors
+    for (c, course) in courses.iter().enumerate() {
+        if !node.cancelled_courses.contains(&c) {
+            for instr in course.instructors.iter() {
+                assignment[*instr] = c;
+            }
+            score += (course.instructors.len() as u32) * (WEIGHT_OFFSET as u32);
+        }
+    }
 
     // Check feasibility of the solution for the Branch and Bound algorithm and, if not, get the most conflicting course
     let (feasible, participant_problem, branch_course) =
-        check_feasibility(courses, participants, &assignment, &node);
+        check_feasibility(courses, participants, &assignment, &node, &skip_x);
     if feasible {
         print!("Yes! We found a feasible solution with score {}.", score);
-        // Add KLs to matching and increase score w.r.t. KLs
-        for (c, course) in courses.iter().enumerate() {
-            if !node.cancelled_courses.contains(&c) {
-                for instr in course.instructors.iter() {
-                    assignment[*instr] = c;
-                }
-                score += (course.instructors.len() as u32) * (WEIGHT_OFFSET as u32);
-            }
-        }
         return Feasible(assignment, score);
     } else {
         let mut branches = Vec::<BABNode>::new();
@@ -256,18 +255,19 @@ fn check_feasibility(
     participants: &Vec<Participant>,
     assignment: &Assignment,
     node: &BABNode,
+    is_instructor: &ndarray::Array1<bool>,
 ) -> (bool, bool, Option<usize>) {
     // Calculate course sizes
     let mut course_size = vec![0usize; courses.len()];
-    // FIXME handle course instructors
-    for c in assignment {
-        course_size[*c] += 1;
+    for (p, c) in assignment.iter().enumerate() {
+        if !is_instructor[p] {
+            course_size[*c] += 1;
+        }
     }
 
     // Check if solution is infeasible, such that any participant is in an un-chosen course
     for (p, c) in assignment.iter().enumerate() {
-        // FIXME handle course instructors
-        if !participants[p].choices.contains(c) {
+        if !is_instructor[p] && !participants[p].choices.contains(c) {
             // If so, get smallest non-constrained course, that has an instructor, who chose c
             let mut relevant_courses: Vec<usize> = (0..courses.len())
                 .filter(|rc| node.cancelled_courses.contains(rc))
