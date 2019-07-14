@@ -227,11 +227,12 @@ fn run_bab_node(
     );
 
     // Convert course place matching to course assignment
-    let mut assignment: Assignment = matching
-        .iter()
-        .take(participants.len())
-        .map(|cp| pre_computed_problem.course_map[*cp])
-        .collect();
+    let mut assignment: Assignment = vec![0usize; participants.len()];
+    for (cp, p) in matching.iter().enumerate() {
+        if *p < assignment.len() {
+            assignment[*p] = pre_computed_problem.course_map[cp];
+        }
+    }
     // Add instructors to matching and increase score w.r.t. instructors
     for (c, course) in courses.iter().enumerate() {
         if !node.cancelled_courses.contains(&c) {
@@ -263,7 +264,7 @@ fn run_bab_node(
             branches.push(current_node);
         }
 
-        return Infeasible(branches, score); // FIXME: We must consider the KLs in the score!
+        return Infeasible(branches, score);
     }
 }
 
