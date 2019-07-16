@@ -30,16 +30,17 @@ pub fn hungarian_algorithm(
     skip_x: &Array1<bool>,
     skip_y: &Array1<bool>,
 ) -> (Matching, Score) {
-    let n = adjacency_matrix.dim().0;
+    let nx = adjacency_matrix.dim().0;
+    let ny = adjacency_matrix.dim().1;
 
     // Initialize labels
     let mut labels_x = adjacency_matrix.fold_axis(Axis(1), 0, |acc, x| std::cmp::max(*acc, *x));
-    let mut labels_y = Array1::<EdgeWeight>::zeros([n]);
+    let mut labels_y = Array1::<EdgeWeight>::zeros([ny]);
 
     // Current matched y (column) nodes
-    let mut m = Array1::<bool>::from_elem([n], false);
+    let mut m = Array1::<bool>::from_elem([ny], false);
     // Current matching (mapping y to their associated x index)
-    let mut m_match: Matching = Array1::<usize>::zeros([n]);
+    let mut m_match: Matching = Array1::<usize>::zeros([ny]);
     // Indices of rows waiting to be matched
     let mut free_x: Vec<usize> = skip_x
         .iter()
@@ -53,24 +54,24 @@ pub fn hungarian_algorithm(
     while let Some(u) = free_x.pop() {
         // Reset the node sets of the alternating tree
         // The set of row (X) nodes in the alternating tree
-        let mut s = Array1::<bool>::from_elem([n], false);
+        let mut s = Array1::<bool>::from_elem([nx], false);
         s[u] = true;
         // Map of row (X) nodes to their parent's index in the alternating tree
-        let mut s_parents = Array1::<usize>::zeros([n]);
+        let mut s_parents = Array1::<usize>::zeros([nx]);
         // The set of column (Y) nodes in the alternating tree
-        let mut t = Array1::<bool>::from_elem([n], false);
+        let mut t = Array1::<bool>::from_elem([ny], false);
         // Map of column (Y) nodes to their parent's index in the alternating tree
-        let mut t_parents = Array1::<usize>::zeros([n]);
+        let mut t_parents = Array1::<usize>::zeros([ny]);
 
         // The neighbourhood of S in the equalitygraph, without nodes already in T. -> N_l(S) \ T
         // It is updated dynamically when Nodes are added to S and T
         // TODO improve performance by using ndarray's elementwise operations?
-        let mut nlxt = Array1::from_shape_fn([n], |y| {
+        let mut nlxt = Array1::from_shape_fn([ny], |y| {
             !skip_y[y]
                 && adjacency_matrix[[u, y]] == labels_x[u] + labels_y[y]
                 && (!dummy_x[u] || !mandatory_y[y])
         });
-        let mut nlxt_neighbour_of = Array1::from_elem([n], u);
+        let mut nlxt_neighbour_of = Array1::from_elem([ny], u);
 
         // Loop to construct alternating tree (incl. updating of labels), until augmenting path is found
         loop {
@@ -120,7 +121,7 @@ pub fn hungarian_algorithm(
                 // Update neighbourhood with equalitygraph-neighbours of z
                 nlxt[y] = false;
                 // TODO improve performance by using ndarray's zip etc.?
-                for yy in 0..n {
+                for yy in 0..ny {
                     if !t[yy]
                         && !skip_y[yy]
                         && adjacency_matrix[[z, yy]] == labels_x[z] + labels_y[yy]
