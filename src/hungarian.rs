@@ -34,6 +34,17 @@ pub fn hungarian_algorithm(
     let nx = adjacency_matrix.dim().0;
     let ny = adjacency_matrix.dim().1;
 
+    // In debug build: Check sizes
+    if cfg!(debug_assertions) {
+        assert_eq!(dummy_x.dim(), nx);
+        assert_eq!(skip_x.dim(), nx);
+        assert_eq!(mandatory_y.dim(), ny);
+        assert_eq!(skip_y.dim(), ny);
+        let count_skip_x = skip_x.fold(0, |acc, x| if *x { acc + 1 } else { acc });
+        let count_skip_y = skip_y.fold(0, |acc, x| if *x { acc + 1 } else { acc });
+        assert_eq!(nx - count_skip_x, ny - count_skip_y);
+    }
+
     // Initialize labels
     let mut labels_x = adjacency_matrix.fold_axis(Axis(1), 0, |acc, x| std::cmp::max(*acc, *x));
     let mut labels_y = Array1::<EdgeWeight>::zeros([ny]);
@@ -256,5 +267,15 @@ mod tests {
         // All participants should at least be scored with the worst choice
         assert!(score as usize >= (WEIGHT_OFFSET as usize - CHOICES) * NUM_PARTICIPANTS);
         // TODO check, that enough participants got their 1. choice
+
+        // Every participant must be assigned to one course place
+        let mut is_assigned = Array1::<bool>::from_elem([n], false);
+        for (cp, p) in matching.indexed_iter() {
+            assert!(!is_assigned[*p], "participant {} is assigned to course place {} and another course place", p, cp);
+            is_assigned[*p] = true;
+        }
+        for (p, ia) in is_assigned.indexed_iter() {
+            assert!(ia, "participant {} is not assigned to any course place", p);
+        }
     }
 }
