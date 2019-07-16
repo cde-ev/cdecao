@@ -171,11 +171,11 @@ mod tests {
 
     #[test]
     fn minimal_matching_problem() {
-        // X = {1, 2, 3, 4}
+        // X = {0, 1, skip, 3, 4}
         // Xs = {5, 6}
-        // Y = {'a1', 'a2', 'b1', 'b2', 'b3', 'c1'}
+        // Y = {'a1', 'a2', 'b1', 'b2', 'b3', 'c1', skip}
 
-        let mut adjacency_matrix = Array2::<EdgeWeight>::zeros([6, 6]);
+        let mut adjacency_matrix = Array2::<EdgeWeight>::zeros([7, 7]);
         adjacency_matrix[[0, 5]] = 1005;
         adjacency_matrix[[0, 2]] = 1000;
         adjacency_matrix[[0, 3]] = 1000;
@@ -183,30 +183,32 @@ mod tests {
         adjacency_matrix[[1, 5]] = 1005;
         adjacency_matrix[[1, 0]] = 1000;
         adjacency_matrix[[1, 1]] = 1000;
-        adjacency_matrix[[2, 2]] = 1005;
-        adjacency_matrix[[2, 3]] = 1005;
-        adjacency_matrix[[2, 4]] = 1005;
-        adjacency_matrix[[2, 5]] = 1000;
-        adjacency_matrix[[3, 5]] = 1005;
-        adjacency_matrix[[3, 2]] = 1000;
-        adjacency_matrix[[3, 3]] = 1000;
-        adjacency_matrix[[3, 4]] = 1000;
+        adjacency_matrix[[3, 2]] = 1005;
+        adjacency_matrix[[3, 3]] = 1005;
+        adjacency_matrix[[3, 4]] = 1005;
+        adjacency_matrix[[3, 5]] = 1000;
+        adjacency_matrix[[4, 5]] = 1005;
+        adjacency_matrix[[4, 2]] = 1000;
+        adjacency_matrix[[4, 3]] = 1000;
+        adjacency_matrix[[4, 4]] = 1000;
 
-        let mandatory_y = Array1::from_vec(vec![false, false, true, true, true, false]);
-        let dummy_x = Array1::from_vec(vec![false, false, false, false, true, true]);
+        let mandatory_y = Array1::from_vec(vec![false, false, true, true, true, false, false]);
+        let dummy_x = Array1::from_vec(vec![false, false, false, false, false, true, true]);
+        let skip_x = Array1::from_vec(vec![false, false, true, false, false, false, false]);
+        let skip_y = Array1::from_vec(vec![false, false, false, false, false, false, true]);
 
         let (matching, score) = hungarian_algorithm(
             &adjacency_matrix,
             &dummy_x,
             &mandatory_y,
-            &Array1::from_elem([6], false),
-            &Array1::from_elem([6], false),
+            &skip_x,
+            &skip_y,
         );
 
-        assert_eq!(matching.len(), 6);
+        assert_eq!(matching.len(), 7);
         assert!(score > 4000);
 
-        // Since 2,3,4 are mandatory course places, participants 0,2,3 must fill those and participant 1 show reach
+        // Since 2,3,4 are mandatory course places, participants 0,3,4 must fill those and participant 1 should gain
         // place 5
         print!("{:?}", matching);
         assert_eq!(matching[5], 1);
