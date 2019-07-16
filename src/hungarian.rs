@@ -1,5 +1,5 @@
 use log::trace;
-use ndarray::{Array1, Array2, Axis};
+use ndarray::{Array1, Array2, Axis, Zip};
 
 /// Return type of the hungarian algorithm. Represents a mapping of columns to rows (i.e. course places to participants)
 /// by storing the matched column index for each row.
@@ -21,6 +21,7 @@ pub type Score = u32;
 /// in the range 45001 -- 45101, so u16 is still sufficient. With 50 courses and max 20 places in each, the matrix will
 /// be 2MB in size, which is easily cachable.
 pub type EdgeWeight = u16;
+
 const LARGE_WEIGHT: EdgeWeight = std::u16::MAX;
 
 pub fn hungarian_algorithm(
@@ -43,8 +44,7 @@ pub fn hungarian_algorithm(
     let mut m_match: Matching = Array1::<usize>::zeros([ny]);
     // Indices of rows waiting to be matched
     let mut free_x: Vec<usize> = skip_x
-        .iter()
-        .enumerate()  // TODO use indexed_iter()
+        .indexed_iter()
         .filter(|(_i, skip)| !*skip)
         .map(|(i, _skip)| i)
         .collect();
@@ -65,12 +65,14 @@ pub fn hungarian_algorithm(
 
         // The neighbourhood of S in the equalitygraph, without nodes already in T. -> N_l(S) \ T
         // It is updated dynamically when Nodes are added to S and T
-        // TODO improve performance by using ndarray's elementwise operations?
-        let mut nlxt = Array1::from_shape_fn([ny], |y| {
-            !skip_y[y]
-                && adjacency_matrix[[u, y]] == labels_x[u] + labels_y[y]
-                && (!dummy_x[u] || !mandatory_y[y])
-        });
+        let mut nlxt = !skip_y;
+        Zip::from(&mut nlxt)
+            .and(adjacency_matrix.index_axis(Axis(0), u))
+            .and(&labels_y)
+            .and(mandatory_y)
+            .apply(|w, &a, &l, &m| {
+                *w = (a == labels_x[u] + l && (!dummy_x[u] || !m));
+            });
         let mut nlxt_neighbour_of = Array1::from_elem([ny], u);
 
         // Loop to construct alternating tree (incl. updating of labels), until augmenting path is found
@@ -83,20 +85,24 @@ pub fn hungarian_algorithm(
                 // After the updates, the neighbourhood consists of Y-nodes, not in T, connected to X-nodes in S via
                 // edges that have currently the same delta beetwen edgeweight and node labels.
                 let mut delta_min = LARGE_WEIGHT;
-                // TODO speed up, by only considering columns where s[x]
-                for ((x, y), weight) in adjacency_matrix.indexed_iter() {
-                    if s[x] && !t[y] && !skip_y[y] && (!dummy_x[x] || !mandatory_y[y]) {  // TODO Use elementwise operations
-                        let delta = labels_x[x] + labels_y[y] - weight;
-                        if delta == delta_min {
-                            // Y-Node with edge with same delta found. Add it to the new neighbourhood.
-                            nlxt[y] = true;
-                            nlxt_neighbour_of[y] = x;
-                        } else if delta < delta_min {
-                            // New minimal delta found. Update delta and clear new neighbourhood.
-                            nlxt.fill(false);
-                            nlxt[y] = true;
-                            nlxt_neighbour_of[y] = x;
-                            delta_min = delta;
+                for (x, s_x) in s.indexed_iter() {
+                    if *s_x {
+                        for (y, weight) in adjacency_matrix.index_axis(Axis(0), x).indexed_iter() {
+                            // TODO speed up, use ndarray::Zip?
+                            if !t[y] && !skip_y[y] && (!dummy_x[x] || !mandatory_y[y]) {
+                                let delta = labels_x[x] + labels_y[y] - weight;
+                                if delta == delta_min {
+                                    // Y-Node with edge with same delta found. Add it to the new neighbourhood.
+                                    nlxt[y] = true;
+                                    nlxt_neighbour_of[y] = x;
+                                } else if delta < delta_min {
+                                    // New minimal delta found. Update delta and clear new neighbourhood.
+                                    nlxt.fill(false);
+                                    nlxt[y] = true;
+                                    nlxt_neighbour_of[y] = x;
+                                    delta_min = delta;
+                                }
+                            }
                         }
                     }
                 }
@@ -120,17 +126,18 @@ pub fn hungarian_algorithm(
 
                 // Update neighbourhood with equalitygraph-neighbours of z
                 nlxt[y] = false;
-                // TODO improve performance by using ndarray's zip etc.?
-                for yy in 0..ny {
-                    if !t[yy]
-                        && !skip_y[yy]
-                        && adjacency_matrix[[z, yy]] == labels_x[z] + labels_y[yy]
-                        && (!dummy_x[z] || !mandatory_y[yy])
-                    {
-                        nlxt[yy] = true;
-                        nlxt_neighbour_of[yy] = z;
-                    }
-                }
+                Zip::from(&mut nlxt)
+                    .and(&mut nlxt_neighbour_of)
+                    .and(&(!skip_y & !&t)) // A little trick, because ndarray::Zip only takes 6 Arrays
+                    .and(adjacency_matrix.index_axis(Axis(0), z))
+                    .and(&labels_y)
+                    .and(mandatory_y)
+                    .apply(|v, w, &t_nor_s, &a, &l, &m| {
+                        if t_nor_s && a == labels_x[z] + l && (!dummy_x[z] || !m) {
+                            *v = true;
+                            *w = z;
+                        }
+                    });
             } else {
                 // Yay, our alternating tree contains an augmenting path. Let's reconstruct it and augment the
                 // matching with it.
@@ -155,8 +162,7 @@ pub fn hungarian_algorithm(
 
     // Calculate score and return results
     let score = m_match
-        .iter()
-        .enumerate()
+        .indexed_iter()
         .map(|(y, x)| adjacency_matrix[(*x, y)] as Score)
         .fold(Score::from(0u8), |acc, x| acc + x);
     return (m_match, score);
@@ -197,13 +203,8 @@ mod tests {
         let skip_x = Array1::from_vec(vec![false, false, true, false, false, false, false]);
         let skip_y = Array1::from_vec(vec![false, false, false, false, false, false, true]);
 
-        let (matching, score) = hungarian_algorithm(
-            &adjacency_matrix,
-            &dummy_x,
-            &mandatory_y,
-            &skip_x,
-            &skip_y,
-        );
+        let (matching, score) =
+            hungarian_algorithm(&adjacency_matrix, &dummy_x, &mandatory_y, &skip_x, &skip_y);
 
         assert_eq!(matching.len(), 7);
         assert!(score > 4000);
