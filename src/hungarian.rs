@@ -40,10 +40,10 @@ pub fn hungarian_algorithm(
     let mut m = Array1::<bool>::from_elem([n], false);
     // Current matching (mapping y to their associated x index)
     let mut m_match: Matching = Array1::<usize>::zeros([n]);
-    // rows waiting to be matched
+    // Indices of rows waiting to be matched
     let mut free_x: Vec<usize> = skip_x
         .iter()
-        .enumerate()
+        .enumerate()  // TODO use indexed_iter()
         .filter(|(_i, skip)| !*skip)
         .map(|(i, _skip)| i)
         .collect();
@@ -78,16 +78,20 @@ pub fn hungarian_algorithm(
             let mut y = nlxt.iter().position(|x| *x);
             if let None = y {
                 // To update the labels, calculate minimal delta between edge weight and sum of nodes' labels. In the
-                // same turn, we can keep track of the new equality graph neighbourhood.
+                // same turn, we can keep track of the new equality graph neighbourhood:
+                // After the updates, the neighbourhood consists of Y-nodes, not in T, connected to X-nodes in S via
+                // edges that have currently the same delta beetwen edgeweight and node labels.
                 let mut delta_min = LARGE_WEIGHT;
                 // TODO speed up, by only considering columns where s[x]
                 for ((x, y), weight) in adjacency_matrix.indexed_iter() {
-                    if s[x] && !t[y] && !skip_y[y] && (!dummy_x[x] || !mandatory_y[y]) {
+                    if s[x] && !t[y] && !skip_y[y] && (!dummy_x[x] || !mandatory_y[y]) {  // TODO Use elementwise operations
                         let delta = labels_x[x] + labels_y[y] - weight;
                         if delta == delta_min {
+                            // Y-Node with edge with same delta found. Add it to the new neighbourhood.
                             nlxt[y] = true;
                             nlxt_neighbour_of[y] = x;
                         } else if delta < delta_min {
+                            // New minimal delta found. Update delta and clear new neighbourhood.
                             nlxt.fill(false);
                             nlxt[y] = true;
                             nlxt_neighbour_of[y] = x;
@@ -113,7 +117,7 @@ pub fn hungarian_algorithm(
                 s[z] = true;
                 s_parents[z] = y;
 
-                // Update neighbourhood
+                // Update neighbourhood with equalitygraph-neighbours of z
                 nlxt[y] = false;
                 // TODO improve performance by using ndarray's zip etc.?
                 for yy in 0..n {
