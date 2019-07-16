@@ -215,4 +215,46 @@ mod tests {
         assert_eq!(matching[5], 1);
     }
 
+    #[test]
+    fn larger_matching_problem() {
+        const NUM_COURSES: usize = 30;
+        const PLACES_PER_COURSE: usize = 10;
+        const NUM_PARTICIPANTS: usize = 200;
+        const WEIGHT_OFFSET: u16 = 50000;
+        const CHOICES: usize = 3;
+
+        let n = NUM_COURSES * PLACES_PER_COURSE;
+        let mut dummy_x = Array1::<bool>::from_elem([n], false);
+        for i in NUM_PARTICIPANTS..n {
+            dummy_x[i] = true;
+        }
+
+        let mut adjacency_matrix = Array2::<EdgeWeight>::zeros([n, n]);
+        // Every participant chooses three different courses, but always one from the first third of courses
+        for p in 0..NUM_PARTICIPANTS {
+            for choice in 0..CHOICES {
+                let course = if choice == 0 {
+                    p % NUM_COURSES / 3
+                } else {
+                    (p + choice) % NUM_COURSES
+                };
+                for place in (course * PLACES_PER_COURSE)..((course + 1) * PLACES_PER_COURSE) {
+                    adjacency_matrix[(p, place)] = WEIGHT_OFFSET - choice as EdgeWeight;
+                }
+            }
+        }
+
+        let (matching, score) = hungarian_algorithm(
+            &adjacency_matrix,
+            &dummy_x,
+            &Array1::<bool>::from_elem([n], false),
+            &Array1::<bool>::from_elem([n], false),
+            &Array1::<bool>::from_elem([n], false),
+        );
+
+        assert_eq!(matching.len(), n);
+        // All participants should at least be scored with the worst choice
+        assert!(score as usize >= (WEIGHT_OFFSET as usize - CHOICES) * NUM_PARTICIPANTS);
+        // TODO check, that enough participants got their 1. choice
+    }
 }
