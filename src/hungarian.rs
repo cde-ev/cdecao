@@ -21,9 +21,41 @@ pub type Score = u32;
 /// in the range 45001 -- 45101, so u16 is still sufficient. With 50 courses and max 20 places in each, the matrix will
 /// be 2MB in size, which is easily cachable.
 pub type EdgeWeight = u16;
-
 const LARGE_WEIGHT: EdgeWeight = std::u16::MAX;
 
+/// Execute the hungarian algorithm
+///
+/// This function performs the hungarian method on a given adjacency matrix to match abstract nodes of an imaginary
+/// bipartite weighted graph (represented by the matrix' rows and columns).
+///
+/// To understand the algorithm, I suggest reading the following description:
+/// [https://www.cse.ust.hk/~golin/COMP572/Notes/Matching.pdf](https://web.archive.org/web/20190326190102/https://www.cse.ust.hk/~golin/COMP572/Notes/Matching.pdf)
+/// Some variables and sets in this implementation are named similarly to the formulas this paper.
+///
+/// For the purpose of performance optimization, all (mathematical) sets, used in the algorithm, are represented by
+/// boolean arrays (ndarray::Array1<bool>) in this implementation, where `s[x] == true` means "x is in S". Similarly
+/// we represent the matching and the alternating tree by arrays containing the node's partner's/parent's index.
+/// Additionally some optimizations have been applied to the calculation of the neighbourhood of S in the equality
+/// graph: Instead of calculating it on demand, we track all nodes in the neighbourhood except from those already in T
+/// (i.e. in the alternating tree) in an additional array `nlxt`, which is updated whenever changes to S or T are made.
+/// This way, we can remarkably reduce the number of iterated entries in the adjacency matrix.
+///
+/// # Arguments
+///
+/// * `adjacency_matrix` - The adjacency matrix of the matching graph. Contains the weights of the edges between X and
+///     Y nodes
+/// * `dummy_x` - A vector that tags certain X nodes as "dummy" nodes. Rows with `dummy_x[x] == true` must not be
+///     matched with `mandatory_y` nodes
+/// * `mandatory_y` - A vector that tags certain Y nodes as "mandatory" nodes. Those Y nodes/columns with
+///     `dummy_y[y] == true` will not be matched with `dummy_x` nodes
+/// * `skip_x` - A vector that marks rows to be skipped. Rows in the adjacency matrix with `skip_x[x] == true` are
+///     completely ignored by the algorithm.
+/// * `skip_y` - A vector that marks columns to be skipped. Columns in the adjacency matrix with `skip_y[x] == true`
+///     are completely ignored by the algorithm.
+///
+/// The dummy_x and skip_x vectors' dimension must match the adjacency matrix' first Axis' dimension (number of rows).
+/// The same holds for mandatory_y, skip_y and the adjacency matrix' second Axis' dimension. These conditions are
+/// checked in with assertions in debug builds.
 pub fn hungarian_algorithm(
     adjacency_matrix: &Array2<EdgeWeight>,
     dummy_x: &Array1<bool>,
