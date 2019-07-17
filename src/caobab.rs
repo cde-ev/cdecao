@@ -163,13 +163,26 @@ fn run_bab_node(
         node.cancelled_courses, node.enforced_courses
     );
 
+    // Generate skip_x from course instructors of non-cancelled courses
+    let mut skip_x = ndarray::Array1::from_elem([n], false);
+    let mut num_skip_x: usize = 0;
+    for (i, c) in courses.iter().enumerate() {
+        if !node.cancelled_courses.contains(&i) {
+            for instr in c.instructors.iter() {
+                skip_x[*instr] = true;
+                num_skip_x += 1;
+            }
+        }
+    }
+
     // Check for general feasibility
+    // (this is done after calculating the course instructors/skip_x, as we need their number here)
     if node
         .enforced_courses
         .iter()
         .map(|c| courses[*c].num_min)
         .fold(0, |acc, x| acc + x)
-        > participants.len()
+        > participants.len() - num_skip_x
     {
         debug!("Skipping this branch, since too much course places are enforced");
         return NoSolution;
@@ -179,38 +192,36 @@ fn run_bab_node(
         .iter()
         .map(|c| courses[*c].num_max)
         .fold(0, |acc, x| acc + x))
-        < participants.len()
+        < participants.len() - num_skip_x
     {
         debug!("Skipping this branch, since not enough course places are left");
         return NoSolution;
     }
-    for p in participants {
-        if p.choices
-            .iter()
-            .all(|x| node.cancelled_courses.contains(&x))
+    for (x, p) in participants.iter().enumerate() {
+        if !skip_x[x]
+            && p.choices
+                .iter()
+                .all(|c| node.cancelled_courses.contains(&c))
         {
             debug!("Skipping this branch, since not all course choices can be fulfilled");
             return NoSolution;
         }
     }
 
-    // Generate skip_x from course instructors of non-cancelled courses
-    let mut skip_x = ndarray::Array1::from_elem([n], false);
-    for (i, c) in courses.iter().enumerate() {
-        if !node.cancelled_courses.contains(&i) {
-            for instr in c.instructors.iter() {
-                skip_x[*instr] = true;
-            }
-        }
-    }
-
     // Generate skip_y from cancelled courses
     let mut skip_y = ndarray::Array1::from_elem([n], false);
+    let mut num_skip_y: usize = 0;
     for c in node.cancelled_courses.iter() {
         for j in 0..courses[*c].num_max {
             let y = pre_computed_problem.inverse_course_map[*c] + j;
             skip_y[y] = true;
         }
+        num_skip_y += courses[*c].num_max;
+    }
+
+    // Amend skip_x to skip x-dummies for cancelled course places
+    for i in 0..num_skip_y {
+        skip_x[participants.len() + i] = true;
     }
 
     // Generate mandatory_y from enforced courses
