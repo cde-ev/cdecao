@@ -303,7 +303,11 @@ mod tests {
         // Every participant must be assigned to one course place
         let mut is_assigned = Array1::<bool>::from_elem([n], false);
         for (cp, p) in matching.indexed_iter() {
-            assert!(!is_assigned[*p], "participant {} is assigned to course place {} and another course place", p, cp);
+            assert!(
+                !is_assigned[*p],
+                "participant {} is assigned to course place {} and another course place",
+                p, cp
+            );
             is_assigned[*p] = true;
         }
         for (p, ia) in is_assigned.indexed_iter() {

@@ -4,9 +4,9 @@
 //! subproblem of the course assignment prblem. All the data conversion from Course/Participant objects to matrices and
 //! vectors for the `hungarian_algorithm()` happens within this function.
 
-use super::bab::NodeResult::{Feasible, Infeasible, NoSolution};
-use super::hungarian::{EdgeWeight, Score};
-use super::{Assignment, Course, Participant};
+use crate::bab::NodeResult::{Feasible, Infeasible, NoSolution};
+use crate::hungarian::{EdgeWeight, Score};
+use crate::{Assignment, Course, Participant};
 use log::debug;
 use std::sync::Arc;
 
