@@ -348,3 +348,6 @@ fn check_feasibility(
     }
     return (course == None, false, course);
 }
+
+#[cfg(test)]
+mod tests;
