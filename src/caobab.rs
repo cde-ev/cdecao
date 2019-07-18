@@ -220,7 +220,7 @@ fn run_bab_node(
     }
 
     // Amend skip_x to skip x-dummies for cancelled course places
-    for i in 0..num_skip_y {
+    for i in 0..num_skip_y-num_skip_x {
         skip_x[participants.len() + i] = true;
     }
 
@@ -245,7 +245,7 @@ fn run_bab_node(
     // Convert course place matching to course assignment
     let mut assignment: Assignment = vec![0usize; participants.len()];
     for (cp, p) in matching.iter().enumerate() {
-        if *p < assignment.len() {
+        if !skip_y[cp] && *p < assignment.len() {
             assignment[*p] = pre_computed_problem.course_map[cp];
         }
     }

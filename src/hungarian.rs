@@ -114,7 +114,7 @@ pub fn hungarian_algorithm(
             .and(&labels_y)
             .and(mandatory_y)
             .apply(|w, &a, &l, &m| {
-                *w = (a == labels_x[u] + l && (!dummy_x[u] || !m));
+                *w &= (a == labels_x[u] + l && (!dummy_x[u] || !m));
             });
         let mut nlxt_neighbour_of = Array1::from_elem([ny], u);
 
