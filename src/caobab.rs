@@ -318,8 +318,8 @@ fn check_feasibility(
         if !is_instructor[p] && !participants[p].choices.contains(c) {
             // If so, get smallest non-constrained course, that has an instructor, who chose c
             let mut relevant_courses: Vec<usize> = (0..courses.len())
-                .filter(|rc| node.cancelled_courses.contains(rc))
-                .filter(|rc| node.enforced_courses.contains(rc))
+                .filter(|rc| !node.cancelled_courses.contains(rc))
+                .filter(|rc| !node.enforced_courses.contains(rc))
                 .filter(|rc| {
                     courses[*rc]
                         .instructors
