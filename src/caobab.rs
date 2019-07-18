@@ -66,10 +66,12 @@ fn precompute_problem(
     participants: &Vec<Participant>,
 ) -> PreComputedProblem {
     // Calculate adjacency matrix size to allocate 1D-Arrays
-    let n = courses.iter().map(|c| c.num_max).fold(0, |acc, x| acc + x);
+    let m = courses.iter().map(|c| c.num_max).fold(0, |acc, x| acc + x);
+    let max_num_instructors = courses.iter().map(|c| c.instructors.len()).fold(0, |acc, x| acc + x);
+    let n = m + max_num_instructors;
 
     // Generate course_map, inverse_course_map and madatory_y from course list
-    let mut course_map = ndarray::Array1::<usize>::zeros([n]);
+    let mut course_map = ndarray::Array1::<usize>::zeros([m]);
     let mut inverse_course_map = Vec::<usize>::new();
     let mut k = 0;
     for (i, c) in courses.iter().enumerate() {
@@ -87,7 +89,7 @@ fn precompute_problem(
     }
 
     // Generate adjacency matrix
-    let mut adjacency_matrix = ndarray::Array2::<EdgeWeight>::zeros([n, n]);
+    let mut adjacency_matrix = ndarray::Array2::<EdgeWeight>::zeros([n, m]);
     for (x, p) in participants.iter().enumerate() {
         for (i, c) in p.choices.iter().enumerate() {
             // TODO check c < inverse_course_map.len() ?
@@ -155,6 +157,7 @@ fn run_bab_node(
     mut current_node: BABNode,
 ) -> super::bab::NodeResult<BABNode, Assignment, Score> {
     let n = pre_computed_problem.adjacency_matrix.dim().0;
+    let m = pre_computed_problem.adjacency_matrix.dim().1;
 
     // We will modify the current_node later for creating a new subproblem. Until then, we want to use it readonly.
     let node = &current_node;
@@ -187,7 +190,7 @@ fn run_bab_node(
         debug!("Skipping this branch, since too much course places are enforced");
         return NoSolution;
     }
-    if (n - node
+    if (m - node
         .cancelled_courses
         .iter()
         .map(|c| courses[*c].num_max)
@@ -209,7 +212,7 @@ fn run_bab_node(
     }
 
     // Generate skip_y from cancelled courses
-    let mut skip_y = ndarray::Array1::from_elem([n], false);
+    let mut skip_y = ndarray::Array1::from_elem([m], false);
     let mut num_skip_y: usize = 0;
     for c in node.cancelled_courses.iter() {
         for j in 0..courses[*c].num_max {
@@ -219,13 +222,13 @@ fn run_bab_node(
         num_skip_y += courses[*c].num_max;
     }
 
-    // Amend skip_x to skip x-dummies for cancelled course places
-    for i in 0..num_skip_y-num_skip_x {
+    // Amend skip_x to skip x-dummies which are not needed (make matrix square-sized)
+    for i in 0..(n - m + num_skip_y - num_skip_x) {
         skip_x[participants.len() + i] = true;
     }
 
     // Generate mandatory_y from enforced courses
-    let mut mandatory_y = ndarray::Array1::from_elem([n], false);
+    let mut mandatory_y = ndarray::Array1::from_elem([m], false);
     for c in node.enforced_courses.iter() {
         for j in 0..courses[*c].num_min {
             let y = pre_computed_problem.inverse_course_map[*c] + j;

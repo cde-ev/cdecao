@@ -82,11 +82,13 @@ fn test_precompute_problem() {
     let problem = super::precompute_problem(&courses, &participants);
 
     // check vector sizes
-    let n = courses.iter().fold(0, |acc, c| acc + c.num_max);
+    let m = courses.iter().fold(0, |acc, c| acc + c.num_max);
+    let num_instructors = courses.iter().fold(0, |acc, c| acc + c.instructors.len());
+    let n = m + num_instructors;
     assert_eq!(problem.adjacency_matrix.dim().0, n);
-    assert_eq!(problem.adjacency_matrix.dim().1, n);
+    assert_eq!(problem.adjacency_matrix.dim().1, m);
     assert_eq!(problem.dummy_x.dim(), n);
-    assert_eq!(problem.course_map.dim(), n);
+    assert_eq!(problem.course_map.dim(), m);
     assert_eq!(problem.inverse_course_map.len(), courses.len());
 
     // Check references of courses
@@ -108,7 +110,7 @@ fn test_precompute_problem() {
     // check adjacency matrix
     const WEIGHTS: [u16; 3] = [super::WEIGHT_OFFSET, super::WEIGHT_OFFSET-1, super::WEIGHT_OFFSET-2];
     for (x, p) in participants.iter().enumerate() {
-        for y in 0..n {
+        for y in 0..m {
             let choice = p.choices.iter().position(|c| *c == problem.course_map[y]);
             assert_eq!(
                 problem.adjacency_matrix[(x, y)],
@@ -123,7 +125,7 @@ fn test_precompute_problem() {
         }
     }
     for x in participants.len()..n {
-        for y in 0..n {
+        for y in 0..m {
             assert_eq!(
                 problem.adjacency_matrix[(x, y)],
                 0,
