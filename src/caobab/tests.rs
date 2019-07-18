@@ -142,7 +142,39 @@ fn test_precompute_problem() {
     }
 }
 
-// TODO test sorting of BABNodes
+#[test]
+fn test_babnode_sorting() {
+    let node0 = BABNode {
+        cancelled_courses: vec![],
+        enforced_courses: vec![],
+    };
+    let node1 = BABNode {
+        cancelled_courses: vec![0],
+        enforced_courses: vec![],
+    };
+    assert!(node0 < node1);
+    let node2 = BABNode {
+        cancelled_courses: vec![],
+        enforced_courses: vec![2],
+    };
+    assert!(node0 < node2);
+    let node3 = BABNode {
+        cancelled_courses: vec![1, 2],
+        enforced_courses: vec![],
+    };
+    assert!(node1 < node3);
+    assert!(node2 < node3);
+    let node4 = BABNode {
+        cancelled_courses: vec![],
+        enforced_courses: vec![0, 1, 2],
+    };
+    assert!(node2 < node4);
+    let node5 = BABNode {
+        cancelled_courses: vec![0, 1],
+        enforced_courses: vec![0, 1],
+    };
+    assert!(node4 < node5);
+}
 
 #[test]
 fn test_check_feasibility() {
