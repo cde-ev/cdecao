@@ -325,7 +325,63 @@ fn test_bab_node_simple() {
 
 }
 
-// TODO test run_bab_node with large problem
+#[test]
+fn test_bab_node_large() {
+    const NUM_COURSES: usize = 20;
+    const MAX_PLACES_PER_COURSE: usize = 10;
+    const MIN_PLACES_PER_COURSE: usize = 6;
+    const NUM_PARTICIPANTS: usize = 200;
+
+    let mut courses = Vec::<Course>::new();
+    for c in 0..NUM_COURSES {
+        courses.push(Course {
+            index: c,
+            dbid: c,
+            name: format!("Course {}", c),
+            num_min: MIN_PLACES_PER_COURSE,
+            num_max: MAX_PLACES_PER_COURSE,
+            instructors: Vec::new()
+        });
+    }
+
+    let mut participants = Vec::<Participant>::new();
+    for p in 0..NUM_PARTICIPANTS {
+        let mut participant = Participant {
+            index: p,
+            dbid: p,
+            name: format!("Participant {}", p),
+            choices: Vec::new(),
+        };
+        for i in 0..3 {
+            participant.choices.push((p + i) % NUM_COURSES);
+        }
+        participants.push(participant);
+        if p < NUM_COURSES {
+            if p == 0 {
+                courses[NUM_COURSES - 1].instructors.push(p);
+            } else {
+                courses[p-1].instructors.push(p);
+            }
+        }
+    }
+
+    let problem = super::precompute_problem(&courses, &participants);
+    let node = BABNode {
+        cancelled_courses: vec![],
+        enforced_courses: vec![],
+    };
+
+    let result = super::run_bab_node(&courses, &participants, &problem, node.clone());
+
+    match result {
+        NodeResult::Feasible(assignment, score) => {
+            print!("assignment: {:?}\n", assignment);
+            check_assignment(&courses, &participants, &assignment, &node);
+            assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
+        },
+        x => panic!("Expected feasible result, got {:?}", x)
+    }
+}
 
 // TODO test solve with simple problem
 
