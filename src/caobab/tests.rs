@@ -2,6 +2,7 @@ use super::BABNode;
 use crate::hungarian::EdgeWeight;
 use crate::{Assignment, Course, Participant};
 use ndarray::Array1;
+use crate::bab::NodeResult;
 
 fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
     // Idea: Course 1 or 2 must be cancelled, b/c otherwise, we don't have enough participants to fill all courses.
@@ -105,7 +106,7 @@ fn test_precompute_problem() {
     }
 
     // check adjacency matrix
-    const WEIGHTS: [u16; 3] = [50000, 49999, 49998];
+    const WEIGHTS: [u16; 3] = [super::WEIGHT_OFFSET, super::WEIGHT_OFFSET-1, super::WEIGHT_OFFSET-2];
     for (x, p) in participants.iter().enumerate() {
         for y in 0..n {
             let choice = p.choices.iter().position(|c| *c == problem.course_map[y]);
@@ -237,11 +238,92 @@ fn test_check_feasibility() {
     );
 }
 
-// TODO general method for checking assignments
+/// Testing helper function to check correctness of a feasible solution
+fn check_assignment(
+    courses: &Vec<Course>,
+    participants: &Vec<Participant>,
+    assignment: &Assignment,
+    node: &BABNode) {
 
-// TODO method to check restrictions (enforced/cancelled courses) on assignment
+    // Check course instructor assignment
+    let mut course_instructors = vec![false; participants.len()];
+    for (c, course) in courses.iter().enumerate() {
+        if !node.cancelled_courses.contains(&c) {
+            for i in course.instructors.iter() {
+                assert_eq!(
+                    assignment[*i], c,
+                    "Instructor {} of course {} is assigned to {}",
+                    *i, c, assignment[*i]);
+                course_instructors[*i] = true;
+            }
+        }
+    }
 
-// TODO test run_bab_node with simple problem
+    // Calculate course sizes
+    let mut course_size = vec![0usize; courses.len()];
+    for (p, c) in assignment.iter().enumerate() {
+        if !course_instructors[p] {
+            course_size[*c] += 1;
+        }
+    }
+
+    // Check course sizes
+    for (c, size) in course_size.iter().enumerate() {
+        assert!(
+            *size <= courses[c].num_max,
+            "Maximum size violation for course {}: {} places, {} participants",
+            c, courses[c].num_max, size);
+        // Feasible solutions must not have wrong assigned participants
+        if !node.cancelled_courses.contains(&c) {
+            assert!(
+                *size >= courses[c].num_min,
+                "Minimum size violation for course {}: {} required, {} assigned",
+                c, courses[c].num_min, size);
+        }
+    }
+
+    // Check cancelled courses
+    for c in node.cancelled_courses.iter() {
+        assert_eq!(
+            course_size[*c], 0, "Cancelled course {} has {} participants", *c, course_size[*c]);
+    }
+
+    // Feasible solutions must not have wrong assigned participants
+    for (p, participant) in participants.iter().enumerate() {
+        if !course_instructors[p] {
+            assert!(
+                participant.choices.contains(&assignment[p]),
+                "Course {} of participant {} is none of their choices ({:?})",
+                assignment[p], p, participant.choices
+            );
+        }
+    }
+}
+
+#[test]
+fn test_bab_node_simple() {
+    // This test depends on `precompute_problem()`, `check_feasibility()` and `hungarian::hungarian_algorithm()`,
+    // so if it fails, please check their test results first.
+
+    let (participants, courses) = create_simple_problem();
+    let problem = super::precompute_problem(&courses, &participants);
+    let node = BABNode {
+        cancelled_courses: vec![1],
+        enforced_courses: vec![],
+    };
+
+    let result = super::run_bab_node(&courses, &participants, &problem, node.clone());
+
+    match result {
+        NodeResult::Feasible(assignment, score) => {
+            print!("assignment: {:?}\n", assignment);
+            check_assignment(&courses, &participants, &assignment, &node);
+            assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
+        },
+        x => panic!("Expected feasible result, got {:?}", x)
+    }
+
+}
 
 // TODO test run_bab_node with large problem
 

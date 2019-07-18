@@ -38,6 +38,7 @@ struct SharedState<SubProblem: Ord, Solution, Score> {
 }
 
 /// Result type for solving a single branch and bound node.
+#[derive(Debug)]
 pub enum NodeResult<SubProblem, Solution, Score> {
     /// No solution at all (subproblem was infeasible)
     NoSolution,

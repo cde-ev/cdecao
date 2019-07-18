@@ -107,7 +107,7 @@ fn precompute_problem(
 }
 
 /// Parameter set for one subproblem of the Branch and Bound algorithm
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct BABNode {
     /// Indexes of the cancelled courses in this node
     cancelled_courses: Vec<usize>,
