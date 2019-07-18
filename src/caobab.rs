@@ -287,13 +287,17 @@ fn run_bab_node(
 /// Check if the given matching is a feasible solution in terms of the Branch and Bound algorithm. If not, find the
 /// most conflicting course, to apply a constraint to it in the following nodes.
 ///
-/// If any participant is in an unwanted course (wrong assignment), the solution is infeasible. We try to find a
-/// course with an instructor, who chose this course, to try to cancel that course. This type of infeasibility
-/// sets the second return flag. It may be, that no such course is found, which is signalled by returning None. In
-/// this case, additional restrictions are pointless and we can abandon the node.
+/// If any participant is in an unwanted course (wrong assignment), the solution is infeasible. We try to find an
+/// other course with an instructor, who chose this course, to try to cancel that other course. This type of
+/// infeasibility sets the second return flag. It may be, that no such course is found, which is signalled by
+/// returning None. In this case, additional restrictions are pointless and we can abandon the node.
 ///
 /// Additionally, the solution is infeasible, if any course has less participants than demanded. In this case we
 /// return the course with the highest discrepancy to apply further restrictions on it.
+///
+/// # Result
+///
+/// The result is a triple: (is_feasible, has_participant_problem, course_index_to_restrict)
 fn check_feasibility(
     courses: &Vec<Course>,
     participants: &Vec<Participant>,
