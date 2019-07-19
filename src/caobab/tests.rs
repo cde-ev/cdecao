@@ -309,13 +309,13 @@ fn test_bab_node_simple() {
 
     let (participants, courses) = create_simple_problem();
     let problem = super::precompute_problem(&courses, &participants);
+
+    // Let's get a feasible solution
     let node = BABNode {
         cancelled_courses: vec![1],
         enforced_courses: vec![],
     };
-
     let result = super::run_bab_node(&courses, &participants, &problem, node.clone());
-
     match result {
         NodeResult::Feasible(assignment, score) => {
             print!("assignment: {:?}\n", assignment);
@@ -323,7 +323,44 @@ fn test_bab_node_simple() {
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
         },
         x => panic!("Expected feasible result, got {:?}", x)
-    }
+    };
+
+    // This should also work out
+    let node = BABNode {
+        cancelled_courses: vec![2],
+        enforced_courses: vec![1],
+    };
+    let result = super::run_bab_node(&courses, &participants, &problem, node.clone());
+    match result {
+        NodeResult::Feasible(assignment, score) => {
+            print!("assignment: {:?}\n", assignment);
+            check_assignment(&courses, &participants, &assignment, &node);
+            assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
+        },
+        x => panic!("Expected feasible result, got {:?}", x)
+    };
+
+    // This way, we should not get any solution
+    let node = BABNode {
+        cancelled_courses: vec![1, 2],
+        enforced_courses: vec![],
+    };
+    let result = super::run_bab_node(&courses, &participants, &problem, node);
+    match result {
+        NodeResult::NoSolution => (),
+        x => panic!("Expected no result, got {:?}", x)
+    };
+
+    // This should give us an infeasible solution (too few participants in course 1, 2)
+    let node = BABNode {
+        cancelled_courses: vec![],
+        enforced_courses: vec![],
+    };
+    let result = super::run_bab_node(&courses, &participants, &problem, node);
+    match result {
+        NodeResult::Infeasible(_, _) => (), // TODO check new nodes and score
+        x => panic!("Expected infeasible result, got {:?}", x)
+    };
 
 }
 
