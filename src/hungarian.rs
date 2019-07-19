@@ -21,7 +21,9 @@ pub type Score = u32;
 /// in the range 45001 -- 45101, so u16 is still sufficient. With 50 courses and max 20 places in each, the matrix will
 /// be 2MB in size, which is easily cachable.
 pub type EdgeWeight = u16;
-const LARGE_WEIGHT: EdgeWeight = std::u16::MAX;
+
+pub type Label = i32;
+const LARGE_LABEL: Label = std::i32::MAX;
 
 /// Execute the hungarian algorithm
 ///
@@ -78,8 +80,8 @@ pub fn hungarian_algorithm(
     }
 
     // Initialize labels
-    let mut labels_x = adjacency_matrix.fold_axis(Axis(1), 0, |acc, x| std::cmp::max(*acc, *x));
-    let mut labels_y = Array1::<EdgeWeight>::zeros([ny]);
+    let mut labels_x = adjacency_matrix.fold_axis(Axis(1), 0, |acc, x| std::cmp::max(*acc, *x as Label));
+    let mut labels_y = Array1::<Label>::zeros([ny]);
 
     // Current matched y (column) nodes
     let mut m = Array1::<bool>::from_elem([ny], false);
@@ -114,7 +116,7 @@ pub fn hungarian_algorithm(
             .and(&labels_y)
             .and(mandatory_y)
             .apply(|w, &a, &l, &m| {
-                *w &= (a == labels_x[u] + l && (!dummy_x[u] || !m));
+                *w &= (a as Label == labels_x[u] + l && (!dummy_x[u] || !m));
             });
         let mut nlxt_neighbour_of = Array1::from_elem([ny], u);
 
@@ -127,13 +129,13 @@ pub fn hungarian_algorithm(
                 // same turn, we can keep track of the new equality graph neighbourhood:
                 // After the updates, the neighbourhood consists of Y-nodes, not in T, connected to X-nodes in S via
                 // edges that have currently the same delta beetwen edgeweight and node labels.
-                let mut delta_min = LARGE_WEIGHT;
+                let mut delta_min = LARGE_LABEL;
                 for (x, s_x) in s.indexed_iter() {
                     if *s_x {
                         for (y, weight) in adjacency_matrix.index_axis(Axis(0), x).indexed_iter() {
                             // TODO speed up, use ndarray::Zip?
                             if !t[y] && !skip_y[y] && (!dummy_x[x] || !mandatory_y[y]) {
-                                let delta = labels_x[x] + labels_y[y] - weight;
+                                let delta = labels_x[x] + labels_y[y] - *weight as Label;
                                 if delta == delta_min {
                                     // Y-Node with edge with same delta found. Add it to the new neighbourhood.
                                     nlxt[y] = true;
@@ -162,13 +164,13 @@ pub fn hungarian_algorithm(
             if m[y] {
                 // Add y and its current partner to alternating tree
                 t[y] = true;
+                nlxt[y] = false;
                 t_parents[y] = nlxt_neighbour_of[y];
                 let z = m_match[y];
                 s[z] = true;
                 s_parents[z] = y;
 
                 // Update neighbourhood with equalitygraph-neighbours of z
-                nlxt[y] = false;
                 Zip::from(&mut nlxt)
                     .and(&mut nlxt_neighbour_of)
                     .and(&(!skip_y & !&t)) // A little trick, because ndarray::Zip only takes 6 Arrays
@@ -176,7 +178,7 @@ pub fn hungarian_algorithm(
                     .and(&labels_y)
                     .and(mandatory_y)
                     .apply(|v, w, &t_nor_s, &a, &l, &m| {
-                        if t_nor_s && a == labels_x[z] + l && (!dummy_x[z] || !m) {
+                        if t_nor_s && a as Label == labels_x[z] + l && (!dummy_x[z] || !m) {
                             *v = true;
                             *w = z;
                         }
