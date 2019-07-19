@@ -219,6 +219,77 @@ mod tests {
     use ndarray::{Array1, Array2};
 
     #[test]
+    fn another_manual_matching_problem() {
+        let t = true;
+        let f = false;
+
+        let adjacency_matrix = Array2::<EdgeWeight>::from_shape_vec([20, 20], vec![
+        //   A   A   A   A   B   B   B   B   C   C   C   C   D   D   D   D   E   E   E   E
+        //                   m   m   m   m   m               s   s   s   s
+            33, 33, 33, 33, 31, 31, 31, 31, 00, 00, 00, 00, 32, 32, 32, 32, 00, 00, 00, 00,
+            33, 33, 33, 33, 00, 00, 00, 00, 32, 32, 32, 32, 31, 31, 31, 31, 00, 00, 00, 00,
+            31, 31, 31, 31, 33, 33, 33, 33, 00, 00, 00, 00, 00, 00, 00, 00, 32, 32, 32, 32,
+            33, 33, 33, 33, 00, 00, 00, 00, 00, 00, 00, 00, 32, 32, 32, 32, 31, 31, 31, 31, // s
+            33, 33, 33, 33, 00, 00, 00, 00, 32, 32, 32, 32, 31, 31, 31, 31, 00, 00, 00, 00,
+            31, 31, 31, 31, 32, 32, 32, 32, 00, 00, 00, 00, 00, 00, 00, 00, 33, 33, 33, 33,
+            33, 33, 33, 33, 32, 32, 32, 32, 00, 00, 00, 00, 00, 00, 00, 00, 31, 31, 31, 31,
+            33, 33, 33, 33, 00, 00, 00, 00, 31, 31, 31, 31, 32, 32, 32, 32, 00, 00, 00, 00,
+            00, 00, 00, 00, 00, 00, 00, 00, 32, 32, 32, 32, 33, 33, 33, 33, 31, 31, 31, 31,
+            33, 33, 33, 33, 00, 00, 00, 00, 31, 31, 31, 31, 00, 00, 00, 00, 32, 32, 32, 32,
+            00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, //d s
+            00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, //d s
+            00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, //d s
+            00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, //d
+            00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, //d
+            00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, //d
+            00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, //d
+            00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, //d
+            00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, //d
+            00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00, //d
+        ]).unwrap();
+        let mandatory_y = ndarray::arr1(
+            &[ f,  f,  f,  f,  t,  t,  t,  t,  f,  t,  f,  f,  f,  f,  f,  f,  f,  f,  f,  f]);
+        let skip_y = ndarray::arr1(
+            &[ f,  f,  f,  f,  f,  f,  f,  f,  f,  f,  f,  f,  t,  t,  t,  t,  f,  f,  f,  f]);
+        let dummy_x = ndarray::arr1(
+            &[f, f, f, f, f, f, f, f, f, f, t, t, t, t, t, t, t, t, t, t]);
+        let skip_x = ndarray::arr1(
+            &[f, f, f, t, f, f, f, f, f, f, t, t, t, f, f, f, f, f, f, f]);
+
+        let (matching, score) =
+            hungarian_algorithm(&adjacency_matrix, &dummy_x, &mandatory_y, &skip_x, &skip_y);
+
+        // Every participant must be assigned to one course place
+        let mut is_assigned = Array1::<bool>::from_elem([20], false);
+        for (cp, p) in matching.indexed_iter() {
+            if !skip_y[cp] {
+                assert!(
+                    !is_assigned[*p],
+                    "participant {} is assigned to course place {} and another course place",
+                    p, cp
+                );
+                is_assigned[*p] = true;
+            }
+        }
+        for (p, ia) in is_assigned.indexed_iter() {
+            if !skip_x[p] {
+                assert!(ia, "participant {} is not assigned to any course place", p);
+            }
+        }
+
+        // Participants 0, 2, 5, 6 must be in course B (b/c the places are mandatory)
+        for y in 4..8 {
+            let x = matching[y];
+            assert!([0,2,5,6].contains(&x), "Course place {} is filled with unexpected participant {}", y, x);
+        }
+        // Course A should consist of Participants 1, 4, 6, 7
+        for y in 0..4 {
+            let x = matching[y];
+            assert!([1,4,7,9].contains(&x), "Course place {} is filled with unexpected participant {}", y, x);
+        }
+    }
+
+    #[test]
     fn minimal_matching_problem() {
         // X = {0, 1, skip, 3, 4}
         // Xs = {5, 6}
