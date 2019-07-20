@@ -170,3 +170,62 @@ fn worker<SubProblem: Ord + Send, Solution: Send, Score: PartialOrd>(
         }
     }
 }
+
+// =============================================================================
+// Tests
+#[cfg(test)]
+mod tests {
+    use super::NodeResult;
+
+    #[test]
+    fn test_bab_rounding() {
+        // This test tries to find the closest integer vector to a given vector in a rather stupid
+        // way: We branch over each vector entry and calculate the negated distance as score.
+
+        type SubProblem = std::collections::BTreeMap<usize, i32>;
+
+        fn solver (mut node: SubProblem, target: ndarray::Array1<f32>) -> NodeResult<SubProblem, ndarray::Array1<i32>, f32> {
+            // Otherwise calculate score
+            let mut result = ndarray::Array1::<i32>::zeros(target.dim());
+            let mut score_squared = 0f32;
+            let mut missing_entry = None;
+            for x in 0..target.dim() {
+                match node.get(&x) {
+                    None => {
+                        missing_entry = Some(x)
+                    },
+                    Some(y) => {
+                        result[x] = *y;
+                        score_squared += (target[x] - *y as f32).powf(2.0);
+                    }
+                }
+            }
+
+            match missing_entry {
+                None => NodeResult::Feasible(result, -score_squared.powf(0.5)),
+                Some(x) => {
+                    let mut n1 = node.clone();
+                    n1.insert(x, target[x] as i32);
+                    node.insert(x, target[x] as i32 + 1);
+                    NodeResult::Infeasible(vec![n1, node], -score_squared.powf(0.5))
+                }
+            }
+        };
+
+        let result = super::solve(
+            move |node| solver(node, ndarray::arr1(&[0.51, 0.46, 3.7, 0.56, 0.6])),
+            SubProblem::new(), 1);
+        match result {
+            None => panic!("Expected to get a solution"),
+            Some((solution, score)) => assert_eq!(solution, ndarray::arr1(&[1, 0, 4, 1, 1]))
+        }
+
+        let result = super::solve(
+            move |node| solver(node, ndarray::arr1(&[0.51, 6.46, 0.7, 0.56, 0.6])),
+            SubProblem::new(), 4);
+        match result {
+            None => panic!("Expected to get a solution"),
+            Some((solution, score)) => assert_eq!(solution, ndarray::arr1(&[1, 6, 1, 1, 1]))
+        }
+    }
+}
