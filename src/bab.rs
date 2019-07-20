@@ -16,6 +16,7 @@ use log::debug;
 use std::collections::BinaryHeap;
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
+use num_traits::bounds::Bounded;
 
 /// Struct to hold the synchronization information for the parallel execution. It contains a mutex-ed SharedState object
 /// And a Candvar to allow worker threads to sleep-wait for new subproblems to solve.
@@ -58,7 +59,7 @@ pub enum NodeResult<SubProblem, Solution, Score> {
 pub fn solve<
     SubProblem: 'static + Ord + Send,
     Solution: 'static + Send,
-    Score: 'static + Ord + From<u32> + Send + Copy,
+    Score: 'static + PartialOrd + Bounded + Send + Copy,
     F: 'static,
 >(
     node_solver: F,
@@ -76,7 +77,7 @@ where
             pending_nodes: pending_nodes,
             busy_threads: 0,
             best_result: None,
-            best_score: Score::from(0),
+            best_score: Score::min_value(),
         }),
         condvar: Condvar::new(),
     });
@@ -104,7 +105,7 @@ where
 }
 
 /// Worker thread entry point for the parallel branch and bound solving
-fn worker<SubProblem: Ord + Send, Solution: Send, Score: Ord>(
+fn worker<SubProblem: Ord + Send, Solution: Send, Score: PartialOrd>(
     bab: Arc<BranchAndBound<SubProblem, Solution, Score>>,
     node_solver: Arc<Fn(SubProblem) -> NodeResult<SubProblem, Solution, Score>>,
 ) {
