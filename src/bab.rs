@@ -20,15 +20,15 @@ use num_traits::bounds::Bounded;
 
 /// Struct to hold the synchronization information for the parallel execution. It contains a mutex-ed SharedState object
 /// And a Candvar to allow worker threads to sleep-wait for new subproblems to solve.
-struct BranchAndBound<SubProblem: Ord + Send, Solution: Send, Score> {
+struct BranchAndBound<SubProblem: Ord + Send, Solution: Send, Score: Ord> {
     shared_state: Mutex<SharedState<SubProblem, Solution, Score>>,
     condvar: Condvar,
 }
 
 /// The shared state of the worker threads of the parallel branch and bound execution
-struct SharedState<SubProblem: Ord, Solution, Score> {
-    /// The prioritized queue of pending subproblems
-    pending_nodes: BinaryHeap<SubProblem>,
+struct SharedState<SubProblem: Ord, Solution, Score: Ord> {
+    /// The prioritized queue of pending subproblems (and the parent node's score, for bounding)
+    pending_nodes: BinaryHeap<PendingProblem<SubProblem, Score>>,
     /// The number of currently busy worker threads. It is used to determine the end of execution (no pending problems
     /// and no busy workers left)
     busy_threads: u32,
@@ -37,6 +37,9 @@ struct SharedState<SubProblem: Ord, Solution, Score> {
     /// The score of the best solution, found so far
     best_score: Score,
 }
+
+#[derive(PartialOrd, Ord, PartialEq, Eq)]
+struct PendingProblem<SubProblem, Score>(SubProblem, Score);
 
 /// Result type for solving a single branch and bound node.
 #[derive(Debug)]
@@ -59,7 +62,7 @@ pub enum NodeResult<SubProblem, Solution, Score> {
 pub fn solve<
     SubProblem: 'static + Ord + Send,
     Solution: 'static + Send,
-    Score: 'static + PartialOrd + Bounded + Send + Copy,
+    Score: 'static + Ord + Bounded + Send + Copy,
     F: 'static,
 >(
     node_solver: F,
@@ -70,8 +73,8 @@ where
     F: (Fn(SubProblem) -> NodeResult<SubProblem, Solution, Score>) + Send + Sync,
 {
     // Create shared data structure with base problem
-    let mut pending_nodes = BinaryHeap::<SubProblem>::new();
-    pending_nodes.push(base_problem);
+    let mut pending_nodes = BinaryHeap::new();
+    pending_nodes.push(PendingProblem(base_problem, Score::max_value()));
     let bab = Arc::new(BranchAndBound {
         shared_state: Mutex::new(SharedState {
             pending_nodes: pending_nodes,
@@ -105,51 +108,50 @@ where
 }
 
 /// Worker thread entry point for the parallel branch and bound solving
-fn worker<SubProblem: Ord + Send, Solution: Send, Score: PartialOrd>(
+fn worker<SubProblem: Ord + Send, Solution: Send, Score: Ord + Copy>(
     bab: Arc<BranchAndBound<SubProblem, Solution, Score>>,
     node_solver: Arc<Fn(SubProblem) -> NodeResult<SubProblem, Solution, Score>>,
 ) {
     let mut shared_state = bab.shared_state.lock().unwrap();
     loop {
         // In case of pending subproblems, get one and solve it
-        if let Some(subproblem) = shared_state.pending_nodes.pop() {
-            shared_state.busy_threads += 1;
+        if let Some(PendingProblem(subproblem, parent_score)) = shared_state.pending_nodes.pop() {
+            // Only consider this subproblem, if the parent node's solution was better then best solution known so
+            // far. I.e. bound branch if score will be worse then best known feasible solution.
+            if parent_score > shared_state.best_score {
+                shared_state.busy_threads += 1;
 
-            // Unlock shared_state and solve subproblem
-            std::mem::drop(shared_state);
-            let result = node_solver(subproblem);
+                // Unlock shared_state and solve subproblem
+                std::mem::drop(shared_state);
+                let result = node_solver(subproblem);
 
-            // Reacquire shared_state lock and interpret subproblem result
-            shared_state = bab.shared_state.lock().unwrap();
-            shared_state.busy_threads -= 1;
-            match result {
-                NodeResult::NoSolution => (),
+                // Reacquire shared_state lock and interpret subproblem result
+                shared_state = bab.shared_state.lock().unwrap();
+                shared_state.busy_threads -= 1;
+                match result {
+                    NodeResult::NoSolution => (),
 
-                NodeResult::Feasible(solution, score) => {
-                    if score > shared_state.best_score {
-                        debug!("Wow, this is the best solution, we found so far. Let's store it.");
-                        shared_state.best_result = Some(solution);
-                        shared_state.best_score = score;
+                    NodeResult::Feasible(solution, score) => {
+                        if score > shared_state.best_score {
+                            debug!("Wow, this is the best solution, we found so far. Let's store it.");
+                            shared_state.best_result = Some(solution);
+                            shared_state.best_score = score;
+                        }
                     }
-                }
 
-                NodeResult::Infeasible(new_problems, score) => {
-                    // Only consider more restricted new_problems, if solution is better then best solution known so
-                    // far. I.e. bound branch if score is worse then best known feasible solution
-                    // TODO store score with new subproblems and bound, when starting solving the new subproblem. (We
-                    //   might have a better lower bound by then)
-                    if score > shared_state.best_score {
+                    NodeResult::Infeasible(new_problems, score) => {
+                        // Add new subproblems to queue
                         for (i, new_problem) in new_problems.into_iter().enumerate() {
-                            shared_state.pending_nodes.push(new_problem);
+                            shared_state.pending_nodes.push(PendingProblem(new_problem, score));
                             // Wake up n-1 other threads to solve the new subproblems
                             if i != 0 {
                                 bab.condvar.notify_one();
                             }
                         }
-                    } else {
-                        debug!("Bounding this branch, since score is already worse then best known feasible solution.");
                     }
                 }
+            } else {
+                debug!("Bounding this branch, since score is already worse then best known feasible solution.");
             }
 
             // check if we are finished, awake other threads and exit
@@ -177,6 +179,7 @@ fn worker<SubProblem: Ord + Send, Solution: Send, Score: PartialOrd>(
 mod tests {
     use super::NodeResult;
     use std::collections::BTreeMap;
+    use ordered_float::NotNan;
 
     #[test]
     fn test_bab_rounding() {
@@ -202,7 +205,7 @@ mod tests {
             }
         }
 
-        fn solver (mut node: SubProblem, target: ndarray::Array1<f32>) -> NodeResult<SubProblem, ndarray::Array1<i32>, f32> {
+        fn solver (mut node: SubProblem, target: ndarray::Array1<f32>) -> NodeResult<SubProblem, ndarray::Array1<i32>, NotNan<f32>> {
             // Otherwise calculate score
             let mut result = ndarray::Array1::<i32>::zeros(target.dim());
             let mut score_squared = 0f32;
@@ -220,12 +223,12 @@ mod tests {
             }
 
             match missing_entry {
-                None => NodeResult::Feasible(result, -score_squared.powf(0.5)),
+                None => NodeResult::Feasible(result, NotNan::new(-score_squared.powf(0.5)).unwrap()),
                 Some(x) => {
                     let mut n1 = node.clone();
                     n1.0.insert(x, target[x] as i32);
                     node.0.insert(x, target[x] as i32 + 1);
-                    NodeResult::Infeasible(vec![n1, node], -score_squared.powf(0.5))
+                    NodeResult::Infeasible(vec![n1, node], NotNan::new(-score_squared.powf(0.5)).unwrap())
                 }
             }
         };
@@ -237,7 +240,7 @@ mod tests {
             None => panic!("Expected to get a solution"),
             Some((solution, score)) => assert_eq!(solution, ndarray::arr1(&[1, 0, 4, 1, 1]))
         }
-        // TODO count solver executions to check bounding
+        // TODO count solver executions to check bounding (number < 2^6 - 1)
 
         let result = super::solve(
             move |node| solver(node, ndarray::arr1(&[0.51, 6.46, 0.7, 0.56, 0.6])),
