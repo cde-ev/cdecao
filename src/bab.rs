@@ -13,10 +13,10 @@
 //! produce new pending subproblems).
 
 use log::debug;
+use num_traits::bounds::Bounded;
 use std::collections::BinaryHeap;
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
-use num_traits::bounds::Bounded;
 
 /// Struct to hold the synchronization information for the parallel execution. It contains a mutex-ed SharedState object
 /// And a Candvar to allow worker threads to sleep-wait for new subproblems to solve.
@@ -133,7 +133,9 @@ fn worker<SubProblem: Ord + Send, Solution: Send, Score: Ord + Copy>(
 
                     NodeResult::Feasible(solution, score) => {
                         if score > shared_state.best_score {
-                            debug!("Wow, this is the best solution, we found so far. Let's store it.");
+                            debug!(
+                                "Wow, this is the best solution, we found so far. Let's store it."
+                            );
                             shared_state.best_result = Some(solution);
                             shared_state.best_score = score;
                         }
@@ -142,7 +144,9 @@ fn worker<SubProblem: Ord + Send, Solution: Send, Score: Ord + Copy>(
                     NodeResult::Infeasible(new_problems, score) => {
                         // Add new subproblems to queue
                         for (i, new_problem) in new_problems.into_iter().enumerate() {
-                            shared_state.pending_nodes.push(PendingProblem(new_problem, score));
+                            shared_state
+                                .pending_nodes
+                                .push(PendingProblem(new_problem, score));
                             // Wake up n-1 other threads to solve the new subproblems
                             if i != 0 {
                                 bab.condvar.notify_one();
@@ -178,8 +182,8 @@ fn worker<SubProblem: Ord + Send, Solution: Send, Score: Ord + Copy>(
 #[cfg(test)]
 mod tests {
     use super::NodeResult;
-    use std::collections::BTreeMap;
     use ordered_float::NotNan;
+    use std::collections::BTreeMap;
 
     #[test]
     fn test_bab_rounding() {
@@ -205,16 +209,17 @@ mod tests {
             }
         }
 
-        fn solver (mut node: SubProblem, target: ndarray::Array1<f32>) -> NodeResult<SubProblem, ndarray::Array1<i32>, NotNan<f32>> {
+        fn solver(
+            mut node: SubProblem,
+            target: ndarray::Array1<f32>,
+        ) -> NodeResult<SubProblem, ndarray::Array1<i32>, NotNan<f32>> {
             // Otherwise calculate score
             let mut result = ndarray::Array1::<i32>::zeros(target.dim());
             let mut score_squared = 0f32;
             let mut missing_entry = None;
             for x in 0..target.dim() {
                 match node.0.get(&x) {
-                    None => {
-                        missing_entry = Some(x)
-                    },
+                    None => missing_entry = Some(x),
                     Some(y) => {
                         result[x] = *y;
                         score_squared += (target[x] - *y as f32).powf(2.0);
@@ -223,31 +228,40 @@ mod tests {
             }
 
             match missing_entry {
-                None => NodeResult::Feasible(result, NotNan::new(-score_squared.powf(0.5)).unwrap()),
+                None => {
+                    NodeResult::Feasible(result, NotNan::new(-score_squared.powf(0.5)).unwrap())
+                }
                 Some(x) => {
                     let mut n1 = node.clone();
                     n1.0.insert(x, target[x] as i32);
                     node.0.insert(x, target[x] as i32 + 1);
-                    NodeResult::Infeasible(vec![n1, node], NotNan::new(-score_squared.powf(0.5)).unwrap())
+                    NodeResult::Infeasible(
+                        vec![n1, node],
+                        NotNan::new(-score_squared.powf(0.5)).unwrap(),
+                    )
                 }
             }
         };
 
         let result = super::solve(
             move |node| solver(node, ndarray::arr1(&[0.51, 0.46, 3.7, 0.56, 0.6])),
-            SubProblem(BTreeMap::new()), 1);
+            SubProblem(BTreeMap::new()),
+            1,
+        );
         match result {
             None => panic!("Expected to get a solution"),
-            Some((solution, score)) => assert_eq!(solution, ndarray::arr1(&[1, 0, 4, 1, 1]))
+            Some((solution, score)) => assert_eq!(solution, ndarray::arr1(&[1, 0, 4, 1, 1])),
         }
         // TODO count solver executions to check bounding (number < 2^6 - 1)
 
         let result = super::solve(
             move |node| solver(node, ndarray::arr1(&[0.51, 6.46, 0.7, 0.56, 0.6])),
-            SubProblem(BTreeMap::new()), 4);
+            SubProblem(BTreeMap::new()),
+            4,
+        );
         match result {
             None => panic!("Expected to get a solution"),
-            Some((solution, score)) => assert_eq!(solution, ndarray::arr1(&[1, 6, 1, 1, 1]))
+            Some((solution, score)) => assert_eq!(solution, ndarray::arr1(&[1, 6, 1, 1, 1])),
         }
     }
 }

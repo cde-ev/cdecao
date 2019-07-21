@@ -1,8 +1,8 @@
 use super::BABNode;
+use crate::bab::NodeResult;
 use crate::hungarian::EdgeWeight;
 use crate::{Assignment, Course, Participant};
 use ndarray::Array1;
-use crate::bab::NodeResult;
 use std::sync::Arc;
 
 fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
@@ -109,7 +109,11 @@ fn test_precompute_problem() {
     }
 
     // check adjacency matrix
-    const WEIGHTS: [u16; 3] = [super::WEIGHT_OFFSET, super::WEIGHT_OFFSET-1, super::WEIGHT_OFFSET-2];
+    const WEIGHTS: [u16; 3] = [
+        super::WEIGHT_OFFSET,
+        super::WEIGHT_OFFSET - 1,
+        super::WEIGHT_OFFSET - 2,
+    ];
     for (x, p) in participants.iter().enumerate() {
         for y in 0..m {
             let choice = p.choices.iter().position(|c| *c == problem.course_map[y]);
@@ -248,8 +252,8 @@ fn check_assignment(
     courses: &Vec<Course>,
     participants: &Vec<Participant>,
     assignment: &Assignment,
-    node: Option<&BABNode>) {
-
+    node: Option<&BABNode>,
+) {
     // Calculate course sizes
     let mut course_size = vec![0usize; courses.len()];
     for c in assignment.iter() {
@@ -262,23 +266,35 @@ fn check_assignment(
         assert!(
             *size <= courses[c].num_max + course.instructors.len(),
             "Maximum size violation for course {}: {} places, {} participants",
-            c, course.num_max, size - course.instructors.len());
+            c,
+            course.num_max,
+            size - course.instructors.len()
+        );
         // Feasible solutions must not have too few participants
         if let Some(n) = node {
             if !n.cancelled_courses.contains(&c) {
                 assert!(
                     *size >= course.num_min + course.instructors.len(),
                     "Minimum size violation for course {}: {} required, {} assigned",
-                    c, course.num_min, size - course.instructors.len());
+                    c,
+                    course.num_min,
+                    size - course.instructors.len()
+                );
             } else {
                 assert_eq!(
-                    course_size[c], 0, "Cancelled course {} has {} participants", c, course_size[c]);
+                    course_size[c], 0,
+                    "Cancelled course {} has {} participants",
+                    c, course_size[c]
+                );
             }
         } else {
             assert!(
                 *size == 0 || *size >= course.num_min + course.instructors.len(),
                 "Minimum size violation for course {}: {} required, {} assigned",
-                c, course.num_min, size - course.instructors.len());
+                c,
+                course.num_min,
+                size - course.instructors.len()
+            );
         }
     }
 
@@ -290,7 +306,8 @@ fn check_assignment(
                 assert_eq!(
                     assignment[*i], c,
                     "Instructor {} of course {} is assigned to {}",
-                    *i, c, assignment[*i]);
+                    *i, c, assignment[*i]
+                );
                 course_instructors[*i] = true;
             }
         }
@@ -302,7 +319,9 @@ fn check_assignment(
             assert!(
                 participant.choices.contains(&assignment[p]),
                 "Course {} of participant {} is none of their choices ({:?})",
-                assignment[p], p, participant.choices
+                assignment[p],
+                p,
+                participant.choices
             );
         }
     }
@@ -327,8 +346,8 @@ fn test_bab_node_simple() {
             print!("assignment: {:?}\n", assignment);
             check_assignment(&courses, &participants, &assignment, Some(&node));
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
-        },
-        x => panic!("Expected feasible result, got {:?}", x)
+        }
+        x => panic!("Expected feasible result, got {:?}", x),
     };
 
     // This should also work out
@@ -342,8 +361,8 @@ fn test_bab_node_simple() {
             print!("assignment: {:?}\n", assignment);
             check_assignment(&courses, &participants, &assignment, Some(&node));
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
-        },
-        x => panic!("Expected feasible result, got {:?}", x)
+        }
+        x => panic!("Expected feasible result, got {:?}", x),
     };
 
     // This way, we should not get any solution
@@ -354,7 +373,7 @@ fn test_bab_node_simple() {
     let result = super::run_bab_node(&courses, &participants, &problem, node);
     match result {
         NodeResult::NoSolution => (),
-        x => panic!("Expected no result, got {:?}", x)
+        x => panic!("Expected no result, got {:?}", x),
     };
 
     // This should give us an infeasible solution (too few participants in course 1, 2)
@@ -365,9 +384,8 @@ fn test_bab_node_simple() {
     let result = super::run_bab_node(&courses, &participants, &problem, node);
     match result {
         NodeResult::Infeasible(_, _) => (), // TODO check new nodes and score
-        x => panic!("Expected infeasible result, got {:?}", x)
+        x => panic!("Expected infeasible result, got {:?}", x),
     };
-
 }
 
 #[test]
@@ -385,7 +403,7 @@ fn test_bab_node_large() {
             name: format!("Course {}", c),
             num_min: MIN_PLACES_PER_COURSE,
             num_max: MAX_PLACES_PER_COURSE,
-            instructors: Vec::new()
+            instructors: Vec::new(),
         });
     }
 
@@ -405,7 +423,7 @@ fn test_bab_node_large() {
             if p == 0 {
                 courses[NUM_COURSES - 1].instructors.push(p);
             } else {
-                courses[p-1].instructors.push(p);
+                courses[p - 1].instructors.push(p);
             }
         }
     }
@@ -423,8 +441,8 @@ fn test_bab_node_large() {
             print!("assignment: {:?}\n", assignment);
             check_assignment(&courses, &participants, &assignment, Some(&node));
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
-        },
-        x => panic!("Expected feasible result, got {:?}", x)
+        }
+        x => panic!("Expected feasible result, got {:?}", x),
     }
 }
 
@@ -442,10 +460,13 @@ fn test_caobab_simple() {
             print!("assignment: {:?}\n", assignment);
             check_assignment(&*courses, &*participants, &assignment, None);
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
-            assert!(assignment == vec![0,1,0,1,0,1] || assignment == vec![0,1,1,0,0,1],
-                    "Unexpected assignment: {:?}", assignment);
-        },
-        x => panic!("Expected to get a result.")
+            assert!(
+                assignment == vec![0, 1, 0, 1, 0, 1] || assignment == vec![0, 1, 1, 0, 0, 1],
+                "Unexpected assignment: {:?}",
+                assignment
+            );
+        }
+        x => panic!("Expected to get a result."),
     };
 }
 

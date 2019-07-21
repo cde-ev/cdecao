@@ -80,7 +80,8 @@ pub fn hungarian_algorithm(
     }
 
     // Initialize labels
-    let mut labels_x = adjacency_matrix.fold_axis(Axis(1), 0, |acc, x| std::cmp::max(*acc, *x as Label));
+    let mut labels_x =
+        adjacency_matrix.fold_axis(Axis(1), 0, |acc, x| std::cmp::max(*acc, *x as Label));
     let mut labels_y = Array1::<Label>::zeros([ny]);
 
     // Current matched y (column) nodes
@@ -282,12 +283,22 @@ mod tests {
         // Participants 0, 2, 5, 6 must be in course B (b/c the places are mandatory)
         for y in 4..8 {
             let x = matching[y];
-            assert!([0,2,5,6].contains(&x), "Course place {} is filled with unexpected participant {}", y, x);
+            assert!(
+                [0, 2, 5, 6].contains(&x),
+                "Course place {} is filled with unexpected participant {}",
+                y,
+                x
+            );
         }
         // Course A should consist of Participants 1, 4, 6, 7
         for y in 0..4 {
             let x = matching[y];
-            assert!([1,4,7,9].contains(&x), "Course place {} is filled with unexpected participant {}", y, x);
+            assert!(
+                [1, 4, 7, 9].contains(&x),
+                "Course place {} is filled with unexpected participant {}",
+                y,
+                x
+            );
         }
     }
 

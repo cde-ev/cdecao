@@ -67,7 +67,10 @@ fn precompute_problem(
 ) -> PreComputedProblem {
     // Calculate adjacency matrix size to allocate 1D-Arrays
     let m = courses.iter().map(|c| c.num_max).fold(0, |acc, x| acc + x);
-    let max_num_instructors = courses.iter().map(|c| c.instructors.len()).fold(0, |acc, x| acc + x);
+    let max_num_instructors = courses
+        .iter()
+        .map(|c| c.instructors.len())
+        .fold(0, |acc, x| acc + x);
     let n = m + max_num_instructors;
 
     // Generate course_map, inverse_course_map and madatory_y from course list
