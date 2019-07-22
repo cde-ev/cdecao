@@ -33,7 +33,7 @@ pub fn solve(
             cancelled_courses: Vec::new(),
             enforced_courses: Vec::new(),
         },
-        4, // TODO guess number of threads
+        num_cpus::get() as u32
     )
 }
 
