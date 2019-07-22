@@ -1,8 +1,6 @@
 use super::BABNode;
 use crate::bab::NodeResult;
-use crate::hungarian::EdgeWeight;
 use crate::{Assignment, Course, Participant};
-use ndarray::Array1;
 use std::sync::Arc;
 
 fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
@@ -465,8 +463,8 @@ fn test_caobab_simple() {
                 "Unexpected assignment: {:?}",
                 assignment
             );
-        }
-        x => panic!("Expected to get a result."),
+        },
+        _ => panic!("Expected to get a result."),
     };
 }
 

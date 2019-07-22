@@ -259,7 +259,7 @@ mod tests {
         let skip_x = ndarray::arr1(
             &[f, f, f, t, f, f, f, f, f, f, t, t, t, f, f, f, f, f, f, f]);
 
-        let (matching, score) =
+        let (matching, _score) =
             hungarian_algorithm(&adjacency_matrix, &dummy_x, &mandatory_y, &skip_x, &skip_y);
 
         // Every participant must be assigned to one course place

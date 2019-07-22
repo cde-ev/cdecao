@@ -250,7 +250,7 @@ mod tests {
         );
         match result {
             None => panic!("Expected to get a solution"),
-            Some((solution, score)) => assert_eq!(solution, ndarray::arr1(&[1, 0, 4, 1, 1])),
+            Some((solution, _)) => assert_eq!(solution, ndarray::arr1(&[1, 0, 4, 1, 1])),
         }
         // TODO count solver executions to check bounding (number < 2^6 - 1)
 
@@ -261,7 +261,7 @@ mod tests {
         );
         match result {
             None => panic!("Expected to get a solution"),
-            Some((solution, score)) => assert_eq!(solution, ndarray::arr1(&[1, 6, 1, 1, 1])),
+            Some((solution, _)) => assert_eq!(solution, ndarray::arr1(&[1, 6, 1, 1, 1])),
         }
     }
 }
