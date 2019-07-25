@@ -173,8 +173,6 @@ pub fn read<R: std::io::Read>(reader: R) -> Result<(Vec<Participant>, Vec<Course
         }
     }
 
-    // TODO correct num_min and num_max to exclude instructors
-
     // Insert course choices
     for choice_data in course_choices_data {
         let opt_registration = choice_data["registration_id"]
@@ -190,6 +188,21 @@ pub fn read<R: std::io::Read>(reader: R) -> Result<(Vec<Participant>, Vec<Course
                 registration.choices.push(course.index);
             }
         }
+    }
+
+    // Subtract course instructors from course participant bounds
+    // (course participant bounds in the CdEDB include instructors)
+    for mut course in courses.iter_mut() {
+        course.num_min = if course.instructors.len() > course.num_min {
+            0
+        } else {
+            course.num_min - course.instructors.len()
+        };
+        course.num_max = if course.instructors.len() > course.num_max {
+            0
+        } else {
+            course.num_max - course.instructors.len()
+        };
     }
 
     Ok((registrations, courses))
