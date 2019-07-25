@@ -4,6 +4,7 @@
 //! subproblem of the course assignment prblem. All the data conversion from Course/Participant objects to matrices and
 //! vectors for the `hungarian_algorithm()` happens within this function.
 
+use crate::bab;
 use crate::bab::NodeResult::{Feasible, Infeasible, NoSolution};
 use crate::hungarian::{EdgeWeight, Score};
 use crate::{Assignment, Course, Participant};
@@ -17,11 +18,11 @@ use std::sync::Arc;
 pub fn solve(
     courses: Arc<Vec<Course>>,
     participants: Arc<Vec<Participant>>,
-) -> Option<(Assignment, u32)> {
+) -> (Option<(Assignment, u32)>, bab::Statistics) {
     let pre_computed_problem = Arc::new(precompute_problem(&*courses, &*participants));
 
-    super::bab::solve(
-        move |sub_problem| -> super::bab::NodeResult<BABNode, Assignment, Score> {
+    bab::solve(
+        move |sub_problem| -> bab::NodeResult<BABNode, Assignment, Score> {
             run_bab_node(
                 &*courses,
                 &*participants,
@@ -33,7 +34,7 @@ pub fn solve(
             cancelled_courses: Vec::new(),
             enforced_courses: Vec::new(),
         },
-        num_cpus::get() as u32
+        num_cpus::get() as u32,
     )
 }
 
@@ -158,7 +159,7 @@ fn run_bab_node(
     participants: &Vec<Participant>,
     pre_computed_problem: &PreComputedProblem,
     mut current_node: BABNode,
-) -> super::bab::NodeResult<BABNode, Assignment, Score> {
+) -> bab::NodeResult<BABNode, Assignment, Score> {
     let n = pre_computed_problem.adjacency_matrix.dim().0;
     let m = pre_computed_problem.adjacency_matrix.dim().1;
 

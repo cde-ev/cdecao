@@ -7,7 +7,7 @@ use std::fmt::Write;
 /// stdout).
 ///
 /// The output format will look like
-/// ```
+/// ```text
 /// ===== Course name =====
 /// Anton Administrator
 /// Bertalotta Beispiel

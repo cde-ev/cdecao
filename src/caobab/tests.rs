@@ -451,7 +451,7 @@ fn test_caobab_simple() {
     let (participants, courses) = create_simple_problem();
     let courses = Arc::new(courses);
     let participants = Arc::new(participants);
-    let result = super::solve(courses.clone(), participants.clone());
+    let (result, _statistics) = super::solve(courses.clone(), participants.clone());
 
     match result {
         Some((assignment, score)) => {
@@ -463,7 +463,7 @@ fn test_caobab_simple() {
                 "Unexpected assignment: {:?}",
                 assignment
             );
-        },
+        }
         _ => panic!("Expected to get a result."),
     };
 }

@@ -22,7 +22,8 @@ fn main() {
     // Execute assignment algorithm
     let courses = Arc::new(courses);
     let participants = Arc::new(participants);
-    let result = caobab::solve(courses.clone(), participants.clone());
+    let (result, statistics) = caobab::solve(courses.clone(), participants.clone());
+    info!("Finished solving. {}", statistics);
 
     // TODO output in machine-readable format
     if let Some((assignment, _)) = result {

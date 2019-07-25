@@ -16,7 +16,7 @@ use log::debug;
 use num_traits::bounds::Bounded;
 use std::collections::BinaryHeap;
 use std::sync::{Arc, Condvar, Mutex};
-use std::thread;
+use std::{fmt, thread, time};
 
 /// Struct to hold the synchronization information for the parallel execution. It contains a mutex-ed SharedState object
 /// And a Candvar to allow worker threads to sleep-wait for new subproblems to solve.
@@ -36,10 +36,64 @@ struct SharedState<SubProblem: Ord, Solution, Score: Ord> {
     best_result: Option<Solution>,
     /// The score of the best solution, found so far
     best_score: Score,
+    /// Solver Statistics
+    statistics: Statistics,
 }
 
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
 struct PendingProblem<SubProblem, Score>(SubProblem, Score);
+
+/// A struct to collect statistics about the branch and bound execution.
+///
+/// It is held in the SharedState while execution and returned afterwards.
+#[derive(Default)]
+pub struct Statistics {
+    /// Number of calls to the subproblem solver function
+    num_executed_subproblems: u32,
+    /// Number of subproblems that returned without solution
+    num_no_solution: u32,
+    /// Number of infeasible subproblems encountered during solving
+    num_infeasible: u32,
+    /// Number of feasible subproblems encountered during solving
+    num_feasible: u32,
+    /// Number of times the pior best result has been updated with a better result
+    num_new_best: u32,
+    /// Number of subproblems skipped because of their (infeasible) parent's score (i.e. number of
+    /// bound branches)
+    num_bound_subproblems: u32,
+    /// Total time for executing the branch and bound algorithm
+    total_time: time::Duration,
+    /// Cummulated exeuction time of the subproblem solver function
+    /// Heads up! Due to parallelism this will be multiple times `total_time`.
+    total_subproblem_time: time::Duration,
+}
+
+impl fmt::Display for Statistics {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Solving statistics:
+Executed subproblems:  {: >6}
+    ... no solution:   {: >6}
+    ... infeasible:    {: >6}
+    ... feasible:      {: >6}
+         ... new best: {: >6}
+Bound branches:        {: >6}
+
+Total time: {:.3}s
+Average subproblem solver time: {:.3}s\n",
+            self.num_executed_subproblems,
+            self.num_no_solution,
+            self.num_infeasible,
+            self.num_feasible,
+            self.num_new_best,
+            self.num_bound_subproblems,
+            self.total_time.as_millis() as f32 / 1000f32,
+            (self.total_subproblem_time / self.num_executed_subproblems as u32).as_millis() as f32
+                / 1000f32
+        )
+    }
+}
 
 /// Result type for solving a single branch and bound node.
 #[derive(Debug)]
@@ -55,10 +109,13 @@ pub enum NodeResult<SubProblem, Solution, Score> {
 
 /// Main function of this module to solve a generic problem by doing pseudo-depth-first parallel branch and bound
 /// optimization.
+///
 /// This function takes a callback function, which is executed for each single node in the branch and bound tree and
 /// returns either a feasible solution to be considered for the result or a `Vec` of new subproblems to try (see
 /// `NodeResult` type). When all branches of the branch and bound tree are evaluated (or bound), the best result is
 /// returned. It may be possible, that no result is found at all.
+///
+/// Returns the best solution and its score (if one has been found) and some statistics about the solving process.
 pub fn solve<
     SubProblem: 'static + Ord + Send,
     Solution: 'static + Send,
@@ -68,7 +125,7 @@ pub fn solve<
     node_solver: F,
     base_problem: SubProblem,
     num_threads: u32,
-) -> Option<(Solution, Score)>
+) -> (Option<(Solution, Score)>, Statistics)
 where
     F: (Fn(SubProblem) -> NodeResult<SubProblem, Solution, Score>) + Send + Sync,
 {
@@ -81,9 +138,12 @@ where
             busy_threads: 0,
             best_result: None,
             best_score: Score::min_value(),
+            statistics: Statistics::default(),
         }),
         condvar: Condvar::new(),
     });
+
+    let tic = time::Instant::now();
 
     // Spawn worker threads
     let mut workers = Vec::<thread::JoinHandle<()>>::new();
@@ -99,12 +159,23 @@ where
         worker.join().unwrap();
     }
 
+    let total_time = tic.elapsed();
+
     // Unwrap and return result
-    let mut shared_state = bab.shared_state.lock().unwrap();
-    return match shared_state.best_result.take() {
-        None => None,
-        Some(x) => Some((x, shared_state.best_score)),
-    };
+    let mut shared_state = Arc::try_unwrap(bab)
+        .map_err(|_| ())
+        .expect("Could not unwrap Arc to Bab object.")
+        .shared_state
+        .into_inner()
+        .expect("Could not move SharedState out of mutex.");
+    shared_state.statistics.total_time = total_time;
+    return (
+        match shared_state.best_result {
+            None => None,
+            Some(x) => Some((x, shared_state.best_score)),
+        },
+        shared_state.statistics,
+    );
 }
 
 /// Worker thread entry point for the parallel branch and bound solving
@@ -123,25 +194,34 @@ fn worker<SubProblem: Ord + Send, Solution: Send, Score: Ord + Copy>(
 
                 // Unlock shared_state and solve subproblem
                 std::mem::drop(shared_state);
+                let tic = time::Instant::now();
                 let result = node_solver(subproblem);
+                let consumed_time = tic.elapsed();
 
                 // Reacquire shared_state lock and interpret subproblem result
                 shared_state = bab.shared_state.lock().unwrap();
                 shared_state.busy_threads -= 1;
+                shared_state.statistics.num_executed_subproblems += 1;
+                shared_state.statistics.total_subproblem_time += consumed_time;
                 match result {
-                    NodeResult::NoSolution => (),
+                    NodeResult::NoSolution => {
+                        shared_state.statistics.num_no_solution += 1;
+                    }
 
                     NodeResult::Feasible(solution, score) => {
+                        shared_state.statistics.num_feasible += 1;
                         if score > shared_state.best_score {
                             debug!(
                                 "Wow, this is the best solution, we found so far. Let's store it."
                             );
+                            shared_state.statistics.num_new_best += 1;
                             shared_state.best_result = Some(solution);
                             shared_state.best_score = score;
                         }
                     }
 
                     NodeResult::Infeasible(new_problems, score) => {
+                        shared_state.statistics.num_infeasible += 1;
                         // Add new subproblems to queue
                         for (i, new_problem) in new_problems.into_iter().enumerate() {
                             shared_state
@@ -155,6 +235,7 @@ fn worker<SubProblem: Ord + Send, Solution: Send, Score: Ord + Copy>(
                     }
                 }
             } else {
+                shared_state.statistics.num_bound_subproblems += 1;
                 debug!("Bounding this branch, since score is already worse then best known feasible solution.");
             }
 
@@ -243,7 +324,7 @@ mod tests {
             }
         };
 
-        let result = super::solve(
+        let (result, statistics) = super::solve(
             move |node| solver(node, ndarray::arr1(&[0.51, 0.46, 3.7, 0.56, 0.6])),
             SubProblem(BTreeMap::new()),
             1,
@@ -252,9 +333,13 @@ mod tests {
             None => panic!("Expected to get a solution"),
             Some((solution, _)) => assert_eq!(solution, ndarray::arr1(&[1, 0, 4, 1, 1])),
         }
-        // TODO count solver executions to check bounding (number < 2^6 - 1)
+        assert!(statistics.num_executed_subproblems > 0);
+        assert!(
+            statistics.num_executed_subproblems < 2u32.pow(6) - 1,
+            "Number of executed subproblems should be < 2^6-1, due to bounding."
+        );
 
-        let result = super::solve(
+        let (result, statistcis) = super::solve(
             move |node| solver(node, ndarray::arr1(&[0.51, 6.46, 0.7, 0.56, 0.6])),
             SubProblem(BTreeMap::new()),
             4,
