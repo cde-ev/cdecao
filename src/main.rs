@@ -6,7 +6,7 @@ use log::{debug, info};
 fn main() {
     // Setup logging
     env_logger::init();
-    // TODO cli argument parsing (esp. for input file, output file, file format)
+    // TODO cli argument parsing (esp. for input file, output file, file format, course track)
 
     // Read input file
     debug!("Opening input file {}\n", "export_event.json");
