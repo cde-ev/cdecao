@@ -222,6 +222,7 @@ mod tests {
     use ndarray::{Array1, Array2};
 
     #[test]
+    #[rustfmt::skip]
     fn another_manual_matching_problem() {
         let t = true;
         let f = false;
@@ -254,10 +255,8 @@ mod tests {
             &[ f,  f,  f,  f,  t,  t,  t,  t,  f,  t,  f,  f,  f,  f,  f,  f,  f,  f,  f,  f]);
         let skip_y = ndarray::arr1(
             &[ f,  f,  f,  f,  f,  f,  f,  f,  f,  f,  f,  f,  t,  t,  t,  t,  f,  f,  f,  f]);
-        let dummy_x = ndarray::arr1(
-            &[f, f, f, f, f, f, f, f, f, f, t, t, t, t, t, t, t, t, t, t]);
-        let skip_x = ndarray::arr1(
-            &[f, f, f, t, f, f, f, f, f, f, t, t, t, f, f, f, f, f, f, f]);
+        let dummy_x = ndarray::arr1(&[f, f, f, f, f, f, f, f, f, f, t, t, t, t, t, t, t, t, t, t]);
+        let skip_x = ndarray::arr1(&[f, f, f, t, f, f, f, f, f, f, t, t, t, f, f, f, f, f, f, f]);
 
         let (matching, _score) =
             hungarian_algorithm(&adjacency_matrix, &dummy_x, &mandatory_y, &skip_x, &skip_y);
