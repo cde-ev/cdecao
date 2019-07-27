@@ -18,7 +18,7 @@ pub struct Participant {
     /// Participant's name. Mainly used for info/debug output
     name: String,
     /// Course choices of the participant as indexes into the list of courses
-    choices: Vec<usize>,
+    pub choices: Vec<usize>,
 }
 
 /// Representation of an event course's data
