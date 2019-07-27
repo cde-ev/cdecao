@@ -1,4 +1,5 @@
 pub mod cdedb;
+pub mod simple;
 
 use super::{Assignment, Course, Participant};
 use std::fmt::Write;

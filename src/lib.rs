@@ -4,11 +4,16 @@ mod hungarian;
 
 pub mod io;
 
+use serde::{Serialize, Deserialize};
+
 /// Representation of an event participant's data
+#[derive(Deserialize, Serialize)]
 pub struct Participant {
     /// id/index of the Participant in the list of participants
+    #[serde(skip)]
     index: usize,
     /// Participant's registration id in the CdE Datebank
+    #[serde(skip)]
     dbid: usize,
     /// Participant's name. Mainly used for info/debug output
     name: String,
@@ -17,10 +22,13 @@ pub struct Participant {
 }
 
 /// Representation of an event course's data
+#[derive(Deserialize, Serialize)]
 pub struct Course {
     /// id/index of the Course in the list of courses
+    #[serde(skip)]
     index: usize,
     /// Course's id in the CdE Datebank
+    #[serde(skip)]
     dbid: usize,
     /// Course's name. Mainly used for info/debug output
     name: String,
