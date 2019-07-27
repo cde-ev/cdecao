@@ -14,12 +14,14 @@ use std::sync::Arc;
 /// Main method of the module to solve a course assignement problem using the branch and bound method together with the
 /// hungarian method.
 ///
-/// It takes a list of Courses and a list of Participants to create an optimal assignment of courses to participants.
+/// It takes a list of Courses, a list of Participants and a list of available rooms sizes to create
+/// an optimal assignment of courses to participants.
 pub fn solve(
     courses: Arc<Vec<Course>>,
     participants: Arc<Vec<Participant>>,
+    rooms: Option<&Vec<usize>>,
 ) -> (Option<(Assignment, u32)>, bab::Statistics) {
-    let pre_computed_problem = Arc::new(precompute_problem(&*courses, &*participants));
+    let pre_computed_problem = Arc::new(precompute_problem(&*courses, &*participants, rooms));
 
     bab::solve(
         move |sub_problem| -> bab::NodeResult<BABNode, Assignment, Score> {
@@ -33,6 +35,7 @@ pub fn solve(
         BABNode {
             cancelled_courses: Vec::new(),
             enforced_courses: Vec::new(),
+            shrinked_courses: Vec::new(),
         },
         num_cpus::get() as u32,
     )
@@ -58,6 +61,8 @@ struct PreComputedProblem {
     course_map: ndarray::Array1<usize>,
     /// maps Course index to the first column index of its first course places
     inverse_course_map: Vec<usize>,
+    /// Ordered list of rooms' sizes (descending), filled with zero entries to length of course list
+    room_sizes: Option<Vec<usize>>,
 }
 
 /// Generate the general precomputed problem defintion (esp. the adjacency matrix) based on the Course and Participant
@@ -65,6 +70,7 @@ struct PreComputedProblem {
 fn precompute_problem(
     courses: &Vec<Course>,
     participants: &Vec<Participant>,
+    rooms: Option<&Vec<usize>>,
 ) -> PreComputedProblem {
     // Calculate adjacency matrix size to allocate 1D-Arrays
     let m = courses.iter().map(|c| c.num_max).fold(0, |acc, x| acc + x);
@@ -104,11 +110,21 @@ fn precompute_problem(
         }
     }
 
+    // Clone, fix and resize rooms Vec
+    let room_sizes = rooms.map(|r| {
+        let mut rooms = r.clone();
+        rooms.sort();
+        rooms.reverse();
+        rooms.resize(courses.len(), 0);
+        rooms
+    });
+
     PreComputedProblem {
         adjacency_matrix,
         dummy_x,
         course_map,
         inverse_course_map,
+        room_sizes: room_sizes,
     }
 }
 
@@ -119,14 +135,24 @@ struct BABNode {
     cancelled_courses: Vec<usize>,
     /// Indexes of the courses with enforced minimum participant number
     enforced_courses: Vec<usize>,
+    /// Index and new max_num of courses (excl. instructors) that have been restricted due to room
+    /// problems.
+    ///
+    /// A single course might be listed multiple times (to fix ordering of BABNodes), whereby in
+    /// this case the lowest num_max bound must be applied.
+    shrinked_courses: Vec<(usize, usize)>,
 }
 
 // As we want to do a pseudo depth-first search, BABNodes are ordered by their depth in the Branch and Bound tree for
 // the prioritization by the parallel workers.
 impl Ord for BABNode {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        (self.cancelled_courses.len() + self.enforced_courses.len())
-            .cmp(&(other.cancelled_courses.len() + other.enforced_courses.len()))
+        (self.cancelled_courses.len() + self.enforced_courses.len() + self.shrinked_courses.len())
+            .cmp(
+                &(other.cancelled_courses.len()
+                    + other.enforced_courses.len()
+                    + other.shrinked_courses.len()),
+            )
     }
 }
 
@@ -140,8 +166,10 @@ impl Eq for BABNode {}
 
 impl PartialEq for BABNode {
     fn eq(&self, other: &Self) -> bool {
-        (self.cancelled_courses.len() + self.enforced_courses.len())
-            == (other.cancelled_courses.len() + other.enforced_courses.len())
+        (self.cancelled_courses.len() + self.enforced_courses.len() + self.shrinked_courses.len())
+            == (other.cancelled_courses.len()
+                + other.enforced_courses.len()
+                + other.shrinked_courses.len())
     }
 }
 
@@ -166,8 +194,8 @@ fn run_bab_node(
     // We will modify the current_node later for creating a new subproblem. Until then, we want to use it readonly.
     let node = &current_node;
     debug!(
-        "Solving subproblem with cancelled courses {:?} and enforced courses {:?}",
-        node.cancelled_courses, node.enforced_courses
+        "Solving subproblem with cancelled courses {:?} and enforced courses {:?} and shrinked courses {:?}",
+        node.cancelled_courses, node.enforced_courses, node.shrinked_courses
     );
 
     // Generate skip_x from course instructors of non-cancelled courses
@@ -182,6 +210,15 @@ fn run_bab_node(
         }
     }
 
+    // Generate effective_num_max from cancelled courses and shrinked courses
+    let mut effective_num_max: Vec<usize> = courses.iter().map(|c| c.num_max).collect();
+    for c in node.cancelled_courses.iter() {
+        effective_num_max[*c] = 0;
+    }
+    for (c, s) in node.shrinked_courses.iter() {
+        effective_num_max[*c] = std::cmp::min(effective_num_max[*c], *s);
+    }
+
     // Check for general feasibility
     // (this is done after calculating the course instructors/skip_x, as we need their number here)
     if node
@@ -194,13 +231,7 @@ fn run_bab_node(
         debug!("Skipping this branch, since too much course places are enforced");
         return NoSolution;
     }
-    if (m - node
-        .cancelled_courses
-        .iter()
-        .map(|c| courses[*c].num_max)
-        .fold(0, |acc, x| acc + x))
-        < participants.len() - num_skip_x
-    {
+    if effective_num_max.iter().fold(0, |acc, x| acc + x) < participants.len() - num_skip_x {
         debug!("Skipping this branch, since not enough course places are left");
         return NoSolution;
     }
@@ -215,15 +246,16 @@ fn run_bab_node(
         }
     }
 
-    // Generate skip_y from cancelled courses
+    // Generate skip_y from effective_num_max
     let mut skip_y = ndarray::Array1::from_elem([m], false);
     let mut num_skip_y: usize = 0;
-    for c in node.cancelled_courses.iter() {
-        for j in 0..courses[*c].num_max {
-            let y = pre_computed_problem.inverse_course_map[*c] + j;
+    for (c, s) in effective_num_max.iter().enumerate() {
+        let delta = courses[c].num_max - s;
+        for j in 0..delta {
+            let y = pre_computed_problem.inverse_course_map[c] + j;
             skip_y[y] = true;
         }
-        num_skip_y += courses[*c].num_max;
+        num_skip_y += delta;
     }
 
     // Amend skip_x to skip x-dummies which are not needed (make matrix square-sized)
@@ -266,7 +298,29 @@ fn run_bab_node(
         }
     }
 
-    // Check feasibility of the solution for the Branch and Bound algorithm and, if not, get the most conflicting course
+    // If room size list is given, check feasibility of solution w.r.t room sizes
+    if let Some(ref room_sizes) = pre_computed_problem.room_sizes {
+        let (feasible, restrictions) = check_room_feasibility(courses, &assignment, room_sizes);
+        if !feasible {
+            let mut branches = Vec::<BABNode>::new();
+            if let Some(restrictions) = restrictions {
+                for (c, s) in restrictions {
+                    let mut new_node = current_node.clone();
+                    if courses[c].num_min + courses[c].instructors.len() > s {
+                        new_node.cancelled_courses.push(c);
+                    } else {
+                        new_node
+                            .shrinked_courses
+                            .push((c, s - courses[c].instructors.len()));
+                    }
+                    branches.push(new_node);
+                }
+            }
+            return Infeasible(branches, score);
+        }
+    }
+
+    // Check feasibility of the solution w.r.t course min size and participants, if not, get the most conflicting course
     let (feasible, participant_problem, branch_course) =
         check_feasibility(courses, participants, &assignment, &node, &skip_x);
     if feasible {
@@ -291,8 +345,70 @@ fn run_bab_node(
     }
 }
 
-/// Check if the given matching is a feasible solution in terms of the Branch and Bound algorithm. If not, find the
-/// most conflicting course, to apply a constraint to it in the following nodes.
+/// Check if the given matching is a feasible solution in terms of the Branch and Bound algorithm,
+/// w.r.t. course rooms' sizes. If it is not feasible, a vector of possible max_size constraints
+/// is returned.
+///
+/// # Arguments
+///
+/// * `courses` - List of courses
+/// * `assignment` - The assignment to be checked
+/// * `rooms` - An ordered list of course rooms in **descending** order
+///
+/// # Result
+///
+/// Returns a pair of `(is_feasible, contraints)`.
+///
+/// `constraints` is a Vec of possible size constraints to fix feasibility. Each entry has to be
+/// interpreted as `(course_index, num_max)`, where `num_max` **includes** course instructors, i.e.
+/// course instructors have to be subtracted before using the value for `BABNode.shrinked_courses`.
+/// The vector is ordered in ascending order by course sizes in the current assignment. This order
+/// should be kept to solve more promising subproblems (with size restrictions on smaller courses)
+/// first.
+fn check_room_feasibility(
+    courses: &Vec<Course>,
+    assignment: &Assignment,
+    rooms: &Vec<usize>,
+) -> (bool, Option<Vec<(usize, usize)>>) {
+    // Calculate course sizes (incl. instructors)
+    let mut course_size: Vec<(&Course, usize)> = courses.iter().map(|c| (c, 0)).collect();
+    for c in assignment.iter() {
+        course_size[*c].1 += 1;
+    }
+    course_size.sort_by_key(|(_c, s)| *s);
+
+    // Find largest room type with non-fitting courses
+    let conflicting_room = course_size
+        .iter()
+        .rev()
+        .zip(rooms)
+        .skip_while(|((_course, size), room_size)| size <= room_size)
+        .next() // Iterator -> Option
+        .map(|((_c, _s), r)| r);
+
+    if let None = conflicting_room {
+        // No conflict found -> assignment is feasible w.r.t. course rooms
+        return (true, None);
+    }
+
+    // Build course constraint alternatives by finding all courses larger than the conflicting room,
+    // beginning with the smallest
+    let conflicting_room = conflicting_room.unwrap();
+    return (
+        false,
+        Some(
+            course_size
+                .iter()
+                .filter(|(_c, s)| s > conflicting_room)
+                .map(|(c, _s)| (c.index, *conflicting_room))
+                .collect(),
+        ),
+    );
+}
+
+/// Check if the given matching is a feasible solution in terms of the Branch and Bound algorithm,
+/// w.r.t. to minimum sizes of courses (and wrongly assinged participants). If not, find the most
+/// conflicting course, to apply a constraint to it in the following nodes.
 ///
 /// If any participant is in an unwanted course (wrong assignment), the solution is infeasible. We try to find an
 /// other course with an instructor, who chose this course, to try to cancel that other course. This type of

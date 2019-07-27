@@ -78,7 +78,7 @@ fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
 fn test_precompute_problem() {
     let (participants, courses) = create_simple_problem();
 
-    let problem = super::precompute_problem(&courses, &participants);
+    let problem = super::precompute_problem(&courses, &participants, Some(&vec![8, 10]));
 
     // check vector sizes
     let m = courses.iter().fold(0, |acc, c| acc + c.num_max);
@@ -146,6 +146,13 @@ fn test_precompute_problem() {
     for x in participants.len()..n {
         assert!(problem.dummy_x[x]);
     }
+
+    // Check room_sizes
+    assert_eq!(problem.room_sizes, Some(vec![10, 8, 0]));
+
+    // A second try, without rooms given
+    let problem = super::precompute_problem(&courses, &participants, None);
+    assert_eq!(problem.room_sizes, None);
 }
 
 #[test]
@@ -153,33 +160,53 @@ fn test_babnode_sorting() {
     let node0 = BABNode {
         cancelled_courses: vec![],
         enforced_courses: vec![],
+        shrinked_courses: vec![],
     };
     let node1 = BABNode {
         cancelled_courses: vec![0],
         enforced_courses: vec![],
+        shrinked_courses: vec![],
     };
     assert!(node0 < node1);
     let node2 = BABNode {
         cancelled_courses: vec![],
         enforced_courses: vec![2],
+        shrinked_courses: vec![],
     };
     assert!(node0 < node2);
     let node3 = BABNode {
         cancelled_courses: vec![1, 2],
         enforced_courses: vec![],
+        shrinked_courses: vec![],
     };
     assert!(node1 < node3);
     assert!(node2 < node3);
     let node4 = BABNode {
         cancelled_courses: vec![],
         enforced_courses: vec![0, 1, 2],
+        shrinked_courses: vec![],
     };
     assert!(node2 < node4);
     let node5 = BABNode {
         cancelled_courses: vec![0, 1],
         enforced_courses: vec![0, 1],
+        shrinked_courses: vec![],
     };
     assert!(node4 < node5);
+    let node6 = BABNode {
+        cancelled_courses: vec![],
+        enforced_courses: vec![0, 1, 2],
+        shrinked_courses: vec![(0, 10), (1, 20)],
+    };
+    assert!(node4 < node6);
+    assert!(node5 < node6);
+    let node7 = BABNode {
+        cancelled_courses: vec![0, 1],
+        enforced_courses: vec![0],
+        shrinked_courses: vec![(0, 10), (1, 20), (0, 8)],
+    };
+    assert!(node5 < node7);
+    assert!(node6 < node7);
 }
 
 #[test]
@@ -193,6 +220,7 @@ fn test_check_feasibility() {
     let node = BABNode {
         cancelled_courses: vec![2],
         enforced_courses: vec![],
+        shrinked_courses: vec![],
     };
     assert_eq!(
         super::check_feasibility(
@@ -211,6 +239,7 @@ fn test_check_feasibility() {
     let node = BABNode {
         cancelled_courses: vec![],
         enforced_courses: vec![],
+        shrinked_courses: vec![],
     };
     assert_eq!(
         super::check_feasibility(
@@ -230,6 +259,7 @@ fn test_check_feasibility() {
     let node = BABNode {
         cancelled_courses: vec![],
         enforced_courses: vec![0],
+        shrinked_courses: vec![],
     };
     assert_eq!(
         super::check_feasibility(
@@ -262,7 +292,7 @@ fn check_assignment(
     for (c, size) in course_size.iter().enumerate() {
         let course = &courses[c];
         assert!(
-            *size <= courses[c].num_max + course.instructors.len(),
+            *size <= course.num_max + course.instructors.len(),
             "Maximum size violation for course {}: {} places, {} participants",
             c,
             course.num_max,
@@ -293,6 +323,19 @@ fn check_assignment(
                 course.num_min,
                 size - course.instructors.len()
             );
+        }
+    }
+    if let Some(n) = node {
+        // Check shrinked courses' sizes
+        for (c, s) in n.shrinked_courses.iter() {
+            let course = &courses[*c];
+            assert!(
+                course_size[*c] <= *s + course.instructors.len(),
+                "Dynamic size constraint for course {} not satisfied: {} > {}",
+                *c,
+                course_size[*c] - course.instructors.len(),
+                *s
+            )
         }
     }
 
@@ -331,12 +374,13 @@ fn test_bab_node_simple() {
     // so if it fails, please check their test results first.
 
     let (participants, courses) = create_simple_problem();
-    let problem = super::precompute_problem(&courses, &participants);
+    let problem = super::precompute_problem(&courses, &participants, None);
 
     // Let's get a feasible solution
     let node = BABNode {
         cancelled_courses: vec![1],
         enforced_courses: vec![],
+        shrinked_courses: vec![],
     };
     let result = super::run_bab_node(&courses, &participants, &problem, node.clone());
     match result {
@@ -352,6 +396,7 @@ fn test_bab_node_simple() {
     let node = BABNode {
         cancelled_courses: vec![2],
         enforced_courses: vec![1],
+        shrinked_courses: vec![],
     };
     let result = super::run_bab_node(&courses, &participants, &problem, node.clone());
     match result {
@@ -367,6 +412,7 @@ fn test_bab_node_simple() {
     let node = BABNode {
         cancelled_courses: vec![1, 2],
         enforced_courses: vec![],
+        shrinked_courses: vec![],
     };
     let result = super::run_bab_node(&courses, &participants, &problem, node);
     match result {
@@ -378,6 +424,7 @@ fn test_bab_node_simple() {
     let node = BABNode {
         cancelled_courses: vec![],
         enforced_courses: vec![],
+        shrinked_courses: vec![],
     };
     let result = super::run_bab_node(&courses, &participants, &problem, node);
     match result {
@@ -426,10 +473,11 @@ fn test_bab_node_large() {
         }
     }
 
-    let problem = super::precompute_problem(&courses, &participants);
+    let problem = super::precompute_problem(&courses, &participants, None);
     let node = BABNode {
         cancelled_courses: vec![],
         enforced_courses: vec![],
+        shrinked_courses: vec![],
     };
 
     let result = super::run_bab_node(&courses, &participants, &problem, node.clone());
@@ -444,6 +492,8 @@ fn test_bab_node_large() {
     }
 }
 
+// TODO test bab_node with shrinked courses
+
 #[test]
 fn test_caobab_simple() {
     // This test depends on `precompute_problem()`, `check_feasibility()`, `run_bab_node()`,
@@ -451,7 +501,7 @@ fn test_caobab_simple() {
     let (participants, courses) = create_simple_problem();
     let courses = Arc::new(courses);
     let participants = Arc::new(participants);
-    let (result, _statistics) = super::solve(courses.clone(), participants.clone());
+    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), None);
 
     match result {
         Some((assignment, score)) => {
@@ -469,3 +519,5 @@ fn test_caobab_simple() {
 }
 
 // TODO test solve with large problem
+
+// TODO test solve with room list

@@ -32,12 +32,17 @@ pub struct Course {
     dbid: usize,
     /// Course's name. Mainly used for info/debug output
     name: String,
-    /// Maximum number of attendees
+    /// Maximum number of attendees (excl. course instructors)
     num_max: usize,
-    /// Maximum number of attendees
+    /// Maximum number of attendees (excl. course instructors)
     num_min: usize,
     /// Ids of course instructor's indexes in the
     instructors: Vec<usize>,
+    // TODO implement room_factors
+    // /// Scaling factor for room size check: The room of this course must have
+    // /// >= room_factor * num_participants (incl. instructors) places. E.g. for dancing courses
+    // /// this might be somewhere around 2.5
+    // room_factor: f32
 }
 
 /// A course assignment as result of the overall algorithm. It maps the participant index to the course index, such that

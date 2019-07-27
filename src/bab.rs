@@ -112,8 +112,16 @@ pub enum NodeResult<SubProblem, Solution, Score> {
 ///
 /// This function takes a callback function, which is executed for each single node in the branch and bound tree and
 /// returns either a feasible solution to be considered for the result or a `Vec` of new subproblems to try (see
-/// `NodeResult` type). When all branches of the branch and bound tree are evaluated (or bound), the best result is
+/// `NodeResult` type). The type of the subproblems must implement `Ord` where p1 > p2 means, p1 is
+/// in a deeper layer of the branch and bound tree. This is property is used to perform a
+/// pseudo-depth-first search in the tree. Within one layer, nodes are ordered by the parent node's
+/// solution score and their order of appearing. I.e. subproblems with higher probability for good
+/// scores should be put first in the NodeResult::Infeasible's vector.
+///
+/// When all branches of the branch and bound tree are evaluated (or bound), the best result is
 /// returned. It may be possible, that no result is found at all.
+///
+/// # Result
 ///
 /// Returns the best solution and its score (if one has been found) and some statistics about the solving process.
 pub fn solve<

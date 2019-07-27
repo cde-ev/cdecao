@@ -14,6 +14,18 @@ fn main() {
         );
     }
 
+    // Parse rooms list
+    let rooms = args.value_of("rooms").map(|rooms_raw| {
+        rooms_raw
+            .split(",")
+            .map(|r| r.parse::<usize>())
+            .collect::<Result<Vec<usize>, std::num::ParseIntError>>()
+            .unwrap_or_else(|e| {
+                error!("Could not parse : {}", e);
+                std::process::exit(exitcode::DATAERR)
+            })
+    });
+
     // Read input file
     let inpath = args.value_of("INPUT").unwrap();
     debug!("Opening input file {} ...", inpath);
@@ -39,7 +51,7 @@ fn main() {
     // Execute assignment algorithm
     let courses = Arc::new(courses);
     let participants = Arc::new(participants);
-    let (result, statistics) = caobab::solve(courses.clone(), participants.clone());
+    let (result, statistics) = caobab::solve(courses.clone(), participants.clone(), rooms.as_ref());
     info!("Finished solving course assignment. {}", statistics);
 
     if let Some((assignment, _)) = result {
@@ -83,6 +95,14 @@ fn parse_cli_args() -> clap::ArgMatches<'static> {
                 .short("c")
                 .long("cde")
                 .help("Use CdE Datenbank format for input and output files"),
+        )
+        .arg(
+            clap::Arg::with_name("rooms")
+                .short("r")
+                .long("rooms")
+                .help("Comma-separated list of available course room sizes, e.g. 15,10,10,8")
+                .value_name("ROOMS")
+                .takes_value(true),
         )
         .arg(
             clap::Arg::with_name("print").short("p").long("print").help(
