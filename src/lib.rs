@@ -4,7 +4,7 @@ mod hungarian;
 
 pub mod io;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Representation of an event participant's data
 #[derive(Deserialize, Serialize)]
