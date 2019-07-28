@@ -22,7 +22,7 @@ fn main() {
             .map(|r| r.parse::<usize>())
             .collect::<Result<Vec<usize>, std::num::ParseIntError>>()
             .unwrap_or_else(|e| {
-                error!("Could not parse : {}", e);
+                error!("Could not parse room sizes: {}", e);
                 std::process::exit(exitcode::DATAERR)
             })
     });
