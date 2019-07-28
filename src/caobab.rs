@@ -11,6 +11,8 @@ use crate::{Assignment, Course, Participant};
 use log::debug;
 use std::sync::Arc;
 
+use itertools::Itertools;
+
 /// Main method of the module to solve a course assignement problem using the branch and bound method together with the
 /// hungarian method.
 ///
@@ -300,18 +302,21 @@ fn run_bab_node(
 
     // If room size list is given, check feasibility of solution w.r.t room sizes
     if let Some(ref room_sizes) = pre_computed_problem.room_sizes {
-        let (feasible, restrictions) = check_room_feasibility(courses, &assignment, room_sizes);
+        let (feasible, constraint_sets) = check_room_feasibility(courses, &assignment, room_sizes);
+        // If not feasible w.r.t. room sizes, build new subproblems from proposed restriction sets
         if !feasible {
             let mut branches = Vec::<BABNode>::new();
-            if let Some(restrictions) = restrictions {
-                for (c, s) in restrictions {
+            if let Some(constraint_sets) = constraint_sets {
+                for constraints in constraint_sets {
                     let mut new_node = current_node.clone();
-                    if courses[c].num_min + courses[c].instructors.len() > s {
-                        new_node.cancelled_courses.push(c);
-                    } else {
-                        new_node
-                            .shrinked_courses
-                            .push((c, s - courses[c].instructors.len()));
+                    for (c, s) in constraints {
+                        if courses[c].num_min + courses[c].instructors.len() > s {
+                            new_node.cancelled_courses.push(c);
+                        } else {
+                            new_node
+                                .shrinked_courses
+                                .push((c, s - courses[c].instructors.len()));
+                        }
                     }
                     branches.push(new_node);
                 }
@@ -359,7 +364,8 @@ fn run_bab_node(
 ///
 /// Returns a pair of `(is_feasible, contraints)`.
 ///
-/// `constraints` is a Vec of possible size constraints to fix feasibility. Each entry has to be
+/// `constraints` is a Vec of possible size constraint sets to fix feasibility. Each set is a Vec
+/// of constraints to be applied together (in one subproblem). Each constraint is to be
 /// interpreted as `(course_index, num_max)`, where `num_max` **includes** course instructors, i.e.
 /// course instructors have to be subtracted before using the value for `BABNode.shrinked_courses`.
 /// The vector is ordered in ascending order by course sizes in the current assignment. This order
@@ -369,7 +375,7 @@ fn check_room_feasibility(
     courses: &Vec<Course>,
     assignment: &Assignment,
     rooms: &Vec<usize>,
-) -> (bool, Option<Vec<(usize, usize)>>) {
+) -> (bool, Option<Vec<Vec<(usize, usize)>>>) {
     // Calculate course sizes (incl. instructors)
     let mut course_size: Vec<(&Course, usize)> = courses.iter().map(|c| (c, 0)).collect();
     for c in assignment.iter() {
@@ -377,30 +383,48 @@ fn check_room_feasibility(
     }
     course_size.sort_by_key(|(_c, s)| *s);
 
-    // Find largest room type with non-fitting courses
-    let conflicting_room = course_size
+    // Find largest room type with non-fitting courses and number n of courses needing to be
+    // shrinked to that room size
+    let mut conflicting_size: Option<usize> = None;
+    let mut n = 1;
+    for ((_course, size), room_size) in course_size
         .iter()
         .rev()
-        .zip(rooms)
-        .skip_while(|((_course, size), room_size)| size <= room_size)
-        .next() // Iterator -> Option
-        .map(|((_c, _s), r)| r);
+        .zip(rooms) {
+        match conflicting_size {
+            // Find largest room with non-fitting course
+            None => {
+                if size > room_size {
+                    conflicting_size = Some(*room_size);
+                }
+            },
+            // Count other same-sized rooms with non-fitting courses
+            Some(c_size) => {
+                if *room_size == c_size && size > room_size {
+                    n += 1;
+                } else {
+                    break;
+                }
+            }
+        }
+    }
 
-    if let None = conflicting_room {
+    if let None = conflicting_size {
         // No conflict found -> assignment is feasible w.r.t. course rooms
         return (true, None);
     }
 
-    // Build course constraint alternatives by finding all courses larger than the conflicting room,
-    // beginning with the smallest
-    let conflicting_room = conflicting_room.unwrap();
+    // Build course constraint alternatives by finding all combinations of n courses larger than
+    // the conflicting room, beginning with the smallest
+    let conflicting_size = conflicting_size.unwrap();
     return (
         false,
         Some(
             course_size
                 .iter()
-                .filter(|(_c, s)| s > conflicting_room)
-                .map(|(c, _s)| (c.index, *conflicting_room))
+                .filter(|(_c, s)| s > &conflicting_size)
+                .map(|(c, _s)| (c.index, conflicting_size))
+                .combinations(n)
                 .collect(),
         ),
     );
