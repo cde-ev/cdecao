@@ -6,8 +6,9 @@ use log::{debug, error, info, warn};
 
 fn main() {
     // Setup logging & parse command line arguments
-    env_logger::init();
+    env_logger::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let args = parse_cli_args();
+
     if !args.is_present("OUTPUT") && !args.is_present("print") {
         warn!(
             "No OUTPUT file and no --print option given. Assignment will not be exported anywhere."
