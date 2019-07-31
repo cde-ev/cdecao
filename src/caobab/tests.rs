@@ -161,23 +161,27 @@ fn test_babnode_sorting() {
         cancelled_courses: vec![],
         enforced_courses: vec![],
         shrinked_courses: vec![],
+        no_more_shrinking: vec![],
     };
     let node1 = BABNode {
         cancelled_courses: vec![0],
         enforced_courses: vec![],
         shrinked_courses: vec![],
+        no_more_shrinking: vec![],
     };
     assert!(node0 < node1);
     let node2 = BABNode {
         cancelled_courses: vec![],
         enforced_courses: vec![2],
         shrinked_courses: vec![],
+        no_more_shrinking: vec![],
     };
     assert!(node0 < node2);
     let node3 = BABNode {
         cancelled_courses: vec![1, 2],
         enforced_courses: vec![],
         shrinked_courses: vec![],
+        no_more_shrinking: vec![],
     };
     assert!(node1 < node3);
     assert!(node2 < node3);
@@ -185,18 +189,21 @@ fn test_babnode_sorting() {
         cancelled_courses: vec![],
         enforced_courses: vec![0, 1, 2],
         shrinked_courses: vec![],
+        no_more_shrinking: vec![],
     };
     assert!(node2 < node4);
     let node5 = BABNode {
         cancelled_courses: vec![0, 1],
         enforced_courses: vec![0, 1],
         shrinked_courses: vec![],
+        no_more_shrinking: vec![],
     };
     assert!(node4 < node5);
     let node6 = BABNode {
         cancelled_courses: vec![],
         enforced_courses: vec![0, 1, 2],
         shrinked_courses: vec![(0, 10), (1, 20)],
+        no_more_shrinking: vec![],
     };
     assert!(node4 < node6);
     assert!(node5 < node6);
@@ -204,6 +211,7 @@ fn test_babnode_sorting() {
         cancelled_courses: vec![0, 1],
         enforced_courses: vec![0],
         shrinked_courses: vec![(0, 10), (1, 20), (0, 8)],
+        no_more_shrinking: vec![],
     };
     assert!(node5 < node7);
     assert!(node6 < node7);
@@ -221,6 +229,7 @@ fn test_check_feasibility() {
         cancelled_courses: vec![2],
         enforced_courses: vec![],
         shrinked_courses: vec![],
+        no_more_shrinking: vec![],
     };
     assert_eq!(
         super::check_feasibility(
@@ -240,6 +249,7 @@ fn test_check_feasibility() {
         cancelled_courses: vec![],
         enforced_courses: vec![],
         shrinked_courses: vec![],
+        no_more_shrinking: vec![],
     };
     assert_eq!(
         super::check_feasibility(
@@ -260,6 +270,7 @@ fn test_check_feasibility() {
         cancelled_courses: vec![],
         enforced_courses: vec![0],
         shrinked_courses: vec![],
+        no_more_shrinking: vec![],
     };
     assert_eq!(
         super::check_feasibility(
@@ -381,6 +392,7 @@ fn test_bab_node_simple() {
         cancelled_courses: vec![1],
         enforced_courses: vec![],
         shrinked_courses: vec![],
+        no_more_shrinking: vec![],
     };
     let result = super::run_bab_node(&courses, &participants, &problem, node.clone());
     match result {
@@ -397,6 +409,7 @@ fn test_bab_node_simple() {
         cancelled_courses: vec![2],
         enforced_courses: vec![1],
         shrinked_courses: vec![],
+        no_more_shrinking: vec![],
     };
     let result = super::run_bab_node(&courses, &participants, &problem, node.clone());
     match result {
@@ -413,6 +426,7 @@ fn test_bab_node_simple() {
         cancelled_courses: vec![1, 2],
         enforced_courses: vec![],
         shrinked_courses: vec![],
+        no_more_shrinking: vec![],
     };
     let result = super::run_bab_node(&courses, &participants, &problem, node);
     match result {
@@ -425,6 +439,7 @@ fn test_bab_node_simple() {
         cancelled_courses: vec![],
         enforced_courses: vec![],
         shrinked_courses: vec![],
+        no_more_shrinking: vec![],
     };
     let result = super::run_bab_node(&courses, &participants, &problem, node);
     match result {
@@ -478,6 +493,7 @@ fn test_bab_node_large() {
         cancelled_courses: vec![],
         enforced_courses: vec![],
         shrinked_courses: vec![],
+        no_more_shrinking: vec![],
     };
 
     let result = super::run_bab_node(&courses, &participants, &problem, node.clone());
