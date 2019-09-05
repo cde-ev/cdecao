@@ -189,7 +189,7 @@ where
 /// Worker thread entry point for the parallel branch and bound solving
 fn worker<SubProblem: Ord + Send, Solution: Send, Score: Ord + Copy>(
     bab: Arc<BranchAndBound<SubProblem, Solution, Score>>,
-    node_solver: Arc<Fn(SubProblem) -> NodeResult<SubProblem, Solution, Score>>,
+    node_solver: Arc<dyn Fn(SubProblem) -> NodeResult<SubProblem, Solution, Score>>,
 ) {
     let mut shared_state = bab.shared_state.lock().unwrap();
     loop {
