@@ -25,15 +25,15 @@ cdecao data.json assignment.json
 ```
 
 By default the application uses a very simple json format for input of course and participant lists and output of the
-calculated course assignment. To use the CdE Datenbank's export format instead, give the `--cde` option. Since there is
-currently no import into the CdE Datenbank, we don't have an implementation for the corresponding output format either.
-So you should use `--print`:
+calculated course assignment. To use the CdE Datenbank's partial export format instead, give the `--cde` option.
+Currently we don't have support for the CdEDB's new partial import format. So you should use `--print`:
 ```sh
 cdecao --cde --print event_export_pa19.json
 ```
 
 The implemented course assignment algorithm includes an (experimental) extension for considering constraints on
-available course rooms. To use this functionality, simple give a list of available course room sizes:
+available course rooms. To use this functionality, simple give a list of available course room sizes. Attention: This
+problem might get computationally *really* complex and may not be solved within an reasonable time:
 ```sh
 cdecao --rooms "20,20,20,10,10,10,10,10,10,8,8" --print data.json
 ```

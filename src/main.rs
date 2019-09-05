@@ -35,7 +35,7 @@ fn main() {
         std::process::exit(exitcode::NOINPUT)
     });
     let (participants, courses) = if args.is_present("cde") {
-        cdecao::io::cdedb::read(file)
+        cdecao::io::cdedb::read(file, None)  // TODO get requested course track from cli
     } else {
         cdecao::io::simple::read(file)
     }
