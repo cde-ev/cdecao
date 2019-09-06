@@ -1,10 +1,19 @@
 //! IO functionality for use of this program with the CdE Datenbank export and import file formats.
 
-use crate::{Course, Participant};
+use crate::{Course, Participant, Assignment};
 use std::collections::HashMap;
+
+use serde_json::json;
+use chrono::{Utc, SecondsFormat};
 
 const MINIMUM_EXPORT_VERSION: u64 = 3;
 const MAXIMUM_EXPORT_VERSION: u64 = 4;
+
+
+pub struct ImportAmbienceData {
+    event_id: u64,
+    track_id: u64,
+}
 
 /// Read course and participant data from an JSON event export of the CdE Datenbank
 ///
@@ -21,7 +30,7 @@ const MAXIMUM_EXPORT_VERSION: u64 = 4;
 pub fn read<R: std::io::Read>(
     reader: R,
     track: Option<u64>,
-) -> Result<(Vec<Participant>, Vec<Course>), String> {
+) -> Result<(Vec<Participant>, Vec<Course>, ImportAmbienceData), String> {
     let data: serde_json::Value = serde_json::from_reader(reader).map_err(|err| err.to_string())?;
 
     // Check export type and version
@@ -198,8 +207,66 @@ pub fn read<R: std::io::Read>(
         };
     }
 
-    Ok((registrations, courses))
+    Ok((registrations,
+        courses,
+        ImportAmbienceData{
+            event_id: data["id"].as_u64().ok_or("No event 'id' found in data")?,
+            track_id }))
 }
+
+
+/// Write the calculated course assignment as a CdE Datenbank partial import JSON string to a Writer
+/// (e.g. an output file).
+pub fn write<W: std::io::Write>(
+    writer: W,
+    assignment: &Assignment,
+    participants: &Vec<Participant>,
+    courses: &Vec<Course>,
+    ambience_data: ImportAmbienceData
+) -> Result<(), String> {
+    // Calculate course sizes
+    let mut course_size = vec![0usize; courses.len()];
+    for (_p, c) in assignment.iter().enumerate() {
+        course_size[*c] += 1;
+    }
+
+    let registrations_json = assignment.iter()
+        .enumerate()
+        .map(|(pid, cid)| {
+            (format!("{}", participants[pid].dbid),
+             json!({
+                 "tracks": {
+                     format!("{}", ambience_data.track_id): {
+                         "course_id": courses[*cid].dbid
+                     }
+                 }}))
+        })
+        .collect::<serde_json::Map<String, serde_json::Value>>();
+
+    let courses_json = course_size.iter()
+        .enumerate()
+        .map(|(cid, size)| {
+            (format!("{}", courses[cid].dbid),
+             json!({
+                 "segments": {
+                     format!("{}", ambience_data.track_id): *size > 0
+                 }}))
+        })
+        .collect::<serde_json::Map<String, serde_json::Value>>();
+
+    let data = json!({
+        "CDEDB_EXPORT_EVENT_VERSION": 4,
+        "kind": "partial",
+        "id": ambience_data.event_id,
+        "timestamp": Utc::now().to_rfc3339_opts(SecondsFormat::Millis, false),
+        "courses": courses_json,
+        "registrations": registrations_json
+    });
+    serde_json::to_writer(writer, &data).map_err(|e| format!("{}", e))?;
+
+    Ok(())
+}
+
 
 /// Helper function to find the specified course track or the single course track, if the event has
 /// only one.

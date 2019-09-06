@@ -34,10 +34,12 @@ fn main() {
         error!("Could not open input file {}: {}", inpath, e);
         std::process::exit(exitcode::NOINPUT)
     });
-    let (participants, courses) = if args.is_present("cde") {
-        cdecao::io::cdedb::read(file, None)  // TODO get requested course track from cli
+    let (participants, courses, import_ambience) = if args.is_present("cde") {
+        cdecao::io::cdedb::read(file, None)
+            .map(|(p, c, a)| (p, c, Some(a)))  // TODO get requested course track from cli
     } else {
         cdecao::io::simple::read(file)
+            .map(|(p, c)| (p, c, None))
     }
     .unwrap_or_else(|e| {
         error!("Could not read input file: {}", e);
@@ -62,8 +64,7 @@ fn main() {
                 Err(e) => error!("Could not open output file {}: {}.", outpath, e),
                 Ok(file) => {
                     let res = if args.is_present("cde") {
-                        // TODO
-                        Err("Not implemented".to_owned())
+                        cdecao::io::cdedb::write(file, &assignment, &*participants, &*courses, import_ambience.unwrap())
                     } else {
                         cdecao::io::simple::write(file, &assignment, &*participants, &*courses)
                     };
