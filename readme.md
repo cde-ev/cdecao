@@ -24,21 +24,21 @@ or
 cdecao data.json assignment.json
 ```
 
-By default the application uses a very simple json format for input of course and participant lists and output of the
-calculated course assignment. To use the CdE Datenbank's partial export/import format instead, give the `--cde` option:
+By default, the application uses a very simple JSON format for input of course and participant lists and output of the
+calculated course assignment. To use the **CdE Datenbank's partial export/import** format instead, add the `--cde` option:
 ```sh
 cdecao --cde pa19_partial_event_export.json
 ```
-In this case, the resulting output file can be imported in to the CdE Datenbank using the "Partial Import" feature.
+In this case, the resulting output file can be imported into the CdE Datenbank using the "Partial Import" feature.
 
-If using the --cde data format, you can optionally select to ignore already cancelled courses (instead of considering
-them for assignment and probably un-cancelling them) and/or to ignore already assigned participants (instead of
+If using the --cde data format, you can optionally select to **ignore already cancelled courses** (instead of considering
+them for assignment and probably un-cancelling them) and/or to **ignore already assigned participants** (instead of
 re-assigning them). To do so, use `--ignore-cancelled` resp. `--ignore-assigned`. Attention: Ignoring assigned
 participants prevents their assigned courses from being cancelled (unless they are already cancelled and
-`--ignore-cancelled` is set). This might impair the solution's quality or even make the problem unsolvable.
+`--ignore-cancelled` is given). *This might impair the solution's quality or even make the problem unsolvable.*
 
 The implemented course assignment algorithm includes an (experimental) extension for considering constraints on
-available course rooms. To use this functionality, simple give a list of available course room sizes (incl. course
+**available course rooms**. To use this functionality, simple give a list of available course room sizes (incl. course
 instructors):
 ```sh
 cdecao --rooms "20,20,20,10,10,10,10,10,10,8,8" --print data.json
@@ -132,7 +132,7 @@ cargo build --release
 to fetch all the dependencies and build a performance-optimized binary of the application. You can also run the program
 directly via cargo:
 ```sh
-cargo run --release -- -c export_event.json
+cargo run --release -- --cde pa19_partial_export_event.json
 ```
 
 
@@ -151,7 +151,8 @@ The implementation consists of several parts, that are provided as separate Rust
 
 ### Debugging and Testing
 
-The overall application code is covered with tests quite well. To run them, execute
+Wide parts of the application code are covered with unit tests (`io` and room constraints are not covered yet). To run
+them, execute
 ```sh
 cargo test
 ```
