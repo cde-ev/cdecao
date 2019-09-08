@@ -38,6 +38,11 @@ pub struct ImportAmbienceData {
 /// * reader: The Reader (e.g. open file) to read the json data from
 /// * track: The CdEDB id of the event's course track, if the user specified one on the command
 ///   line. If None and the event has only one course track, it is selected automatically.
+/// * ignore_inactive_courses: If true, courses with an inactive segment in the relevant track are
+///   not added to the results.
+/// * ignore_assigned: If true, participants who are assigned to a valid course are not added to the
+///   results. If `ignore_inactive_courses` is true, participants assigned to a cancelled course are
+///   not ignored.
 ///
 /// # Errors
 ///
@@ -52,6 +57,8 @@ pub struct ImportAmbienceData {
 pub fn read<R: std::io::Read>(
     reader: R,
     track: Option<u64>,
+    ignore_inactive_courses: bool,
+    ignore_assigned: bool,
 ) -> Result<(Vec<Participant>, Vec<Course>, ImportAmbienceData), String> {
     let data: serde_json::Value = serde_json::from_reader(reader).map_err(|err| err.to_string())?;
 
@@ -93,8 +100,11 @@ pub fn read<R: std::io::Read>(
             course_id
         ))?;
         // Skip courses without segment in the relevant track
-        // TODO allow to ignore already cancelled courses
         if !course_segments_data.contains_key(&format!("{}", track_id)) {
+            continue;
+        }
+        // Skip already cancelled courses (if wanted)
+        if ignore_inactive_courses && !(course_segments_data[&format!("{}", track_id)].as_bool().ok_or(format!("Segment of course {} is not a boolean.", course_id))?) {
             continue;
         }
 
@@ -118,6 +128,9 @@ pub fn read<R: std::io::Read>(
             fixed_course: false,
         });
     }
+    // Store, how many participants are already set for each course (only relevant if
+    //   ignore_assigned == true)
+    let mut invisible_course_attendees = vec![0; courses.len()];
     let mut courses_by_id: HashMap<u64, &mut crate::Course> =
         courses.iter_mut().map(|r| (r.dbid as u64, r)).collect();
 
@@ -164,7 +177,7 @@ pub fn read<R: std::io::Read>(
             ))?
         );
 
-        // Parse registration track attributes: course chcoices
+        // Get registration track data
         let rt_data = reg_data["tracks"]
             .as_object()
             .ok_or(format!("No 'tracks' found in registration {}", reg_id))?
@@ -174,6 +187,20 @@ pub fn read<R: std::io::Read>(
                 "Registration track data not present for registration {}",
                 reg_id
             ))?;
+
+        // Skip already assigned participants (if wanted)
+        if ignore_assigned {
+            // Check if course_id is an integer and get this integer
+            if let Some(course_id) = rt_data["course_id"].as_u64() {
+                // Add participant to the invisible_course_attendees of this course
+                if let Some(course) = courses_by_id.get(&course_id) {
+                    invisible_course_attendees[course.index] += 1;
+                }
+                continue;
+            }
+        }
+
+        // Parse course chcoices
         let choices_data = rt_data["choices"].as_array().ok_or(format!(
             "No 'choices' found in registration {}'s track data",
             reg_id
@@ -216,19 +243,23 @@ pub fn read<R: std::io::Read>(
         i += 1;
     }
 
-    // Subtract course instructors from course participant bounds
+    // Subtract course instructors and invisible_course_attendees from course participant bounds
     // (course participant bounds in the CdEDB include instructors)
+    // Prevent courses with invisible_course_attendees from being cancelled and add
+    // invisible_course_attendees to room_offset
     for mut course in courses.iter_mut() {
-        course.num_min = if course.instructors.len() > course.num_min {
-            0
-        } else {
-            course.num_min - course.instructors.len()
-        };
-        course.num_max = if course.instructors.len() > course.num_max {
-            0
-        } else {
-            course.num_max - course.instructors.len()
-        };
+        course.num_min = if course.instructors.len() + invisible_course_attendees[course.index] > course.num_min {
+                0
+            } else {
+                course.num_min - course.instructors.len() - invisible_course_attendees[course.index]
+            };
+        course.num_max = if course.instructors.len() + invisible_course_attendees[course.index] > course.num_max {
+                0
+            } else {
+                course.num_max - course.instructors.len() - invisible_course_attendees[course.index]
+            };
+        course.fixed_course = invisible_course_attendees[course.index] != 0;
+        course.room_offset += invisible_course_attendees[course.index];
     }
 
     Ok((
@@ -347,7 +378,7 @@ fn find_track(
                 let tracks_data = part["tracks"]
                     .as_object()
                     .ok_or("Missing 'tracks' in event part.")?;
-                for (track_id, track) in tracks_data {
+                for (track_id, _track) in tracks_data {
                     if let Some(_) = result {
                         return Err(format!(
                             "Event has more than one course track. Please select one of the \
@@ -377,7 +408,7 @@ fn track_summary(
     let mut tracks = Vec::new();
     let mut max_id_len = 0;
 
-    for (part_id, part) in parts_data {
+    for (_part_id, part) in parts_data {
         let tracks_data = part["tracks"]
             .as_object()
             .ok_or("Missing 'tracks' in event part.")?;

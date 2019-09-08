@@ -43,7 +43,13 @@ fn main() {
                 std::process::exit(exitcode::DATAERR)
             })
         });
-        cdecao::io::cdedb::read(file, track_id).map(|(p, c, a)| (p, c, Some(a)))
+        cdecao::io::cdedb::read(
+            file,
+            track_id,
+            args.is_present("ignore_cancelled"),
+            args.is_present("ignore_assigned"),
+        )
+        .map(|(p, c, a)| (p, c, Some(a)))
     } else {
         // simple file format
         cdecao::io::simple::read(file).map(|(p, c)| (p, c, None))
@@ -54,7 +60,7 @@ fn main() {
     });
 
     info!(
-        "Read {} courses and {} participants.",
+        "Found {} courses and {} participants for course assignment.",
         courses.len(),
         participants.len()
     );
@@ -122,6 +128,28 @@ fn parse_cli_args() -> clap::ArgMatches<'static> {
                 )
                 .value_name("TRACK_ID")
                 .takes_value(true),
+        )
+        .arg(
+            clap::Arg::with_name("ignore_cancelled")
+                .short("i")
+                .long("ignore-cancelled")
+                .help(
+                    "Ignore already cancelled courses. Otherwise, they are considered for \
+                     assignment and might be un-cancelled. Only possible with --cde data \
+                     format.",
+                ),
+        )
+        .arg(
+            clap::Arg::with_name("ignore_assigned")
+                .short("j")
+                .long("ignore-assigned")
+                .help(
+                    "Ignore already assigned participants. Otherwise all participants are \
+                     considered for re-assigned and course assignments are overwritten. Only \
+                     possible with --cde data format. If present, courses with assigned \
+                     participants will not be cancelled. Attention: This might impair the \
+                     solution's quality or even make the problem unsolvable.",
+                ),
         )
         .arg(
             clap::Arg::with_name("rooms")

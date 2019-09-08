@@ -27,17 +27,24 @@ cdecao data.json assignment.json
 By default the application uses a very simple json format for input of course and participant lists and output of the
 calculated course assignment. To use the CdE Datenbank's partial export/import format instead, give the `--cde` option:
 ```sh
-cdecao --cde event_export_pa19.json
+cdecao --cde pa19_partial_event_export.json
 ```
 In this case, the resulting output file can be imported in to the CdE Datenbank using the "Partial Import" feature.
 
+If using the --cde data format, you can optionally select to ignore already cancelled courses (instead of considering
+them for assignment and probably un-cancelling them) and/or to ignore already assigned participants (instead of
+re-assigning them). To do so, use `--ignore-cancelled` resp. `--ignore-assigned`. Attention: Ignoring assigned
+participants prevents their assigned courses from being cancelled (unless they are already cancelled and
+`--ignore-cancelled` is set). This might impair the solution's quality or even make the problem unsolvable.
+
 The implemented course assignment algorithm includes an (experimental) extension for considering constraints on
 available course rooms. To use this functionality, simple give a list of available course room sizes (incl. course
-instructors). Attention: This problem might get computationally *really* complex and may not be solved within an
-reasonable time:
+instructors):
 ```sh
 cdecao --rooms "20,20,20,10,10,10,10,10,10,8,8" --print data.json
 ```
+This works with both data file formats. Attention: This problem might get computationally *really* complex and may not
+be solved within an reasonable time.
 
 If you want to see more log output (e.g. about the program's solving progress), you can set the loglevel to 'debug' or
 'trace' via the `RUST_LOG` environment variable:
@@ -92,7 +99,8 @@ his third choice.
 `room_offset` and `fixed_course` are optional values for each course. They default to `0` resp. `false`. The value of
 `room_offset` is always added to the number of planned course attendees of this course, when checking if the course
 would fit a specific room. A course with `fixed_course = true` will always take place; the algorithm is not allowed to
-consider cancelling it (of course, this might impair the optimal solution or even make the problem infeasible).
+consider cancelling it (of course, this might impair the optimal solution's quality or even make the problem
+infeasible).
 
 The default output format of `cdecao` is a very simple JSON file, which contains the index of the course of each
 participant in the order of the participants' appearance in the input file:
