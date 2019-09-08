@@ -43,6 +43,14 @@ pub struct Course {
     // /// >= room_factor * num_participants (incl. instructors) places. E.g. for dancing courses
     // /// this might be somewhere around 2.5
     // room_factor: f32
+    /// Offset to add to the number of assigned participants to check if the course fits a room of a
+    /// specific size
+    #[serde(default)]
+    room_offset: usize,
+    /// If true, the course may *not* be cancelled by the assignment algorithm. This may be the
+    /// case, if the course has fixed participants.
+    #[serde(default)]
+    fixed_course: bool,
 }
 
 /// A course assignment as result of the overall algorithm. It maps the participant index to the course index, such that

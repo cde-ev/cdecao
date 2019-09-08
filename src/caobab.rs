@@ -140,7 +140,9 @@ struct BABNode {
     /// problems.
     ///
     /// A single course might be listed multiple times (to fix ordering of BABNodes), whereby in
-    /// this case the lowest num_max bound must be applied.
+    /// this case the lowest num_max bound must be applied. The max_num represents the maximum
+    /// number of actual attendees to be assigned by the algorithm (without course instructors and
+    /// room_offset etc.)
     shrinked_courses: Vec<(usize, usize)>,
     /// Courses that should not be shrinked any more. (to eliminate redundant branches)
     no_more_shrinking: Vec<usize>,
@@ -307,16 +309,38 @@ fn run_bab_node(
         if !feasible {
             let mut branches = Vec::<BABNode>::new();
             if let Some(restrictions) = restrictions {
-                for (i, (c, s)) in restrictions.iter().enumerate() {
+                // Add a new node for every possible constraint to fix room feasibility, as proposed
+                // by check_room_feasibility()
+                for (i, (c, action)) in restrictions.iter().enumerate() {
                     if !node.no_more_shrinking.contains(c) {
                         let mut new_node = current_node.clone();
-                        if courses[*c].num_min + courses[*c].instructors.len() > *s {
-                            new_node.cancelled_courses.push(*c);
-                        } else {
-                            new_node
-                                .shrinked_courses
-                                .push((*c, s - courses[*c].instructors.len()));
+                        match action {
+                            RoomCourseFitAction::ShrinkCourse(s) => {
+                                new_node.shrinked_courses.push((*c, *s));
+                            }
+                            RoomCourseFitAction::CancelCourse => {
+                                if courses[*c].fixed_course {
+                                    continue;
+                                }
+                                new_node.cancelled_courses.push(*c);
+                            }
                         }
+                        // Do not consider courses for future shrinking/cancelling, that have been
+                        // considered in their own branch.
+                        // With three rooms (15, 10, 5) and three courses (A, B, C), but only A and
+                        // B being restrictable to 5 people, the tree might look like this:
+                        //
+                        //                                                       current node
+                        //                                                /              |       \
+                        //                                           /                   |          \
+                        //                          shrink A to 10                shrink B to 10    shrink C to 10
+                        //                         /             \                       |                |
+                        //            shrink B to 10            shrink C to 10    shrink C to 10          ⚡
+                        //             /         \                    |                  |
+                        //    shrink A to 5    shrink B to 5    shrink A to 5     shrink B to 5
+                        //
+                        // As you can see, any additional node at one of the right branches, would
+                        // introduce a redundant restriction with the branches left of it.
                         new_node.no_more_shrinking.extend(restrictions[..i].iter().map(|(c, _s)| c));
                         branches.push(new_node);
                     }
@@ -342,13 +366,21 @@ fn run_bab_node(
                 branches.push(new_node);
             }
 
-            // Return modified subproblem with course in cancelled courses
-            current_node.cancelled_courses.push(c);
-            branches.push(current_node);
+            // Return modified subproblem with course in cancelled courses (if cancelling the course is allowed)
+            if !courses[c].fixed_course {
+                current_node.cancelled_courses.push(c);
+                branches.push(current_node);
+            }
         }
 
         return Infeasible(branches, score);
     }
+}
+
+/// Possible actions to take, if a course does not fit in the given rooms
+enum RoomCourseFitAction {
+    CancelCourse,
+    ShrinkCourse(usize)
 }
 
 /// Check if the given matching is a feasible solution in terms of the Branch and Bound algorithm,
@@ -358,16 +390,18 @@ fn run_bab_node(
 /// # Arguments
 ///
 /// * `courses` - List of courses
-/// * `assignment` - The assignment to be checked
-/// * `rooms` - An ordered list of course rooms in **descending** order
+/// * `assignment` - The assignment to be checked (must include course instructors)
+/// * `rooms` - An ordered list of course rooms in **descending** order, filled with zero entries to
+///     length of course list
 ///
 /// # Result
 ///
-/// Returns a pair of `(is_feasible, contraints)`.
+/// Returns a pair of `(is_feasible, restrictions)`.
 ///
-/// `constraints` is a Vec of possible size constraints to fix feasibility. Each entry has to be
-/// interpreted as `(course_index, num_max)`, where `num_max` **includes** course instructors, i.e.
-/// course instructors have to be subtracted before using the value for `BABNode.shrinked_courses`.
+/// `restrictions` is a Vec of possible size constraints to fix feasibility. Each entry has to be
+/// interpreted as `(course_index, action)`, where `action` is either `CancelCourse` or
+/// `ShrinkCourse(max_num)` with max_num not including course instructors and room_offset, i.e. it
+/// can be directly used for `BABNode.shrinked_courses`.
 /// The vector is ordered in ascending order by course sizes in the current assignment. This order
 /// should be kept to solve more promising subproblems (with size restrictions on smaller courses)
 /// first.
@@ -375,9 +409,9 @@ fn check_room_feasibility(
     courses: &Vec<Course>,
     assignment: &Assignment,
     rooms: &Vec<usize>,
-) -> (bool, Option<Vec<(usize, usize)>>) {
-    // Calculate course sizes (incl. instructors)
-    let mut course_size: Vec<(&Course, usize)> = courses.iter().map(|c| (c, 0)).collect();
+) -> (bool, Option<Vec<(usize, RoomCourseFitAction)>>) {
+    // Calculate course sizes (incl. instructors and room_offset)
+    let mut course_size: Vec<(&Course, usize)> = courses.iter().map(|c| (c, c.room_offset)).collect();
     for c in assignment.iter() {
         course_size[*c].1 += 1;
     }
@@ -406,7 +440,14 @@ fn check_room_feasibility(
             course_size
                 .iter()
                 .filter(|(_c, s)| s > conflicting_room)
-                .map(|(c, _s)| (c.index, *conflicting_room))
+                .map(|(c, _s)|
+                    (c.index,
+                     if *conflicting_room >= (c.num_min + c.room_offset + c.instructors.len()) {
+                        RoomCourseFitAction::ShrinkCourse(
+                            *conflicting_room - c.room_offset- c.instructors.len())
+                     } else {
+                        RoomCourseFitAction::CancelCourse
+                     } ))
                 .collect(),
         ),
     );

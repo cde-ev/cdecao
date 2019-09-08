@@ -53,6 +53,8 @@ fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
                 num_max: 2,
                 num_min: 2,
                 instructors: vec![0],
+                room_offset: 0,
+                fixed_course: false,
             },
             Course {
                 index: 1,
@@ -61,6 +63,8 @@ fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
                 num_max: 8,
                 num_min: 2,
                 instructors: vec![1],
+                room_offset: 0,
+                fixed_course: false,
             },
             Course {
                 index: 2,
@@ -69,6 +73,8 @@ fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
                 num_max: 10,
                 num_min: 2,
                 instructors: vec![2],
+                room_offset: 0,
+                fixed_course: false,
             },
         ],
     )
@@ -464,6 +470,8 @@ fn test_bab_node_large() {
             num_min: MIN_PLACES_PER_COURSE,
             num_max: MAX_PLACES_PER_COURSE,
             instructors: Vec::new(),
+            room_offset: 0,
+            fixed_course: false,
         });
     }
 

@@ -32,8 +32,9 @@ cdecao --cde event_export_pa19.json
 In this case, the resulting output file can be imported in to the CdE Datenbank using the "Partial Import" feature.
 
 The implemented course assignment algorithm includes an (experimental) extension for considering constraints on
-available course rooms. To use this functionality, simple give a list of available course room sizes. Attention: This
-problem might get computationally *really* complex and may not be solved within an reasonable time:
+available course rooms. To use this functionality, simple give a list of available course room sizes (incl. course
+instructors). Attention: This problem might get computationally *really* complex and may not be solved within an
+reasonable time:
 ```sh
 cdecao --rooms "20,20,20,10,10,10,10,10,10,8,8" --print data.json
 ```
@@ -63,6 +64,8 @@ The default input format for courses and participants data looks like this:
             "num_min": 6,
             "num_max": 10,
             "instructors": [5],
+            "room_offset": 2,
+            "fixed_course": true
         },
         ...
     ],
@@ -85,6 +88,11 @@ each participant is an ordered list of course choices of this participant, repre
 `courses` list. In the example, Anton chose "Another Course" as his first choice, "Example Course" as his second choice
 (which is a nonsense-example, since he is instructor of that course) and the (not shown) seventh course in the list as
 his third choice.
+
+`room_offset` and `fixed_course` are optional values for each course. They default to `0` resp. `false`. The value of
+`room_offset` is always added to the number of planned course attendees of this course, when checking if the course
+would fit a specific room. A course with `fixed_course = true` will always take place; the algorithm is not allowed to
+consider cancelling it (of course, this might impair the optimal solution or even make the problem infeasible).
 
 The default output format of `cdecao` is a very simple JSON file, which contains the index of the course of each
 participant in the order of the participants' appearance in the input file:

@@ -114,6 +114,8 @@ pub fn read<R: std::io::Read>(
             num_max: course_data["max_size"].as_u64().unwrap_or(25) as usize,
             num_min: course_data["min_size"].as_u64().unwrap_or(0) as usize,
             instructors: Vec::new(),
+            room_offset: 0,
+            fixed_course: false,
         });
     }
     let mut courses_by_id: HashMap<u64, &mut crate::Course> =
