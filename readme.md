@@ -25,9 +25,9 @@ cdecao data.json assignment.json
 ```
 
 By default the application uses a very simple json format for input of course and participant lists and output of the
-calculated course assignment. To use the CdE Datenbank's partial export format instead, give the `--cde` option:
+calculated course assignment. To use the CdE Datenbank's partial export/import format instead, give the `--cde` option:
 ```sh
-cdecao --cde --print event_export_pa19.json
+cdecao --cde event_export_pa19.json
 ```
 In this case, the resulting output file can be imported in to the CdE Datenbank using the "Partial Import" feature.
 
@@ -46,7 +46,7 @@ RUST_LOG=debug cdecao --print data.json
 For more information, take a look at `env_logger`'s documentation: https://docs.rs/env_logger/0.6.2/env_logger/
 
 
-### Data formats
+### Simple Data Format
 
 The default input format for courses and participants data looks like this:
 ```json

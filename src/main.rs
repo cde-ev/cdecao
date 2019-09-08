@@ -27,24 +27,32 @@ fn main() {
             })
     });
 
-    // Read input file
+    // Open input file
     let inpath = args.value_of("INPUT").unwrap();
     debug!("Opening input file {} ...", inpath);
     let file = std::fs::File::open(inpath).unwrap_or_else(|e| {
         error!("Could not open input file {}: {}", inpath, e);
         std::process::exit(exitcode::NOINPUT)
     });
+    // Read input file
     let (participants, courses, import_ambience) = if args.is_present("cde") {
-        cdecao::io::cdedb::read(file, None)
-            .map(|(p, c, a)| (p, c, Some(a)))  // TODO get requested course track from cli
+        // --cde file format
+        let track_id: Option<u64> = args.value_of("track").map(|t| {
+            t.parse().unwrap_or_else(|e| {
+                error!("Could not parse track id: {}", e);
+                std::process::exit(exitcode::DATAERR)
+            })
+        });
+        cdecao::io::cdedb::read(file, track_id).map(|(p, c, a)| (p, c, Some(a)))
     } else {
-        cdecao::io::simple::read(file)
-            .map(|(p, c)| (p, c, None))
+        // simple file format
+        cdecao::io::simple::read(file).map(|(p, c)| (p, c, None))
     }
     .unwrap_or_else(|e| {
         error!("Could not read input file: {}", e);
         std::process::exit(exitcode::DATAERR)
     });
+
     info!(
         "Read {} courses and {} participants.",
         courses.len(),
@@ -64,7 +72,13 @@ fn main() {
                 Err(e) => error!("Could not open output file {}: {}.", outpath, e),
                 Ok(file) => {
                     let res = if args.is_present("cde") {
-                        cdecao::io::cdedb::write(file, &assignment, &*participants, &*courses, import_ambience.unwrap())
+                        cdecao::io::cdedb::write(
+                            file,
+                            &assignment,
+                            &*participants,
+                            &*courses,
+                            import_ambience.unwrap(),
+                        )
                     } else {
                         cdecao::io::simple::write(file, &assignment, &*participants, &*courses)
                     };
@@ -97,6 +111,17 @@ fn parse_cli_args() -> clap::ArgMatches<'static> {
                 .short("c")
                 .long("cde")
                 .help("Use CdE Datenbank format for input and output files"),
+        )
+        .arg(
+            clap::Arg::with_name("track")
+                .short("t")
+                .long("track")
+                .help(
+                    "Specify CdE-Datenbank id of the course track to assign courses in. Only \
+                     useful in combination with --cde input data format.",
+                )
+                .value_name("TRACK_ID")
+                .takes_value(true),
         )
         .arg(
             clap::Arg::with_name("rooms")
