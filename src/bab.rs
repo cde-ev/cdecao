@@ -346,8 +346,10 @@ mod tests {
             statistics.num_executed_subproblems < 2u32.pow(6) - 1,
             "Number of executed subproblems should be < 2^6-1, due to bounding."
         );
+        assert!(statistics.num_bound_subproblems > 0);
 
-        let (result, statistcis) = super::solve(
+        // Unfortunately, there's no good (platform independent) check, if parallelism works. :(
+        let (result, _statistics) = super::solve(
             move |node| solver(node, ndarray::arr1(&[0.51, 6.46, 0.7, 0.56, 0.6])),
             SubProblem(BTreeMap::new()),
             4,
