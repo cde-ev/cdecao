@@ -91,7 +91,8 @@ pub fn read<R: std::io::Read>(
     let courses_data = data["courses"]
         .as_object()
         .ok_or("No 'courses' object found in data.".to_owned())?;
-    for (i, (course_id, course_data)) in courses_data.iter().enumerate() {
+    let mut i = 0;
+    for (course_id, course_data) in courses_data.iter() {
         let course_id: usize = course_id
             .parse()
             .map_err(|e: std::num::ParseIntError| e.to_string())?;
@@ -127,6 +128,7 @@ pub fn read<R: std::io::Read>(
             room_offset: 0,
             fixed_course: false,
         });
+        i += 1;
     }
     // Store, how many participants are already set for each course (only relevant if
     //   ignore_assigned == true)
