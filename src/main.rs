@@ -59,6 +59,11 @@ fn main() {
         std::process::exit(exitcode::DATAERR)
     });
 
+    // In debug build: Check consistency of imported data
+    if cfg!(debug_assertions) {
+        cdecao::io::assert_data_consitency(&participants, &courses);
+    }
+
     info!(
         "Found {} courses and {} participants for course assignment.",
         courses.len(),
@@ -107,6 +112,7 @@ fn main() {
     }
 }
 
+/// Helper function to construct and execute parser for command line options
 fn parse_cli_args() -> clap::ArgMatches<'static> {
     clap::App::new("CdE Course Assignment Optimization")
         .version(clap::crate_version!())
