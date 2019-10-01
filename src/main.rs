@@ -91,7 +91,7 @@ fn main() {
                             import_ambience.unwrap(),
                         )
                     } else {
-                        cdecao::io::simple::write(file, &assignment, &*participants, &*courses)
+                        cdecao::io::simple::write(file, &assignment)
                     };
                     match res {
                         Ok(_) => debug!("Assignment written to {}.", outpath),

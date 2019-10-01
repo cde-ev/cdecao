@@ -26,8 +26,6 @@ pub fn read<R: std::io::Read>(reader: R) -> Result<(Vec<Participant>, Vec<Course
 pub fn write<W: std::io::Write>(
     writer: W,
     assignment: &Assignment,
-    _participants: &Vec<Participant>,
-    _courses: &Vec<Course>,
 ) -> Result<(), String> {
     let a: serde_json::Value = serde_json::to_value(assignment).map_err(|e| format!("{}", e))?;
     let data = json!({
