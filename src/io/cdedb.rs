@@ -105,7 +105,11 @@ pub fn read<R: std::io::Read>(
             continue;
         }
         // Skip already cancelled courses (if wanted)
-        if ignore_inactive_courses && !(course_segments_data[&format!("{}", track_id)].as_bool().ok_or(format!("Segment of course {} is not a boolean.", course_id))?) {
+        if ignore_inactive_courses
+            && !(course_segments_data[&format!("{}", track_id)]
+                .as_bool()
+                .ok_or(format!("Segment of course {} is not a boolean.", course_id))?)
+        {
             continue;
         }
 
@@ -250,16 +254,20 @@ pub fn read<R: std::io::Read>(
     // Prevent courses with invisible_course_attendees from being cancelled and add
     // invisible_course_attendees to room_offset
     for mut course in courses.iter_mut() {
-        course.num_min = if course.instructors.len() + invisible_course_attendees[course.index] > course.num_min {
-                0
-            } else {
-                course.num_min - course.instructors.len() - invisible_course_attendees[course.index]
-            };
-        course.num_max = if course.instructors.len() + invisible_course_attendees[course.index] > course.num_max {
-                0
-            } else {
-                course.num_max - course.instructors.len() - invisible_course_attendees[course.index]
-            };
+        course.num_min = if course.instructors.len() + invisible_course_attendees[course.index]
+            > course.num_min
+        {
+            0
+        } else {
+            course.num_min - course.instructors.len() - invisible_course_attendees[course.index]
+        };
+        course.num_max = if course.instructors.len() + invisible_course_attendees[course.index]
+            > course.num_max
+        {
+            0
+        } else {
+            course.num_max - course.instructors.len() - invisible_course_attendees[course.index]
+        };
         course.fixed_course = invisible_course_attendees[course.index] != 0;
         course.room_offset += invisible_course_attendees[course.index];
     }

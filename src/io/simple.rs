@@ -23,10 +23,7 @@ pub fn read<R: std::io::Read>(reader: R) -> Result<(Vec<Participant>, Vec<Course
 
 /// Write the calculated course assignment as simple JSON representation (canonical
 /// serde_json serialization of `Assignmet` objects) to a Writer (e.g. an output file).
-pub fn write<W: std::io::Write>(
-    writer: W,
-    assignment: &Assignment,
-) -> Result<(), String> {
+pub fn write<W: std::io::Write>(writer: W, assignment: &Assignment) -> Result<(), String> {
     let a: serde_json::Value = serde_json::to_value(assignment).map_err(|e| format!("{}", e))?;
     let data = json!({
         "format": "X-courseassignment-simple",

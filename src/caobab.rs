@@ -341,7 +341,9 @@ fn run_bab_node(
                         //
                         // As you can see, any additional node at one of the right branches, would
                         // introduce a redundant restriction with the branches left of it.
-                        new_node.no_more_shrinking.extend(restrictions[..i].iter().map(|(c, _s)| c));
+                        new_node
+                            .no_more_shrinking
+                            .extend(restrictions[..i].iter().map(|(c, _s)| c));
                         branches.push(new_node);
                     }
                 }
@@ -380,7 +382,7 @@ fn run_bab_node(
 /// Possible actions to take, if a course does not fit in the given rooms
 enum RoomCourseFitAction {
     CancelCourse,
-    ShrinkCourse(usize)
+    ShrinkCourse(usize),
 }
 
 /// Check if the given matching is a feasible solution in terms of the Branch and Bound algorithm,
@@ -411,7 +413,8 @@ fn check_room_feasibility(
     rooms: &Vec<usize>,
 ) -> (bool, Option<Vec<(usize, RoomCourseFitAction)>>) {
     // Calculate course sizes (incl. instructors and room_offset)
-    let mut course_size: Vec<(&Course, usize)> = courses.iter().map(|c| (c, c.room_offset)).collect();
+    let mut course_size: Vec<(&Course, usize)> =
+        courses.iter().map(|c| (c, c.room_offset)).collect();
     for c in assignment.iter() {
         course_size[*c].1 += 1;
     }
@@ -440,14 +443,18 @@ fn check_room_feasibility(
             course_size
                 .iter()
                 .filter(|(_c, s)| s > conflicting_room)
-                .map(|(c, _s)|
-                    (c.index,
-                     if *conflicting_room >= (c.num_min + c.room_offset + c.instructors.len()) {
-                        RoomCourseFitAction::ShrinkCourse(
-                            *conflicting_room - c.room_offset- c.instructors.len())
-                     } else {
-                        RoomCourseFitAction::CancelCourse
-                     } ))
+                .map(|(c, _s)| {
+                    (
+                        c.index,
+                        if *conflicting_room >= (c.num_min + c.room_offset + c.instructors.len()) {
+                            RoomCourseFitAction::ShrinkCourse(
+                                *conflicting_room - c.room_offset - c.instructors.len(),
+                            )
+                        } else {
+                            RoomCourseFitAction::CancelCourse
+                        },
+                    )
+                })
                 .collect(),
         ),
     );
