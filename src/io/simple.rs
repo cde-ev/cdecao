@@ -57,3 +57,40 @@ pub fn write_input_data<W: std::io::Write>(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn parse_simple_file() {
+        let data = include_bytes!("test_ressources/simple_input.json");
+        let (participants, courses) = super::read(&data[..]).unwrap();
+
+        super::super::assert_data_consitency(&participants, &courses);
+        assert_eq!(participants.len(), 6);
+        assert_eq!(courses.len(), 4);
+        assert_eq!(participants[2].name, "Charly Clown");
+        assert_eq!(participants[2].choices, vec![2, 0, 1]);
+        assert_eq!(courses[2].name, "3. The Third Course");
+        assert_eq!(courses[2].num_min, 3);
+        assert_eq!(courses[2].num_max, 20);
+        assert_eq!(courses[2].instructors, vec![4]);
+        assert_eq!(courses[2].room_offset, 12);
+        assert_eq!(courses[2].fixed_course, false);
+        assert_eq!(courses[0].room_offset, 0);
+        assert_eq!(courses[1].fixed_course, true);
+    }
+
+    #[test]
+    fn write_simple_file() {
+        let assignment: crate::Assignment = vec![0, 0, 2, 2, 2, 0];
+        let mut buffer = Vec::<u8>::new();
+        super::write(&mut buffer, &assignment);
+
+        // Parse buffer as JSON file
+        let mut data: serde_json::Value = serde_json::from_reader(&buffer[..]).unwrap();
+        let parsed_assignment =
+            serde_json::from_value::<Vec<usize>>(data["assignment"].take()).unwrap();
+        assert_eq!(assignment, parsed_assignment);
+    }
+
+}
