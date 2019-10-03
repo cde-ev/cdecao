@@ -7,13 +7,19 @@ pub fn read<R: std::io::Read>(reader: R) -> Result<(Vec<Participant>, Vec<Course
     let mut data: serde_json::Value =
         serde_json::from_reader(reader).map_err(|err| err.to_string())?;
 
+    let participants_data = data
+        .get_mut("participants")
+        .ok_or("No 'participants' found in data.")?;
     let mut participants: Vec<Participant> =
-        serde_json::from_value(data["participants"].take()).map_err(|e| format!("{}", e))?;
+        serde_json::from_value(participants_data.take()).map_err(|e| format!("{}", e))?;
     for (i, mut p) in participants.iter_mut().enumerate() {
         p.index = i;
     }
+    let courses_data = data
+        .get_mut("courses")
+        .ok_or("No 'courses' found in data.")?;
     let mut courses: Vec<Course> =
-        serde_json::from_value(data["courses"].take()).map_err(|e| format!("{}", e))?;
+        serde_json::from_value(courses_data.take()).map_err(|e| format!("{}", e))?;
     for (i, mut c) in courses.iter_mut().enumerate() {
         c.index = i;
     }

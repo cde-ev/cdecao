@@ -63,13 +63,14 @@ pub fn read<R: std::io::Read>(
     let data: serde_json::Value = serde_json::from_reader(reader).map_err(|err| err.to_string())?;
 
     // Check export type and version
-    let export_kind = data["kind"]
-        .as_str()
+    let export_kind = data
+        .get("kind")
+        .and_then(|v| v.as_str())
         .ok_or("No 'kind' field found in data. Is this a correct CdEdb export file?")?;
     if export_kind != "partial" {
         return Err("The given JSON file is no 'Partial Export' of the CdE Datenbank".to_owned());
     }
-    let export_version = data["CDEDB_EXPORT_EVENT_VERSION"].as_u64().ok_or(
+    let export_version = data.get("CDEDB_EXPORT_EVENT_VERSION").and_then(|v| v.as_u64()).ok_or(
         "No 'CDEDB_EXPORT_EVENT_VERSION' field found in data. Is this a correct CdEdb export file?",
     )?;
     if export_version < MINIMUM_EXPORT_VERSION || export_version > MAXIMUM_EXPORT_VERSION {
@@ -79,35 +80,42 @@ pub fn read<R: std::io::Read>(
     }
 
     // Find part and track ids
-    let parts_data = data["event"]
-        .as_object()
-        .ok_or("No 'event' object found in data.")?["parts"]
-        .as_object()
+    let parts_data = data
+        .get("event")
+        .and_then(|v| v.as_object())
+        .ok_or("No 'event' object found in data.")?
+        .get("parts")
+        .and_then(|v| v.as_object())
         .ok_or("No 'parts' object found in event.")?;
     let (part_id, track_id) = find_track(parts_data, track)?;
 
     // Parse courses
     let mut courses = Vec::new();
-    let courses_data = data["courses"]
-        .as_object()
+    let courses_data = data
+        .get("courses")
+        .and_then(|v| v.as_object())
         .ok_or("No 'courses' object found in data.".to_owned())?;
     let mut i = 0;
     for (course_id, course_data) in courses_data.iter() {
         let course_id: usize = course_id
             .parse()
             .map_err(|e: std::num::ParseIntError| e.to_string())?;
-        let course_segments_data = course_data["segments"].as_object().ok_or(format!(
-            "No 'segments' object found for course {}",
-            course_id
-        ))?;
+        let course_segments_data = course_data
+            .get("segments")
+            .and_then(|v| v.as_object())
+            .ok_or(format!(
+                "No 'segments' object found for course {}",
+                course_id
+            ))?;
         // Skip courses without segment in the relevant track
         if !course_segments_data.contains_key(&format!("{}", track_id)) {
             continue;
         }
         // Skip already cancelled courses (if wanted)
         if ignore_inactive_courses
-            && !(course_segments_data[&format!("{}", track_id)]
-                .as_bool()
+            && !(course_segments_data
+                .get(&format!("{}", track_id))
+                .and_then(|v| v.as_bool())
                 .ok_or(format!("Segment of course {} is not a boolean.", course_id))?)
         {
             continue;
@@ -115,19 +123,27 @@ pub fn read<R: std::io::Read>(
 
         let course_name = format!(
             "{}. {}",
-            course_data["nr"]
-                .as_str()
+            course_data
+                .get("nr")
+                .and_then(|v| v.as_str())
                 .ok_or(format!("No 'nr' found for course {}", course_id))?,
-            course_data["shortname"]
-                .as_str()
+            course_data
+                .get("shortname")
+                .and_then(|v| v.as_str())
                 .ok_or(format!("No 'shortname' found for course {}", course_id))?
         );
         courses.push(crate::Course {
             index: i,
             dbid: course_id as usize,
             name: course_name,
-            num_max: course_data["max_size"].as_u64().unwrap_or(25) as usize,
-            num_min: course_data["min_size"].as_u64().unwrap_or(0) as usize,
+            num_max: course_data
+                .get("max_size")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(25) as usize,
+            num_min: course_data
+                .get("min_size")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0) as usize,
             instructors: Vec::new(),
             room_offset: 0,
             fixed_course: false,
@@ -142,8 +158,9 @@ pub fn read<R: std::io::Read>(
 
     // Parse Registrations
     let mut registrations = Vec::new();
-    let registrations_data = data["registrations"]
-        .as_object()
+    let registrations_data = data
+        .get("registrations")
+        .and_then(|v| v.as_object())
         .ok_or("No 'registrations' object found in data.".to_owned())?;
     let mut i = 0;
     for (reg_id, reg_data) in registrations_data {
@@ -151,44 +168,55 @@ pub fn read<R: std::io::Read>(
             .parse()
             .map_err(|e: std::num::ParseIntError| e.to_string())?;
         // Check registration status to skip irrelevant registrations
-        let rp_data = reg_data["parts"]
-            .as_object()
+        let rp_data = reg_data
+            .get("parts")
+            .and_then(|v| v.as_object())
             .ok_or(format!("No 'parts' found in registration {}", reg_id))?
-            [&format!("{}", part_id)]
-            .as_object();
+            .get(&format!("{}", part_id))
+            .and_then(|v| v.as_object());
         if let None = rp_data {
             continue;
         }
         let rp_data = rp_data.unwrap();
-        if rp_data["status"].as_i64().ok_or(format!(
-            "Missing 'status' in registration_part record of reg {}",
-            reg_id
-        ))? != 2
+        if rp_data
+            .get("status")
+            .and_then(|v| v.as_i64())
+            .ok_or(format!(
+                "Missing 'status' in registration_part record of reg {}",
+                reg_id
+            ))?
+            != 2
         {
             continue;
         }
 
         // Parse persona attributes
-        let persona_data = reg_data["persona"]
-            .as_object()
+        let persona_data = reg_data
+            .get("persona")
+            .and_then(|v| v.as_object())
             .ok_or(format!("Missing 'persona' in registration {}", reg_id))?;
         let reg_name = format!(
             "{} {}",
-            persona_data["given_names"]
-                .as_str()
+            persona_data
+                .get("given_names")
+                .and_then(|v| v.as_str())
                 .ok_or(format!("No 'given_name' found for registration {}", reg_id))?,
-            persona_data["family_name"].as_str().ok_or(format!(
-                "No 'family_name' found for registration {}",
-                reg_id
-            ))?
+            persona_data
+                .get("family_name")
+                .and_then(|v| v.as_str())
+                .ok_or(format!(
+                    "No 'family_name' found for registration {}",
+                    reg_id
+                ))?
         );
 
         // Get registration track data
-        let rt_data = reg_data["tracks"]
-            .as_object()
+        let rt_data = reg_data
+            .get("tracks")
+            .and_then(|v| v.as_object())
             .ok_or(format!("No 'tracks' found in registration {}", reg_id))?
-            [&format!("{}", track_id)]
-            .as_object()
+            .get(&format!("{}", track_id))
+            .and_then(|v| v.as_object())
             .ok_or(format!(
                 "Registration track data not present for registration {}",
                 reg_id
@@ -197,7 +225,7 @@ pub fn read<R: std::io::Read>(
         // Skip already assigned participants (if wanted)
         if ignore_assigned {
             // Check if course_id is an integer and get this integer
-            if let Some(course_id) = rt_data["course_id"].as_u64() {
+            if let Some(course_id) = rt_data.get("course_id").and_then(|v| v.as_u64()) {
                 // Add participant to the invisible_course_attendees of this course
                 if let Some(course) = courses_by_id.get(&course_id) {
                     invisible_course_attendees[course.index] += 1;
@@ -207,10 +235,13 @@ pub fn read<R: std::io::Read>(
         }
 
         // Parse course chcoices
-        let choices_data = rt_data["choices"].as_array().ok_or(format!(
-            "No 'choices' found in registration {}'s track data",
-            reg_id
-        ))?;
+        let choices_data = rt_data
+            .get("choices")
+            .and_then(|v| v.as_array())
+            .ok_or(format!(
+                "No 'choices' found in registration {}'s track data",
+                reg_id
+            ))?;
         let choices = choices_data
             .iter()
             .map(|v: &serde_json::Value| -> Result<usize, String> {
@@ -229,7 +260,7 @@ pub fn read<R: std::io::Read>(
         }
 
         // Add course instructors to courses
-        if let Some(instructed_course) = rt_data["course_instructor"].as_u64() {
+        if let Some(instructed_course) = rt_data.get("course_instructor").and_then(|v| v.as_u64()) {
             courses_by_id
                 .get_mut(&instructed_course)
                 .ok_or(format!(
@@ -276,7 +307,10 @@ pub fn read<R: std::io::Read>(
         registrations,
         courses,
         ImportAmbienceData {
-            event_id: data["id"].as_u64().ok_or("No event 'id' found in data")?,
+            event_id: data
+                .get("id")
+                .and_then(|v| v.as_u64())
+                .ok_or("No event 'id' found in data")?,
             track_id,
         },
     ))
@@ -357,8 +391,9 @@ fn find_track(
         // If a specific course track id is given, search for that id
         Some(t) => {
             for (part_id, part) in parts_data {
-                let tracks_data = part["tracks"]
-                    .as_object()
+                let tracks_data = part
+                    .get("tracks")
+                    .and_then(|v| v.as_object())
                     .ok_or("Missing 'tracks' in event part.")?;
                 for (track_id, _track) in tracks_data {
                     if track_id
@@ -385,8 +420,9 @@ fn find_track(
         None => {
             let mut result: Option<(u64, u64)> = None;
             for (part_id, part) in parts_data {
-                let tracks_data = part["tracks"]
-                    .as_object()
+                let tracks_data = part
+                    .get("tracks")
+                    .and_then(|v| v.as_object())
                     .ok_or("Missing 'tracks' in event part.")?;
                 for (track_id, _track) in tracks_data {
                     if let Some(_) = result {
@@ -430,18 +466,21 @@ fn track_summary(
     let mut max_id_len = 0;
 
     for (_part_id, part) in parts_data {
-        let tracks_data = part["tracks"]
-            .as_object()
+        let tracks_data = part
+            .get("tracks")
+            .and_then(|v| v.as_object())
             .ok_or("Missing 'tracks' in event part.")?;
         for (track_id, track) in tracks_data {
             max_id_len = max(max_id_len, track_id.len());
             tracks.push((
                 track_id,
-                track["title"]
-                    .as_str()
+                track
+                    .get("title")
+                    .and_then(|v| v.as_str())
                     .ok_or("Missing 'title' in event track.")?,
-                track["sortkey"]
-                    .as_i64()
+                track
+                    .get("sortkey")
+                    .and_then(|v| v.as_i64())
                     .ok_or("Missing 'sortkey' in event track.")?,
             ));
         }
