@@ -81,7 +81,8 @@ mod test {
     fn write_simple_file() {
         let assignment: crate::Assignment = vec![0, 0, 2, 2, 2, 0];
         let mut buffer = Vec::<u8>::new();
-        super::write(&mut buffer, &assignment);
+        let result = super::write(&mut buffer, &assignment);
+        assert!(result.is_ok());
 
         // Parse buffer as JSON file
         let mut data: serde_json::Value = serde_json::from_reader(&buffer[..]).unwrap();

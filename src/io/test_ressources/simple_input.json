@@ -1,0 +1,57 @@
+{
+  "courses": [
+    {
+      "name": "1. Example Course",
+      "num_min": 5,
+      "num_max": 15,
+      "instructors": [0, 1]
+    },
+    {
+      "name": "2. Another Course",
+      "num_min": 6,
+      "num_max": 10,
+      "instructors": [5],
+      "room_offset": 2,
+      "fixed_course": true
+    },
+    {
+      "name": "3. The Third Course",
+      "num_min": 3,
+      "num_max": 20,
+      "instructors": [4],
+      "room_offset": 12
+    },
+    {
+      "name": "4. The workshop course",
+      "num_min": 0,
+      "num_max": 5,
+      "instructors": []
+    }
+  ],
+  "participants": [
+    {
+      "name": "Anton Administrator",
+      "choices": [1,3]
+    },
+    {
+      "name": "Bertalottå Beispiel",
+      "choices": [3,1]
+    },
+    {
+      "name": "Charly Clown",
+      "choices": [2,0,1]
+    },
+    {
+      "name": "Daniel Dino",
+      "choices": [2,3,0]
+    },
+    {
+      "name": "Emilia Eventis",
+      "choices": [3,1]
+    },
+    {
+      "name": "Ferdinand Findus",
+      "choices": [0,1]
+    }
+  ]
+}
