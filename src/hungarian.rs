@@ -260,7 +260,7 @@ mod tests {
         let dummy_x = ndarray::arr1(&[f, f, f, f, f, f, f, f, f, f, t, t, t, t, t, t, t, t, t, t]);
         let skip_x = ndarray::arr1(&[f, f, f, t, f, f, f, f, f, f, t, t, t, f, f, f, f, f, f, f]);
 
-        let (matching, _score) =
+        let (matching, score) =
             hungarian_algorithm(&adjacency_matrix, &dummy_x, &mandatory_y, &skip_x, &skip_y);
 
         // Every participant must be assigned to one course place
@@ -301,6 +301,9 @@ mod tests {
                 x
             );
         }
+
+        assert!(score > 30*9);
+        assert!(score < 33*9);
     }
 
     #[test]
@@ -335,6 +338,7 @@ mod tests {
             hungarian_algorithm(&adjacency_matrix, &dummy_x, &mandatory_y, &skip_x, &skip_y);
 
         assert_eq!(matching.len(), 7);
+        assert!(score <= 4020);
         assert!(score > 4000);
 
         // Since 2,3,4 are mandatory course places, participants 0,3,4 must fill those and participant 1 should gain
@@ -382,6 +386,7 @@ mod tests {
 
         assert_eq!(matching.len(), n);
         // All participants should at least be scored with the worst choice
+        assert!((score as usize) < (WEIGHT_OFFSET as usize) * NUM_PARTICIPANTS);
         assert!(score as usize >= (WEIGHT_OFFSET as usize - CHOICES) * NUM_PARTICIPANTS);
         // TODO check, that enough participants got their 1. choice
 
