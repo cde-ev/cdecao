@@ -112,6 +112,7 @@ pub fn hungarian_algorithm(
         // The neighbourhood of S in the equalitygraph, without nodes already in T. -> N_l(S) \ T
         // It is updated dynamically when Nodes are added to S and T
         let mut nlxt = !skip_y;
+        #[allow(unused_parens)]
         Zip::from(&mut nlxt)
             .and(adjacency_matrix.index_axis(Axis(0), u))
             .and(&labels_y)
