@@ -233,7 +233,7 @@ fn run_bab_node(
         .fold(0, |acc, x| acc + x)
         > participants.len() - num_skip_x
     {
-        debug!("Skipping this branch, since too much course places are enforced");
+        debug!("Skipping this branch, since too many course places are enforced");
         return NoSolution;
     }
     if effective_num_max.iter().fold(0, |acc, x| acc + x) < participants.len() - num_skip_x {
