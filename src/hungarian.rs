@@ -210,6 +210,7 @@ pub fn hungarian_algorithm(
     // Calculate score and return results
     let score = m_match
         .indexed_iter()
+        .filter(|(y, x)| !skip_y[[*y]])
         .map(|(y, x)| adjacency_matrix[(*x, y)] as Score)
         .fold(Score::from(0u8), |acc, x| acc + x);
     return (m_match, score);
