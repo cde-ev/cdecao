@@ -560,6 +560,7 @@ mod tests {
         // Morgenkreis
         let (participants, courses, _import_ambience) =
             super::read(&data[..], Some(1), false, false).unwrap();
+        super::super::assert_data_consitency(&participants, &courses);
         assert_eq!(courses.len(), 4);
         assert_eq!(participants.len(), 1);
         assert!(find_participant_by_id(&participants, 3).is_some());
@@ -567,6 +568,7 @@ mod tests {
         // Kaffee
         let (participants, courses, _import_ambience) =
             super::read(&data[..], Some(2), false, false).unwrap();
+        super::super::assert_data_consitency(&participants, &courses);
         assert_eq!(courses.len(), 4);
         assert_eq!(participants.len(), 1);
         assert!(find_participant_by_id(&participants, 3).is_some());
@@ -589,6 +591,7 @@ mod tests {
         let data = include_bytes!("test_ressources/TestAka_partial_export_event.json");
         let (participants, courses, _import_ambience) =
             super::read(&data[..], Some(3), false, true).unwrap();
+        super::super::assert_data_consitency(&participants, &courses);
 
         assert_eq!(courses.len(), 4);
         assert_eq!(find_course_by_id(&courses, 1).unwrap().fixed_course, true);
@@ -606,6 +609,7 @@ mod tests {
         let data = include_bytes!("test_ressources/TestAka_partial_export_event.json");
         let (participants, courses, _import_ambience) =
             super::read(&data[..], Some(3), true, false).unwrap();
+        super::super::assert_data_consitency(&participants, &courses);
 
         assert_eq!(courses.len(), 3);
         assert!(find_course_by_id(&courses, 3).is_none());
