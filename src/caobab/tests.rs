@@ -545,3 +545,5 @@ fn test_caobab_simple() {
 // TODO test solve with large problem
 
 // TODO test solve with room list
+
+// TODO test solve with fixed courses

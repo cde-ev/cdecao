@@ -56,7 +56,7 @@ pub fn write_input_data<W: std::io::Write>(
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     #[test]
     fn parse_simple_file() {
         let data = include_bytes!("test_ressources/simple_input.json");

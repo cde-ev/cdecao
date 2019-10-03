@@ -412,6 +412,17 @@ fn find_track(
     }
 }
 
+/// Helper function to generate a summary of the event's tracks and their IDs.
+///
+/// # Arguments
+/// * parts_data: The JSON 'parts' object from the 'event' part of the export file
+///
+/// # Returns
+/// A String containing a listing of the track ids and names to be printed to the command line
+///
+/// # Errors
+/// Returns an error String, when
+///
 fn track_summary(
     parts_data: &serde_json::Map<String, serde_json::Value>,
 ) -> Result<String, String> {
@@ -443,4 +454,330 @@ fn track_summary(
         .collect::<Vec<_>>()
         .join("\n");
     return Ok(result);
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Assignment, Course, Participant};
+
+    #[test]
+    fn parse_testaka_sitzung() {
+        let data = include_bytes!("test_ressources/TestAka_partial_export_event.json");
+        let (participants, courses, import_ambience) =
+            super::read(&data[..], Some(3), false, false).unwrap();
+
+        super::super::assert_data_consitency(&participants, &courses);
+        // Check courses
+        // Course "γ. Kurz" is cancelled in this track, thus it should not exist in the parsed data
+        assert_eq!(courses.len(), 4);
+        assert!(find_course_by_id(&courses, 3).is_none());
+        assert_eq!(find_course_by_id(&courses, 5).unwrap().name, "ε. Backup");
+        assert_eq!(find_course_by_id(&courses, 5).unwrap().instructors.len(), 0);
+        assert_eq!(find_course_by_id(&courses, 1).unwrap().num_min, 3 - 1);
+        assert_eq!(find_course_by_id(&courses, 1).unwrap().num_max, 10 - 1);
+        assert_eq!(find_course_by_id(&courses, 1).unwrap().instructors.len(), 1);
+        assert_eq!(
+            find_course_by_id(&courses, 1).unwrap().instructors[0],
+            find_participant_by_id(&participants, 2).unwrap().index
+        );
+        for c in courses.iter() {
+            assert_eq!(
+                c.room_offset, 0,
+                "room_offset of course {} (dbid {}) is not 0",
+                c.index, c.dbid
+            );
+            assert_eq!(
+                c.fixed_course, false,
+                "course {} (dbid {}) is fixed",
+                c.index, c.dbid
+            );
+        }
+
+        // Check participants
+        assert_eq!(participants.len(), 4);
+        assert_eq!(
+            find_participant_by_id(&participants, 2).unwrap().name,
+            "Emilia E. Eventis"
+        );
+        assert_eq!(
+            find_participant_by_id(&participants, 2).unwrap().choices,
+            vec![
+                find_course_by_id(&courses, 4).unwrap().index,
+                find_course_by_id(&courses, 2).unwrap().index
+            ]
+        );
+
+        // Check import_ambience
+        assert_eq!(import_ambience.event_id, 1);
+        assert_eq!(import_ambience.track_id, 3);
+    }
+
+    #[test]
+    fn parse_testaka_other_tracks() {
+        let data = include_bytes!("test_ressources/TestAka_partial_export_event.json");
+
+        // Check that only participants are parsed (no not_applied, applied, waitlist, guest,
+        // cancelled or rejected registration parts)
+        // Morgenkreis
+        let (participants, courses, _import_ambience) =
+            super::read(&data[..], Some(1), false, false).unwrap();
+        assert_eq!(courses.len(), 4);
+        assert_eq!(participants.len(), 1);
+        assert!(find_participant_by_id(&participants, 3).is_some());
+
+        // Kaffee
+        let (participants, courses, _import_ambience) =
+            super::read(&data[..], Some(2), false, false).unwrap();
+        assert_eq!(courses.len(), 4);
+        assert_eq!(participants.len(), 1);
+        assert!(find_participant_by_id(&participants, 3).is_some());
+    }
+
+    #[test]
+    fn test_no_track_error() {
+        let data = include_bytes!("test_ressources/TestAka_partial_export_event.json");
+
+        // Check that only participants are parsed (no not_applied, applied, waitlist, guest,
+        // cancelled or rejected registration parts)
+        // Morgenkreis
+        let result = super::read(&data[..], None, false, false);
+        assert!(result.is_err());
+        assert!(result.err().unwrap().find("Kaffeekränzchen").is_some());
+    }
+
+    #[test]
+    fn test_ignore_assigned() {
+        let data = include_bytes!("test_ressources/TestAka_partial_export_event.json");
+        let (participants, courses, _import_ambience) =
+            super::read(&data[..], Some(3), false, true).unwrap();
+
+        assert_eq!(courses.len(), 4);
+        assert_eq!(find_course_by_id(&courses, 1).unwrap().fixed_course, true);
+        assert_eq!(find_course_by_id(&courses, 1).unwrap().room_offset, 2);
+        assert_eq!(find_course_by_id(&courses, 4).unwrap().fixed_course, false);
+        assert_eq!(find_course_by_id(&courses, 4).unwrap().room_offset, 0);
+
+        assert_eq!(participants.len(), 2);
+        assert!(find_participant_by_id(&participants, 2).is_none());
+        assert!(find_participant_by_id(&participants, 4).is_none());
+    }
+
+    #[test]
+    fn test_ignore_cancelled() {
+        let data = include_bytes!("test_ressources/TestAka_partial_export_event.json");
+        let (participants, courses, _import_ambience) =
+            super::read(&data[..], Some(3), true, false).unwrap();
+
+        assert_eq!(courses.len(), 3);
+        assert!(find_course_by_id(&courses, 3).is_none());
+        assert!(find_course_by_id(&courses, 5).is_none());
+        assert_eq!(participants.len(), 4);
+    }
+
+    // TODO test parsing single track event
+
+    #[test]
+    fn test_write_result() {
+        let courses = vec![
+            Course {
+                index: 0,
+                dbid: 1,
+                name: String::from("α. Heldentum"),
+                num_max: 10 - 1,
+                num_min: 3 - 1,
+                instructors: vec![2],
+                room_offset: 0,
+                fixed_course: false,
+            },
+            Course {
+                index: 1,
+                dbid: 2,
+                name: String::from("β. Kabarett"),
+                num_max: 20,
+                num_min: 10,
+                instructors: vec![],
+                room_offset: 0,
+                fixed_course: false,
+            },
+            Course {
+                index: 2,
+                dbid: 4,
+                name: String::from("δ. Lang"),
+                num_max: 25,
+                num_min: 0,
+                instructors: vec![2],
+                room_offset: 0,
+                fixed_course: false,
+            },
+            Course {
+                index: 3,
+                dbid: 5,
+                name: String::from("ε. Backup"),
+                num_max: 25,
+                num_min: 0,
+                instructors: vec![2],
+                room_offset: 0,
+                fixed_course: false,
+            },
+        ];
+        let participants = vec![
+            Participant {
+                index: 0,
+                dbid: 1,
+                name: String::from("Anton Armin A. Administrator"),
+                choices: vec![0, 2],
+            },
+            Participant {
+                index: 1,
+                dbid: 2,
+                name: String::from("Emilia E. Eventis"),
+                choices: vec![2, 1],
+            },
+            Participant {
+                index: 2,
+                dbid: 3,
+                name: String::from("Garcia G. Generalis"),
+                choices: vec![1, 2],
+            },
+            Participant {
+                index: 3,
+                dbid: 4,
+                name: String::from("Inga Iota"),
+                choices: vec![0, 1],
+            },
+        ];
+        super::super::assert_data_consitency(&participants, &courses);
+        let ambience_data = super::ImportAmbienceData {
+            event_id: 1,
+            track_id: 3,
+        };
+        let assignment: Assignment = vec![0, 0, 2, 0];
+
+        let mut buffer = Vec::<u8>::new();
+        let result = super::write(
+            &mut buffer,
+            &assignment,
+            &participants,
+            &courses,
+            ambience_data,
+        );
+        assert!(result.is_ok());
+
+        // Parse buffer as JSON file
+        let data: serde_json::Value = serde_json::from_reader(&buffer[..]).unwrap();
+
+        // Check course segments (cancelled courses)
+        let courses_data = data["courses"].as_object().unwrap();
+        assert_eq!(courses_data.len(), 4);
+        check_output_course(courses_data, "1", "3", true);
+        check_output_course(courses_data, "2", "3", false);
+
+        let registrations_data = data["registrations"].as_object().unwrap();
+        assert_eq!(registrations_data.len(), 4);
+        check_output_registration(registrations_data, "1", "3", 1);
+        check_output_registration(registrations_data, "3", "3", 4);
+    }
+
+    fn find_course_by_id(courses: &Vec<Course>, dbid: usize) -> Option<&Course> {
+        courses.iter().filter(|c| c.dbid == dbid).next()
+    }
+
+    fn find_participant_by_id(
+        participants: &Vec<Participant>,
+        dbid: usize,
+    ) -> Option<&Participant> {
+        participants.iter().filter(|c| c.dbid == dbid).next()
+    }
+
+    /// Helper function for test_write_result() to check a course entry in the resulting json data
+    fn check_output_course(
+        courses_data: &serde_json::Map<String, serde_json::Value>,
+        course_id: &str,
+        track_id: &str,
+        active: bool,
+    ) {
+        let course_data = courses_data
+            .get(course_id)
+            .and_then(|v| v.as_object())
+            .unwrap_or_else(|| panic!("Course id {} not found or not an object", course_id));
+        assert_eq!(
+            course_data.len(),
+            1,
+            "Course id {} has more than one data entry",
+            course_id
+        );
+        let course_segments = course_data
+            .get("segments")
+            .and_then(|v| v.as_object())
+            .unwrap_or_else(|| panic!("Course id {} has no 'segments' entry", course_id));
+        assert_eq!(
+            course_segments.len(),
+            1,
+            "Course id {} has more than one segment defined",
+            course_id
+        );
+        assert_eq!(
+            course_segments
+                .get(track_id)
+                .and_then(|v| v.as_bool())
+                .unwrap_or_else(|| panic!(
+                    "Course id {} has no segment id {} or it is not bool",
+                    course_id, track_id
+                )),
+            active,
+            "Course id {} segment has wrong active state",
+            course_id
+        );
+    }
+
+    /// Helper function for test_write_result() to check a registration entry in the resulting json
+    /// data
+    fn check_output_registration(
+        registrations_data: &serde_json::Map<String, serde_json::Value>,
+        reg_id: &str,
+        track_id: &str,
+        course_id: u64,
+    ) {
+        let reg_data = registrations_data
+            .get(reg_id)
+            .and_then(|v| v.as_object())
+            .unwrap_or_else(|| panic!("Registration id {} not found or not an object", reg_id));
+        assert_eq!(
+            reg_data.len(),
+            1,
+            "Registration id {} has more than one data entry",
+            reg_id
+        );
+        let reg_tracks = reg_data
+            .get("tracks")
+            .and_then(|v| v.as_object())
+            .unwrap_or_else(|| panic!("Course id {} has no 'tracks' entry", reg_id));
+        assert_eq!(
+            reg_tracks.len(),
+            1,
+            "Registration id {} has more than one track defined",
+            reg_id
+        );
+        let reg_track = reg_tracks
+            .get(track_id)
+            .and_then(|v| v.as_object())
+            .unwrap_or_else(|| {
+                panic!(
+                    "Registration id {} has no track id {} or it is not an object",
+                    reg_id, track_id
+                )
+            });
+        assert_eq!(
+            reg_track
+                .get("course_id")
+                .and_then(|v| v.as_u64())
+                .unwrap_or_else(|| panic!(
+                    "Registration id {} has no 'course_id' entry or it is not an uint",
+                    reg_id
+                )),
+            course_id,
+            "Registration id {} has a wrong course assignment",
+            reg_id
+        );
+    }
 }
