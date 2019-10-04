@@ -349,9 +349,9 @@ mod tests {
 
     #[test]
     fn larger_matching_problem() {
-        const NUM_COURSES: usize = 30;
+        const NUM_COURSES: usize = 15;
         const PLACES_PER_COURSE: usize = 10;
-        const NUM_PARTICIPANTS: usize = 200;
+        const NUM_PARTICIPANTS: usize = 100;
         const WEIGHT_OFFSET: u16 = 50000;
         const CHOICES: usize = 3;
 
