@@ -49,23 +49,23 @@ struct PendingProblem<SubProblem, Score>(SubProblem, Score);
 #[derive(Default)]
 pub struct Statistics {
     /// Number of calls to the subproblem solver function
-    num_executed_subproblems: u32,
+    pub num_executed_subproblems: u32,
     /// Number of subproblems that returned without solution
-    num_no_solution: u32,
+    pub num_no_solution: u32,
     /// Number of infeasible subproblems encountered during solving
-    num_infeasible: u32,
+    pub num_infeasible: u32,
     /// Number of feasible subproblems encountered during solving
-    num_feasible: u32,
+    pub num_feasible: u32,
     /// Number of times the pior best result has been updated with a better result
-    num_new_best: u32,
+    pub num_new_best: u32,
     /// Number of subproblems skipped because of their (infeasible) parent's score (i.e. number of
     /// bound branches)
-    num_bound_subproblems: u32,
+    pub num_bound_subproblems: u32,
     /// Total time for executing the branch and bound algorithm
-    total_time: time::Duration,
+    pub total_time: time::Duration,
     /// Cummulated exeuction time of the subproblem solver function
     /// Heads up! Due to parallelism this will be multiple times `total_time`.
-    total_subproblem_time: time::Duration,
+    pub total_subproblem_time: time::Duration,
 }
 
 impl fmt::Display for Statistics {
