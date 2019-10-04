@@ -80,6 +80,71 @@ fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
     )
 }
 
+fn create_other_problem() -> (Vec<Course>, Vec<Participant>) {
+    // This problem is used for the assignment test with rooms
+
+    // Helper function (defined as closure) for quickly building the problem
+    let mut next_corse_id = 0;
+    let mut make_course = |min, max| -> Course {
+        let c = Course {
+            index: next_corse_id,
+            dbid: next_corse_id,
+            name: format!("Course {}", next_corse_id),
+            num_min: min,
+            num_max: max,
+            instructors: Vec::new(),
+            room_offset: 0,
+            fixed_course: false,
+        };
+        next_corse_id += 1;
+        return c;
+    };
+    let mut next_part_id = 0;
+    let mut make_parts = |num, choices: Vec<usize>| -> Vec<Participant> {
+        let mut res = Vec::new();
+        for _i in 0..num {
+            res.push(Participant {
+                index: next_part_id,
+                dbid: next_part_id,
+                name: format!("Participant {}", next_part_id),
+                choices: choices.clone(),
+            });
+            next_part_id += 1;
+        }
+        return res;
+    };
+    // Build the problem
+    let courses = vec![
+        make_course(1, 12),
+        make_course(1, 10),
+        make_course(1, 10),
+        make_course(3, 10)];
+    let mut participants = Vec::new();
+    participants.append(&mut make_parts(6, vec![0, 1, 2]));
+    participants.append(&mut make_parts(3, vec![0, 1, 3]));
+    participants.append(&mut make_parts(2, vec![0, 2, 1]));
+    participants.append(&mut make_parts(2, vec![0, 2, 3]));
+    participants.append(&mut make_parts(1, vec![1, 0, 2]));
+    participants.append(&mut make_parts(2, vec![1, 0, 3]));
+    participants.append(&mut make_parts(2, vec![1, 2, 0]));
+    participants.append(&mut make_parts(1, vec![3, 0, 1]));
+    participants.append(&mut make_parts(1, vec![3, 0, 2]));
+    // Resulting number of choices per course:
+    //
+    // course |  1   2   3
+    // --------------------
+    // 0      | 13   4   2
+    // 1      |  5   9   3
+    // 2      |  0   6   8
+    // 3      |  2   0   7
+
+    // Idea: With rooms 10, 7, 5, the course 0 will be restricted to 10 participants, course 2 will
+    // be cancelled
+    // With course 2 enforced, course 3 must be cancelled
+
+    return (courses, participants);
+}
+
 #[test]
 fn test_precompute_problem() {
     let (participants, courses) = create_simple_problem();
@@ -403,7 +468,7 @@ fn test_bab_node_simple() {
     let result = super::run_bab_node(&courses, &participants, &problem, node.clone());
     match result {
         NodeResult::Feasible(assignment, score) => {
-            print!("assignment: {:?}\n", assignment);
+            print!("test_bab_node_simple: 1. assignment: {:?}\n", assignment);
             check_assignment(&courses, &participants, &assignment, Some(&node));
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
         }
@@ -420,7 +485,7 @@ fn test_bab_node_simple() {
     let result = super::run_bab_node(&courses, &participants, &problem, node.clone());
     match result {
         NodeResult::Feasible(assignment, score) => {
-            print!("assignment: {:?}\n", assignment);
+            print!("test_bab_node_simple 2. assignment: {:?}\n", assignment);
             check_assignment(&courses, &participants, &assignment, Some(&node));
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
         }
@@ -508,7 +573,7 @@ fn test_bab_node_large() {
 
     match result {
         NodeResult::Feasible(assignment, score) => {
-            print!("assignment: {:?}\n", assignment);
+            print!("test_bab_node_large: assignment: {:?}\n", assignment);
             check_assignment(&courses, &participants, &assignment, Some(&node));
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
         }
@@ -529,9 +594,10 @@ fn test_caobab_simple() {
 
     match result {
         Some((assignment, score)) => {
-            print!("assignment: {:?}\n", assignment);
+            print!("test_caobab_simple: assignment: {:?}\n", assignment);
             check_assignment(&*courses, &*participants, &assignment, None);
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
+            assert!(score < participants.len() as u32 * (super::WEIGHT_OFFSET as u32));
             assert!(
                 assignment == vec![0, 1, 0, 1, 0, 1] || assignment == vec![0, 1, 1, 0, 0, 1],
                 "Unexpected assignment: {:?}",
@@ -544,6 +610,48 @@ fn test_caobab_simple() {
 
 // TODO test solve with large problem
 
-// TODO test solve with room list
+#[test]
+fn test_caobab_rooms() {
+    let (courses, participants) = create_other_problem();
+    let courses = Arc::new(courses);
+    let participants = Arc::new(participants);
+    crate::io::assert_data_consitency(&participants, &courses);
+    let rooms = vec![10, 5, 8];
+
+    // Run caobab
+    let (result, statistics) = super::solve(courses.clone(), participants.clone(), Some(&rooms));
+
+    match result {
+        None => panic!("Expected to get a result."),
+
+        Some((assignment, score)) => {
+            print!("test_caobab_rooms: assignment: {:?}\n", assignment);
+
+            // Check general feasibility of assignment
+            check_assignment(&*courses, &*participants, &assignment, None);
+
+            // Check score
+            assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 2));
+            assert!(score < participants.len() as u32 * (super::WEIGHT_OFFSET as u32));
+
+            // Calculate course sizes
+            let mut course_size = vec![0usize; courses.len()];
+            for c in assignment.iter() {
+                course_size[*c] += 1;
+            }
+
+            // We expect
+            // * course 0 shrinked to 10 participants
+            // * course 1 having 7 participants
+            // * course 2 cancelled
+            // * course 3 forced to 3 paricipants
+            assert_eq!(course_size, vec![10, 7, 0, 3]);
+
+            // This solution should require at least three infeasible nodes
+            assert!(statistics.num_infeasible >= 3);
+        }
+    };
+
+}
 
 // TODO test solve with fixed courses
