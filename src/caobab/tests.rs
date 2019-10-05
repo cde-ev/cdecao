@@ -654,4 +654,76 @@ fn test_caobab_rooms() {
 
 }
 
-// TODO test solve with fixed courses
+#[test]
+fn test_caobab_rooms_fixed_course() {
+    let (mut courses, participants) = create_other_problem();
+    courses[2].fixed_course = true;
+    let courses = Arc::new(courses);
+    let participants = Arc::new(participants);
+    crate::io::assert_data_consitency(&participants, &courses);
+    let rooms = vec![10, 5, 8];
+
+    // Run caobab
+    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), Some(&rooms));
+
+    match result {
+        None => panic!("Expected to get a result."),
+
+        Some((assignment, score)) => {
+            print!("test_caobab_rooms_fixed_course: assignment: {:?}\n", assignment);
+
+            // Check general feasibility of assignment
+            check_assignment(&*courses, &*participants, &assignment, None);
+
+            // Check score
+            assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 2));
+            assert!(score < participants.len() as u32 * (super::WEIGHT_OFFSET as u32));
+
+            // Calculate course sizes
+            let mut course_size = vec![0usize; courses.len()];
+            for c in assignment.iter() {
+                course_size[*c] += 1;
+            }
+
+            assert_eq!(course_size[3], 0);
+            assert!(course_size[2] >= 1);
+        }
+    };
+}
+
+#[test]
+fn test_caobab_fixed_course() {
+    let (mut courses, participants) = create_other_problem();
+    courses[2].fixed_course = true;
+    courses[2].num_min = 5;
+    let courses = Arc::new(courses);
+    let participants = Arc::new(participants);
+    crate::io::assert_data_consitency(&participants, &courses);
+
+    // Run caobab
+    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), None);
+
+    match result {
+        None => panic!("Expected to get a result."),
+
+        Some((assignment, score)) => {
+            print!("test_caobab_rooms_fixed_course: assignment: {:?}\n", assignment);
+
+            // Check general feasibility of assignment
+            check_assignment(&*courses, &*participants, &assignment, None);
+
+            // Check score
+            assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 2));
+            assert!(score < participants.len() as u32 * (super::WEIGHT_OFFSET as u32));
+
+            // Calculate course sizes
+            let mut course_size = vec![0usize; courses.len()];
+            for c in assignment.iter() {
+                course_size[*c] += 1;
+            }
+
+            assert_eq!(course_size[3], 0);
+            assert!(course_size[2] >= 4);
+        }
+    };
+}
