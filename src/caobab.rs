@@ -11,6 +11,8 @@ use crate::{Assignment, Course, Participant};
 use log::debug;
 use std::sync::Arc;
 
+const NUM_COURSES_FOR_SHRINKING: u32 = 3;
+
 /// Main method of the module to solve a course assignement problem using the branch and bound method together with the
 /// hungarian method.
 ///
@@ -412,7 +414,7 @@ fn check_room_feasibility(
     assignment: &Assignment,
     rooms: &Vec<usize>,
 ) -> (bool, Option<Vec<(usize, RoomCourseFitAction)>>) {
-    // Calculate course sizes (incl. instructors and room_offset)
+    // Calculate course sizes (incl. instructors and room_offset) and order them ascending
     let mut course_size: Vec<(&Course, usize)> =
         courses.iter().map(|c| (c, c.room_offset)).collect();
     for c in assignment.iter() {
@@ -420,7 +422,8 @@ fn check_room_feasibility(
     }
     course_size.sort_by_key(|(_c, s)| *s);
 
-    // Find largest room type with non-fitting courses
+    // Find largest room type with non-fitting courses (iterate over reversed room sizes and course
+    // sizes in paralel)
     let conflicting_room = course_size
         .iter()
         .rev()
@@ -434,15 +437,25 @@ fn check_room_feasibility(
         return (true, None);
     }
 
-    // Build course constraint alternatives by finding all courses larger than the conflicting room,
-    // beginning with the smallest
+    // Build course constraint alternatives by finding courses larger than the conflicting room,
+    // beginning with the smallest. We only consider the first NUM_SHRINK_ROOMS of those courses
+    // plus those with the same size as the NUM_COURSES_FOR_SHRINKING-th.
     let conflicting_room = conflicting_room.unwrap();
+    // Two variables for the stateful take_while predicate that
+    let mut previous_course_size = 0usize;
+    let mut number = 0u32;
     return (
         false,
         Some(
             course_size
                 .iter()
                 .filter(|(_c, s)| s > conflicting_room)
+                .take_while(|(_c, s)| {
+                    let res = number < NUM_COURSES_FOR_SHRINKING || *s == previous_course_size;
+                    number += 1;
+                    previous_course_size = *s;
+                    res
+                })
                 .map(|(c, _s)| {
                     (
                         c.index,
