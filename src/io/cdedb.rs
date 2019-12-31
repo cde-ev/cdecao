@@ -7,8 +7,8 @@ use chrono::{SecondsFormat, Utc};
 use serde_json::json;
 use std::cmp::max;
 
-const MINIMUM_EXPORT_VERSION: u64 = 3;
-const MAXIMUM_EXPORT_VERSION: u64 = 4;
+const MINIMUM_EXPORT_VERSION: u64 = 7;
+const MAXIMUM_EXPORT_VERSION: u64 = 7;
 
 pub struct ImportAmbienceData {
     event_id: u64,
@@ -280,24 +280,21 @@ pub fn read<R: std::io::Read>(
         i += 1;
     }
 
-    // Subtract course instructors and invisible_course_attendees from course participant bounds
-    // (course participant bounds in the CdEDB include instructors)
+    // Subtract invisible_course_attendees from course participant bounds
     // Prevent courses with invisible_course_attendees from being cancelled and add
     // invisible_course_attendees to room_offset
     for mut course in courses.iter_mut() {
-        course.num_min = if course.instructors.len() + invisible_course_attendees[course.index]
-            > course.num_min
+        course.num_min = if invisible_course_attendees[course.index] > course.num_min
         {
             0
         } else {
-            course.num_min - course.instructors.len() - invisible_course_attendees[course.index]
+            course.num_min - invisible_course_attendees[course.index]
         };
-        course.num_max = if course.instructors.len() + invisible_course_attendees[course.index]
-            > course.num_max
+        course.num_max = if invisible_course_attendees[course.index] > course.num_max
         {
             0
         } else {
-            course.num_max - course.instructors.len() - invisible_course_attendees[course.index]
+            course.num_max - invisible_course_attendees[course.index]
         };
         course.fixed_course = invisible_course_attendees[course.index] != 0;
         course.room_offset += invisible_course_attendees[course.index];
