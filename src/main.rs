@@ -70,6 +70,11 @@ fn main() {
         participants.len()
     );
 
+    if participants.len() == 0 {
+        error!("Calculating course assignments is only possible with 1 or more participants.");
+        std::process::exit(exitcode::DATAERR);
+    }
+
     // Execute assignment algorithm
     let courses = Arc::new(courses);
     let participants = Arc::new(participants);
