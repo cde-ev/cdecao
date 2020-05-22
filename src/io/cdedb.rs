@@ -8,7 +8,7 @@ use serde_json::json;
 use std::cmp::max;
 
 const MINIMUM_EXPORT_VERSION: u64 = 7;
-const MAXIMUM_EXPORT_VERSION: u64 = 10;
+const MAXIMUM_EXPORT_VERSION: u64 = 11;
 
 pub struct ImportAmbienceData {
     event_id: u64,
