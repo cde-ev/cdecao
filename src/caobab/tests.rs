@@ -465,7 +465,7 @@ fn test_bab_node_simple() {
         shrinked_courses: vec![],
         no_more_shrinking: vec![],
     };
-    let result = super::run_bab_node(&courses, &participants, &problem, node.clone());
+    let result = super::run_bab_node(&courses, &participants, &problem, node.clone(), false);
     match result {
         NodeResult::Feasible(assignment, score) => {
             print!("test_bab_node_simple: 1. assignment: {:?}\n", assignment);
@@ -482,7 +482,7 @@ fn test_bab_node_simple() {
         shrinked_courses: vec![],
         no_more_shrinking: vec![],
     };
-    let result = super::run_bab_node(&courses, &participants, &problem, node.clone());
+    let result = super::run_bab_node(&courses, &participants, &problem, node.clone(), false);
     match result {
         NodeResult::Feasible(assignment, score) => {
             print!("test_bab_node_simple 2. assignment: {:?}\n", assignment);
@@ -499,7 +499,7 @@ fn test_bab_node_simple() {
         shrinked_courses: vec![],
         no_more_shrinking: vec![],
     };
-    let result = super::run_bab_node(&courses, &participants, &problem, node);
+    let result = super::run_bab_node(&courses, &participants, &problem, node, false);
     match result {
         NodeResult::NoSolution => (),
         x => panic!("Expected no result, got {:?}", x),
@@ -512,7 +512,7 @@ fn test_bab_node_simple() {
         shrinked_courses: vec![],
         no_more_shrinking: vec![],
     };
-    let result = super::run_bab_node(&courses, &participants, &problem, node);
+    let result = super::run_bab_node(&courses, &participants, &problem, node, false);
     match result {
         NodeResult::Infeasible(_, _) => (), // TODO check new nodes and score
         x => panic!("Expected infeasible result, got {:?}", x),
@@ -569,7 +569,7 @@ fn test_bab_node_large() {
         no_more_shrinking: vec![],
     };
 
-    let result = super::run_bab_node(&courses, &participants, &problem, node.clone());
+    let result = super::run_bab_node(&courses, &participants, &problem, node.clone(), false);
 
     match result {
         NodeResult::Feasible(assignment, score) => {
@@ -590,7 +590,7 @@ fn test_caobab_simple() {
     let (participants, courses) = create_simple_problem();
     let courses = Arc::new(courses);
     let participants = Arc::new(participants);
-    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), None);
+    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), None, false);
 
     match result {
         Some((assignment, score)) => {
@@ -619,7 +619,7 @@ fn test_caobab_rooms() {
     let rooms = vec![10, 5, 8];
 
     // Run caobab
-    let (result, statistics) = super::solve(courses.clone(), participants.clone(), Some(&rooms));
+    let (result, statistics) = super::solve(courses.clone(), participants.clone(), Some(&rooms), false);
 
     match result {
         None => panic!("Expected to get a result."),
@@ -664,7 +664,7 @@ fn test_caobab_rooms_fixed_course() {
     let rooms = vec![10, 5, 8];
 
     // Run caobab
-    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), Some(&rooms));
+    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), Some(&rooms), false);
 
     match result {
         None => panic!("Expected to get a result."),
@@ -701,7 +701,7 @@ fn test_caobab_fixed_course() {
     crate::io::assert_data_consitency(&participants, &courses);
 
     // Run caobab
-    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), None);
+    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), None, false);
 
     match result {
         None => panic!("Expected to get a result."),

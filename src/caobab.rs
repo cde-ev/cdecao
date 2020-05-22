@@ -8,7 +8,7 @@ use crate::bab;
 use crate::bab::NodeResult::{Feasible, Infeasible, NoSolution};
 use crate::hungarian::{EdgeWeight, Score};
 use crate::{Assignment, Course, Participant};
-use log::debug;
+use log::{debug, info};
 use std::sync::Arc;
 
 /// Main method of the module to solve a course assignement problem using the branch and bound method together with the
@@ -20,6 +20,7 @@ pub fn solve(
     courses: Arc<Vec<Course>>,
     participants: Arc<Vec<Participant>>,
     rooms: Option<&Vec<usize>>,
+    report_no_solution: bool,
 ) -> (Option<(Assignment, u32)>, bab::Statistics) {
     let pre_computed_problem = Arc::new(precompute_problem(&*courses, &*participants, rooms));
 
@@ -30,6 +31,7 @@ pub fn solve(
                 &*participants,
                 &*pre_computed_problem,
                 sub_problem,
+                report_no_solution,
             )
         },
         BABNode {
@@ -192,6 +194,7 @@ fn run_bab_node(
     participants: &Vec<Participant>,
     pre_computed_problem: &PreComputedProblem,
     mut current_node: BABNode,
+    report_no_solution: bool,
 ) -> bab::NodeResult<BABNode, Assignment, Score> {
     let n = pre_computed_problem.adjacency_matrix.dim().0;
     let m = pre_computed_problem.adjacency_matrix.dim().1;
@@ -247,6 +250,13 @@ fn run_bab_node(
                 .all(|c| node.cancelled_courses.contains(&c))
         {
             debug!("Skipping this branch, since not all course choices can be fulfilled");
+            if report_no_solution {
+                info!(
+                    "Cannot cancel courses {:?}, since {:?}'s course choices cannot be fulfilled anymore.",
+                    node.cancelled_courses.iter().map(|x| courses[*x].name.as_str()).collect::<Vec<&str>>(),
+                    p.name,
+                );
+            }
             return NoSolution;
         }
     }
@@ -372,6 +382,8 @@ fn run_bab_node(
             if !courses[c].fixed_course {
                 current_node.cancelled_courses.push(c);
                 branches.push(current_node);
+            } else if report_no_solution {
+                info!("Cannot cancel course {:?}, as it is fixed.", courses[c].name);
             }
         }
 

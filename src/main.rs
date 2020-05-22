@@ -78,7 +78,7 @@ fn main() {
     // Execute assignment algorithm
     let courses = Arc::new(courses);
     let participants = Arc::new(participants);
-    let (result, statistics) = caobab::solve(courses.clone(), participants.clone(), rooms.as_ref());
+    let (result, statistics) = caobab::solve(courses.clone(), participants.clone(), rooms.as_ref(), args.is_present("report_no_solution"));
     info!("Finished solving course assignment. {}", statistics);
 
     if let Some((assignment, _)) = result {
@@ -160,6 +160,14 @@ fn parse_cli_args() -> clap::ArgMatches<'static> {
                      possible with --cde data format. If present, courses with assigned \
                      participants will not be cancelled. Attention: This might impair the \
                      solution's quality or even make the problem unsolvable.",
+                ),
+        )
+        .arg(
+            clap::Arg::with_name("report_no_solution")
+                .long("report-no-solution")
+                .help(
+                    "Log some unsolvable Branch-and-Bound nodes with INFO log level. This will \
+                    be a great help with debugging unsolvable course assignement problems.",
                 ),
         )
         .arg(
