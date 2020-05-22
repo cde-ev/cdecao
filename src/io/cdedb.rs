@@ -226,9 +226,15 @@ pub fn read<R: std::io::Read>(
         if ignore_assigned {
             // Check if course_id is an integer and get this integer
             if let Some(course_id) = rt_data.get("course_id").and_then(|v| v.as_u64()) {
-                // Add participant to the invisible_course_attendees of this course
+                // Add participant to the invisible_course_attendees of this course ...
                 if let Some(course) = courses_by_id.get(&course_id) {
-                    invisible_course_attendees[course.index] += 1;
+                    match rt_data.get("course_instructor").and_then(|v| v.as_u64()) {
+                        //..., but only they are not instructor of this course.
+                        Some(c) if c == course_id => {},
+                        _ => {
+                            invisible_course_attendees[course.index] += 1;
+                        }
+                    }
                 }
                 continue;
             }
@@ -283,6 +289,8 @@ pub fn read<R: std::io::Read>(
     // Subtract invisible_course_attendees from course participant bounds
     // Prevent courses with invisible_course_attendees from being cancelled and add
     // invisible_course_attendees to room_offset
+    // FIXME: This is wrong, if there are assigned course instructors (which are not covered by
+    //  invisible_course_attendees)
     for mut course in courses.iter_mut() {
         course.num_min = if invisible_course_attendees[course.index] > course.num_min
         {
@@ -509,8 +517,8 @@ mod tests {
         assert!(find_course_by_id(&courses, 3).is_none());
         assert_eq!(find_course_by_id(&courses, 5).unwrap().name, "ε. Backup");
         assert_eq!(find_course_by_id(&courses, 5).unwrap().instructors.len(), 0);
-        assert_eq!(find_course_by_id(&courses, 1).unwrap().num_min, 3 - 1);
-        assert_eq!(find_course_by_id(&courses, 1).unwrap().num_max, 10 - 1);
+        assert_eq!(find_course_by_id(&courses, 1).unwrap().num_min, 2);
+        assert_eq!(find_course_by_id(&courses, 1).unwrap().num_max, 10);
         assert_eq!(find_course_by_id(&courses, 1).unwrap().instructors.len(), 1);
         assert_eq!(
             find_course_by_id(&courses, 1).unwrap().instructors[0],
@@ -530,7 +538,7 @@ mod tests {
         }
 
         // Check participants
-        assert_eq!(participants.len(), 4);
+        assert_eq!(participants.len(), 5);
         assert_eq!(
             find_participant_by_id(&participants, 2).unwrap().name,
             "Emilia E. Eventis"
@@ -559,7 +567,7 @@ mod tests {
             super::read(&data[..], Some(1), false, false).unwrap();
         super::super::assert_data_consitency(&participants, &courses);
         assert_eq!(courses.len(), 4);
-        assert_eq!(participants.len(), 1);
+        assert_eq!(participants.len(), 2);
         assert!(find_participant_by_id(&participants, 3).is_some());
 
         // Kaffee
@@ -567,7 +575,7 @@ mod tests {
             super::read(&data[..], Some(2), false, false).unwrap();
         super::super::assert_data_consitency(&participants, &courses);
         assert_eq!(courses.len(), 4);
-        assert_eq!(participants.len(), 1);
+        assert_eq!(participants.len(), 2);
         assert!(find_participant_by_id(&participants, 3).is_some());
     }
 
@@ -592,7 +600,7 @@ mod tests {
 
         assert_eq!(courses.len(), 4);
         assert_eq!(find_course_by_id(&courses, 1).unwrap().fixed_course, true);
-        assert_eq!(find_course_by_id(&courses, 1).unwrap().room_offset, 2);
+        assert_eq!(find_course_by_id(&courses, 1).unwrap().room_offset, 2);  // FIXME: This should be 3, but we currently do not cover that
         assert_eq!(find_course_by_id(&courses, 4).unwrap().fixed_course, false);
         assert_eq!(find_course_by_id(&courses, 4).unwrap().room_offset, 0);
 
@@ -611,7 +619,7 @@ mod tests {
         assert_eq!(courses.len(), 3);
         assert!(find_course_by_id(&courses, 3).is_none());
         assert!(find_course_by_id(&courses, 5).is_none());
-        assert_eq!(participants.len(), 4);
+        assert_eq!(participants.len(), 5);
     }
 
     // TODO test parsing single track event
