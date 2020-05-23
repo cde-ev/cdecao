@@ -7,6 +7,8 @@ use chrono::{SecondsFormat, Utc};
 use serde_json::json;
 use std::cmp::max;
 
+use log::{info};
+
 const MINIMUM_EXPORT_VERSION: u64 = 7;
 const MAXIMUM_EXPORT_VERSION: u64 = 11;
 
@@ -240,7 +242,7 @@ pub fn read<R: std::io::Read>(
             }
         }
 
-        // Parse course chcoices
+        // Parse course choices
         let choices_data = rt_data
             .get("choices")
             .and_then(|v| v.as_array())
@@ -248,33 +250,35 @@ pub fn read<R: std::io::Read>(
                 "No 'choices' found in registration {}'s track data",
                 reg_id
             ))?;
-        let choices = choices_data
-            .iter()
-            .map(|v: &serde_json::Value| -> Result<usize, String> {
-                let course_id = v.as_u64().ok_or("Course choice is no integer.")?;
-                let course = courses_by_id.get(&course_id).ok_or(format!(
-                    "Course with dbid {}, choice of reg. {}, not found",
-                    course_id, reg_id
-                ))?;
-                Ok(course.index)
-            })
-            .collect::<Result<Vec<usize>, String>>()?;
+
+        let mut choices = Vec::<usize>::new();
+        for v in choices_data {
+            let course_id = v.as_u64().ok_or("Course choice is no integer.")?;
+            // TODO check if course id is totally unknown or just ignored (b/c it is cancelled)
+            //  and don't ignore toatally unkown course ids silently
+            if let Some(course) = courses_by_id.get(&course_id) {
+                choices.push(course.index);
+            }
+        }
 
         // Filter out registrations without choices
         if choices.len() == 0 {
+            if choices_data.len() > 0 {
+                info!("Ignoring participant {} (id {}), who only chose cancelled courses.",
+                      reg_name, reg_id);
+            }
             continue;
         }
 
         // Add course instructors to courses
-        if let Some(instructed_course) = rt_data.get("course_instructor").and_then(|v| v.as_u64()) {
-            courses_by_id
-                .get_mut(&instructed_course)
-                .ok_or(format!(
-                    "Course with dbid {}, instructed by reg. {}, not found",
-                    instructed_course, reg_id
-                ))?
-                .instructors
-                .push(i);
+        if let Some(instructed_course) = rt_data
+                .get("course_instructor")
+                .and_then(|v| v.as_u64()) {
+            // TODO check if course id is totally unknown or just ignored (b/c it is cancelled)
+            //  and don't ignore toatally unkown course ids silently
+            if let Some(course) = courses_by_id.get_mut(&instructed_course) {
+                course.instructors.push(i);
+            }
         }
 
         registrations.push(crate::Participant {
