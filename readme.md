@@ -24,6 +24,8 @@ or
 cdecao data.json assignment.json
 ```
 
+### CdE Datenbank Export format options
+
 By default, the application uses a very simple JSON format for input of course and participant lists and output of the
 calculated course assignment. To use the **CdE Datenbank's partial export/import** format instead, add the `--cde` option:
 ```sh
@@ -37,6 +39,8 @@ re-assigning them). To do so, use `--ignore-cancelled` resp. `--ignore-assigned`
 participants prevents their assigned courses from being cancelled (unless they are already cancelled and
 `--ignore-cancelled` is given). *This might impair the solution's quality or even make the problem unsolvable.*
 
+### Course Room Fitting
+
 The implemented course assignment algorithm includes an (experimental) extension for considering constraints on
 **available course rooms**. To use this functionality, simple give a list of available course room sizes (incl. course
 instructors):
@@ -46,12 +50,19 @@ cdecao --rooms "20,20,20,10,10,10,10,10,10,8,8" --print data.json
 This works with both data file formats. Attention: This problem might get computationally *really* complex and may not
 be solved within an reasonable time.
 
+
+### Logging options
+
 If you want to see more log output (e.g. about the program's solving progress), you can set the loglevel to 'debug' or
 'trace' via the `RUST_LOG` environment variable:
 ```sh
 RUST_LOG=debug cdecao --print data.json
 ```
 For more information, take a look at `env_logger`'s documentation: https://docs.rs/env_logger/0.6.2/env_logger/
+
+A special command line flat can help with debugging unsolvable or hardly solvable course assignment problems: With
+`--report-no-solution`, additional INFO log messages are printed for (some kinds of) unsolvable subproblems. This
+includes branches which are infeasible due to unfulfillable course choices or fixed courses.
 
 
 ### Simple Data Format
