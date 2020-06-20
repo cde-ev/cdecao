@@ -104,6 +104,7 @@ pub fn read<R: std::io::Read>(
 
     // Parse courses
     let mut courses = Vec::new();
+    let mut skipped_course_ids = Vec::new();  // Used to ignore KeyErrors for those later
     let courses_data = data
         .get("courses")
         .and_then(|v| v.as_object())
@@ -124,13 +125,14 @@ pub fn read<R: std::io::Read>(
         if !course_segments_data.contains_key(&format!("{}", track_id)) {
             continue;
         }
-        // Skip already cancelled courses (if wanted)
+        // Skip already cancelled courses (if wanted). Only add their id to `skipped_course_ids`
         if ignore_inactive_courses
             && !(course_segments_data
                 .get(&format!("{}", track_id))
                 .and_then(|v| v.as_bool())
                 .ok_or(format!("Segment of course {} is not a boolean.", course_id))?)
         {
+            skipped_course_ids.push(course_id);
             continue;
         }
 
@@ -265,10 +267,11 @@ pub fn read<R: std::io::Read>(
         let mut choices = Vec::<usize>::new();
         for v in choices_data {
             let course_id = v.as_u64().ok_or("Course choice is no integer.")?;
-            // TODO check if course id is totally unknown or just ignored (b/c it is cancelled)
-            //  and don't ignore toatally unkown course ids silently
             if let Some(course) = courses_by_id.get(&course_id) {
                 choices.push(course.index);
+            } else if !skipped_course_ids.contains(&(course_id as usize)) {
+                return Err(format!(
+                    "Course choice {} of registration {} does not exist.", course_id, reg_id));
             }
         }
 
@@ -285,10 +288,13 @@ pub fn read<R: std::io::Read>(
         if let Some(instructed_course) = rt_data
                 .get("course_instructor")
                 .and_then(|v| v.as_u64()) {
-            // TODO check if course id is totally unknown or just ignored (b/c it is cancelled)
-            //  and don't ignore toatally unkown course ids silently
             if let Some(course) = courses_by_id.get_mut(&instructed_course) {
                 course.instructors.push(i);
+            } else if !skipped_course_ids.contains(&(instructed_course as usize)) {
+                return Err(format!(
+                    "Instructed course {} of registration {} does not exist.",
+                    instructed_course,
+                    reg_id));
             }
         }
 
