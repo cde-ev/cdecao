@@ -165,9 +165,11 @@ pub fn read<R: std::io::Read>(
         });
         i += 1;
     }
-    // Store, how many participants are already set for each course (only relevant if
-    //   ignore_assigned == true)
-    let mut invisible_course_attendees = vec![0; courses.len()];
+    // Store, how many instructors attendees are already set for each course (only relevant if
+    // ignore_assigned == true). The vector holds a tuple
+    // (num_hidden_instructors, num_hidden_attendees) for each course in the same order as the
+    // `courses` vector.
+    let mut invisible_course_participants = vec![(0usize, 0usize); courses.len()];
     let mut courses_by_id: HashMap<u64, &mut crate::Course> =
         courses.iter_mut().map(|r| (r.dbid as u64, r)).collect();
 
@@ -241,13 +243,16 @@ pub fn read<R: std::io::Read>(
         if ignore_assigned {
             // Check if course_id is an integer and get this integer
             if let Some(course_id) = rt_data.get("course_id").and_then(|v| v.as_u64()) {
-                // Add participant to the invisible_course_attendees of this course ...
+                // Add participant to the invisible_course_participants of this course ...
                 if let Some(course) = courses_by_id.get(&course_id) {
                     match rt_data.get("course_instructor").and_then(|v| v.as_u64()) {
-                        //..., but only they are not instructor of this course.
-                        Some(c) if c == course_id => {},
+                        // In case, they are (invisible) instructor of the course ...
+                        Some(c) if c == course_id => {
+                            invisible_course_participants[course.index].0 += 1;
+                        },
+                        // In case, they are (invisible) attendee of the course ...
                         _ => {
-                            invisible_course_attendees[course.index] += 1;
+                            invisible_course_participants[course.index].1 += 1;
                         }
                     }
                 }
@@ -307,26 +312,26 @@ pub fn read<R: std::io::Read>(
         i += 1;
     }
 
-    // Subtract invisible_course_attendees from course participant bounds
-    // Prevent courses with invisible_course_attendees from being cancelled and add
-    // invisible_course_attendees to room_offset
-    // FIXME: This is wrong, if there are assigned course instructors (which are not covered by
-    //  invisible_course_attendees)
+    // Subtract invisible course attendees from course participant bounds
+    // Prevent courses with invisible course participants from being cancelled and add
+    // invisible course participants to room_offset
     for mut course in courses.iter_mut() {
-        course.num_min = if invisible_course_attendees[course.index] > course.num_min
+        let invisible_course_attendees = invisible_course_participants[course.index].1;
+        let total_invisible_course_participants = invisible_course_participants[course.index].0 + invisible_course_participants[course.index].1;
+        course.num_min = if invisible_course_attendees > course.num_min
         {
             0
         } else {
-            course.num_min - invisible_course_attendees[course.index]
+            course.num_min - invisible_course_attendees
         };
-        course.num_max = if invisible_course_attendees[course.index] > course.num_max
+        course.num_max = if invisible_course_attendees > course.num_max
         {
             0
         } else {
-            course.num_max - invisible_course_attendees[course.index]
+            course.num_max - invisible_course_attendees
         };
-        course.fixed_course = invisible_course_attendees[course.index] != 0;
-        course.room_offset += invisible_course_attendees[course.index];
+        course.fixed_course = total_invisible_course_participants != 0;
+        course.room_offset += total_invisible_course_participants;
     }
 
     Ok((
@@ -621,7 +626,7 @@ mod tests {
 
         assert_eq!(courses.len(), 4);
         assert_eq!(find_course_by_id(&courses, 1).unwrap().fixed_course, true);
-        assert_eq!(find_course_by_id(&courses, 1).unwrap().room_offset, 2);  // FIXME: This should be 3, but we currently do not cover that
+        assert_eq!(find_course_by_id(&courses, 1).unwrap().room_offset, 3);
         assert_eq!(find_course_by_id(&courses, 4).unwrap().fixed_course, false);
         assert_eq!(find_course_by_id(&courses, 4).unwrap().room_offset, 0);
 
