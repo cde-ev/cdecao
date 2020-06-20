@@ -2,7 +2,7 @@
 # CdE Course Assignment Optimization (cdecao)
 
 This project contains a Rust implementation of the optimal course assignment algorithm for CdE events, developed by
-Gabriel Guckenbiehl in his Master's thesis. This optimized implementation is mainly programmend and maintained by
+Gabriel Guckenbiehl <gabriel.guckenbiehl@gmx.de> in his Master's thesis. This optimized implementation is mainly programmend and maintained by
 Michael Thies <mail@mhthies.de>.
 
 The algorithm combines a Branch and Bound approach for deciding which courses to constrain in their maximum size to fit
