@@ -20,8 +20,8 @@ use std::cmp::max;
 
 use log::{info};
 
-const MINIMUM_EXPORT_VERSION: u64 = 7;
-const MAXIMUM_EXPORT_VERSION: u64 = 11;
+const MINIMUM_EXPORT_VERSION: (u64, u64) = (7, 0);
+const MAXIMUM_EXPORT_VERSION: (u64, u64) = (13, std::u64::MAX);
 
 pub struct ImportAmbienceData {
     event_id: u64,
@@ -83,13 +83,34 @@ pub fn read<R: std::io::Read>(
     if export_kind != "partial" {
         return Err("The given JSON file is no 'Partial Export' of the CdE Datenbank".to_owned());
     }
-    let export_version = data.get("CDEDB_EXPORT_EVENT_VERSION").and_then(|v| v.as_u64()).ok_or(
-        "No 'CDEDB_EXPORT_EVENT_VERSION' field found in data. Is this a correct CdEdb export file?",
-    )?;
+    let export_version =
+        if let Some(version_tag) = data.get("EVENT_SCHEMA_VERSION") {
+            version_tag.as_array()
+                .ok_or("'EVENT_SCHEMA_VERSION' is not an array!")
+                .and_then(|v|
+                    if v.len() == 2
+                    {Ok(v)}
+                    else {Err("'EVENT_SCHEMA_VERSION' does not have 2 entries.")})
+                .and_then(|v| v.iter().map(
+                    |x| x.as_u64()
+                        .ok_or("Entry of 'EVENT_SCHEMA_VERSION' is not an u64 value."))
+                    .collect::<Result<Vec<u64>, &str>>())
+                .and_then(|v| Ok((v[0], v[1])))
+        } else if let Some(version_tag) = data.get("CDEDB_EXPORT_EVENT_VERSION") {
+            // Support for old export schema version field
+            version_tag.as_u64()
+                .ok_or("'CDEDB_EXPORT_EVENT_VERSION' is not an u64 value")
+                .and_then(|v| Ok((v, 0)))
+        } else {
+            Err("No 'EVENT_SCHEMA_VERSION' field found in data. Is this a correct CdEdb \
+            export file?")
+        }?;
     if export_version < MINIMUM_EXPORT_VERSION || export_version > MAXIMUM_EXPORT_VERSION {
         return Err(format!(
-            "The given given CdE Datenbank Export is not within the supported version range [{},{}]",
-            MINIMUM_EXPORT_VERSION, MAXIMUM_EXPORT_VERSION));
+            "The given given CdE Datenbank Export is not within the supported version range \
+            [{}.{},{}.{}]",
+            MINIMUM_EXPORT_VERSION.0, MINIMUM_EXPORT_VERSION.1, MAXIMUM_EXPORT_VERSION.0,
+            MAXIMUM_EXPORT_VERSION.1));
     }
 
     // Find part and track ids
