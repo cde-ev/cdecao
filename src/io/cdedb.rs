@@ -414,7 +414,7 @@ pub fn write<W: std::io::Write>(
         .collect::<serde_json::Map<String, serde_json::Value>>();
 
     let data = json!({
-        "CDEDB_EXPORT_EVENT_VERSION": 10,
+        "EVENT_SCHEMA_VERSION": [13, 0],
         "kind": "partial",
         "id": ambience_data.event_id,
         "timestamp": Utc::now().to_rfc3339_opts(SecondsFormat::Millis, false),
