@@ -1,8 +1,12 @@
 {
-    "CDEDB_EXPORT_EVENT_VERSION": 11,
+    "CDEDB_EXPORT_EVENT_VERSION": 13,
+    "EVENT_SCHEMA_VERSION": [
+        13,
+        2
+    ],
     "kind": "partial",
     "id": 1,
-    "timestamp": "2020-05-22T11:34:34.430529+00:00",
+    "timestamp": "2020-09-16T19:15:51.516397+00:00",
     "courses": {
         "1": {
             "title": "Planetenretten f\u00fcr Anf\u00e4nger",
@@ -103,8 +107,8 @@
     "lodgements": {
         "1": {
             "moniker": "Warme Stube",
-            "capacity": 5,
-            "reserve": 1,
+            "regular_capacity": 5,
+            "camping_mat_capacity": 1,
             "notes": null,
             "group_id": 2,
             "fields": {
@@ -113,8 +117,8 @@
         },
         "2": {
             "moniker": "Kalte Kammer",
-            "capacity": 10,
-            "reserve": 2,
+            "regular_capacity": 10,
+            "camping_mat_capacity": 2,
             "notes": "Daf\u00fcr mit Frischluft.",
             "group_id": 1,
             "fields": {
@@ -123,8 +127,8 @@
         },
         "3": {
             "moniker": "Kellerverlies",
-            "capacity": 0,
-            "reserve": 100,
+            "regular_capacity": 0,
+            "camping_mat_capacity": 100,
             "notes": "Nur f\u00fcr Notf\u00e4lle.",
             "group_id": null,
             "fields": {
@@ -133,8 +137,8 @@
         },
         "4": {
             "moniker": "Einzelzelle",
-            "capacity": 1,
-            "reserve": 0,
+            "regular_capacity": 1,
+            "camping_mat_capacity": 0,
             "notes": null,
             "group_id": 1,
             "fields": {
@@ -161,17 +165,17 @@
                 "1": {
                     "status": -1,
                     "lodgement_id": null,
-                    "is_reserve": false
+                    "is_camping_mat": false
                 },
                 "2": {
                     "status": 1,
                     "lodgement_id": null,
-                    "is_reserve": false
+                    "is_camping_mat": false
                 },
                 "3": {
                     "status": 2,
                     "lodgement_id": 1,
-                    "is_reserve": false
+                    "is_camping_mat": false
                 }
             },
             "tracks": {
@@ -241,17 +245,17 @@
                 "1": {
                     "status": 3,
                     "lodgement_id": null,
-                    "is_reserve": false
+                    "is_camping_mat": false
                 },
                 "2": {
                     "status": 4,
                     "lodgement_id": 4,
-                    "is_reserve": false
+                    "is_camping_mat": false
                 },
                 "3": {
                     "status": 2,
                     "lodgement_id": 4,
-                    "is_reserve": false
+                    "is_camping_mat": false
                 }
             },
             "tracks": {
@@ -320,17 +324,17 @@
                 "1": {
                     "status": 2,
                     "lodgement_id": 2,
-                    "is_reserve": false
+                    "is_camping_mat": false
                 },
                 "2": {
                     "status": 2,
                     "lodgement_id": null,
-                    "is_reserve": false
+                    "is_camping_mat": false
                 },
                 "3": {
                     "status": 2,
                     "lodgement_id": 2,
-                    "is_reserve": false
+                    "is_camping_mat": false
                 }
             },
             "tracks": {
@@ -401,17 +405,17 @@
                 "1": {
                     "status": 6,
                     "lodgement_id": null,
-                    "is_reserve": false
+                    "is_camping_mat": false
                 },
                 "2": {
                     "status": 5,
                     "lodgement_id": null,
-                    "is_reserve": false
+                    "is_camping_mat": false
                 },
                 "3": {
                     "status": 2,
                     "lodgement_id": 2,
-                    "is_reserve": true
+                    "is_camping_mat": true
                 }
             },
             "tracks": {
@@ -480,17 +484,17 @@
                 "1": {
                     "status": 2,
                     "lodgement_id": 4,
-                    "is_reserve": false
+                    "is_camping_mat": false
                 },
                 "2": {
                     "status": 2,
                     "lodgement_id": 4,
-                    "is_reserve": false
+                    "is_camping_mat": false
                 },
                 "3": {
                     "status": 2,
                     "lodgement_id": 1,
-                    "is_reserve": false
+                    "is_camping_mat": false
                 }
             },
             "tracks": {
@@ -559,17 +563,17 @@
                 "1": {
                     "status": 2,
                     "lodgement_id": null,
-                    "is_reserve": false
+                    "is_camping_mat": false
                 },
                 "2": {
                     "status": -1,
                     "lodgement_id": null,
-                    "is_reserve": false
+                    "is_camping_mat": false
                 },
                 "3": {
                     "status": -1,
                     "lodgement_id": null,
-                    "is_reserve": false
+                    "is_camping_mat": false
                 }
             },
             "tracks": {
@@ -619,7 +623,7 @@
         "registration_start": "2000-10-30T00:00:00+00:00",
         "registration_soft_limit": "2200-10-30T00:00:00+00:00",
         "registration_hard_limit": "2221-10-30T00:00:00+00:00",
-        "iban": "DE96370205000008068901",
+        "iban": "DE26370205000008068900",
         "nonmember_surcharge": "5.00",
         "orga_address": "aka@example.cde",
         "registration_text": null,
@@ -635,7 +639,7 @@
         "is_cancelled": false,
         "is_archived": false,
         "lodge_field": "lodge",
-        "reserve_field": "may_reserve",
+        "camping_mat_field": "may_reserve",
         "course_room_field": "transportation",
         "parts": {
             "1": {
@@ -644,6 +648,7 @@
                 "part_begin": "2222-02-02",
                 "part_end": "2222-02-02",
                 "fee": "10.50",
+                "waitlist_field": null,
                 "tracks": {}
             },
             "2": {
@@ -652,6 +657,7 @@
                 "part_begin": "2222-11-01",
                 "part_end": "2222-11-11",
                 "fee": "123.00",
+                "waitlist_field": null,
                 "tracks": {
                     "1": {
                         "title": "Morgenkreis (Erste H\u00e4lfte)",
@@ -675,6 +681,7 @@
                 "part_begin": "2222-11-11",
                 "part_end": "2222-11-30",
                 "fee": "450.99",
+                "waitlist_field": null,
                 "tracks": {
                     "3": {
                         "title": "Arbeitssitzung (Zweite H\u00e4lfte)",
