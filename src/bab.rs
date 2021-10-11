@@ -341,7 +341,7 @@ mod tests {
                     )
                 }
             }
-        };
+        }
 
         let (result, statistics) = super::solve(
             move |node| solver(node, ndarray::arr1(&[0.51, 0.46, 3.7, 0.56, 0.6])),
