@@ -128,7 +128,7 @@ pub fn hungarian_algorithm(
             .and(adjacency_matrix.index_axis(Axis(0), u))
             .and(&labels_y)
             .and(mandatory_y)
-            .apply(|w, &a, &l, &m| {
+            .for_each(|w, &a, &l, &m| {
                 *w &= (a as Label == labels_x[u] + l && (!dummy_x[u] || !m));
             });
         let mut nlxt_neighbour_of = Array1::from_elem([ny], u);
@@ -190,7 +190,7 @@ pub fn hungarian_algorithm(
                     .and(adjacency_matrix.index_axis(Axis(0), z))
                     .and(&labels_y)
                     .and(mandatory_y)
-                    .apply(|v, w, &t_nor_s, &a, &l, &m| {
+                    .for_each(|v, w, &t_nor_s, &a, &l, &m| {
                         if t_nor_s && a as Label == labels_x[z] + l && (!dummy_x[z] || !m) {
                             *v = true;
                             *w = z;

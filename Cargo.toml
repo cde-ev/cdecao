@@ -5,7 +5,7 @@ authors = ["Michael Thies <mail@mhthies.de>"]
 edition = "2018"
 
 [dependencies]
-ndarray = "^0.12"
+ndarray = "^0.15"
 log = "^0.4"
 env_logger = "^0.6"
 num-traits = "^0.2"
