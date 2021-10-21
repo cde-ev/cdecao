@@ -107,7 +107,7 @@ pub fn read<R: std::io::Read>(
         }?;
     if export_version < MINIMUM_EXPORT_VERSION || export_version > MAXIMUM_EXPORT_VERSION {
         return Err(format!(
-            "The given given CdE Datenbank Export is not within the supported version range \
+            "The given CdE Datenbank Export is not within the supported version range \
             [{}.{},{}.{}]",
             MINIMUM_EXPORT_VERSION.0, MINIMUM_EXPORT_VERSION.1, MAXIMUM_EXPORT_VERSION.0,
             MAXIMUM_EXPORT_VERSION.1));
