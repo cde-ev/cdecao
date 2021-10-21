@@ -376,10 +376,7 @@ fn run_bab_node(
     // Check feasibility of the solution w.r.t course min size and participants, if not, get the most conflicting course
     let (feasible, participant_problem, branch_course) =
         check_feasibility(courses, participants, &assignment, &node, &skip_x);
-    if feasible {
-        debug!("Yes! We found a feasible solution with score {}.", score);
-        return Feasible(assignment, score);
-    } else {
+    if !feasible {
         let mut branches = Vec::<BABNode>::new();
         if let Some(c) = branch_course {
             // If we didn't fail at an unresolvable wrong assignment error, create new subproblem with course enforced
@@ -400,6 +397,9 @@ fn run_bab_node(
 
         return Infeasible(branches, score);
     }
+
+    debug!("Yes! We found a feasible solution with score {}.", score);
+    return Feasible(assignment, score);
 }
 
 /// Possible actions to take, if a course does not fit in the given rooms
