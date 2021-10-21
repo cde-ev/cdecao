@@ -328,13 +328,29 @@ fn run_bab_node(
 
     // If room size list is given, check feasibility of solution w.r.t room sizes
     if let Some(ref room_sizes) = pre_computed_problem.room_sizes {
-        let (feasible, restrictions) = check_room_feasibility(courses, &assignment, room_sizes);
+        let (feasible, alt_restrictions, req_restrictions) =
+            check_room_feasibility(courses, &assignment, room_sizes);
         if !feasible {
             let mut branches = Vec::<BABNode>::new();
-            if let Some(restrictions) = restrictions {
+            if let Some(alt_restrictions) = alt_restrictions {
+                // Some preparation for adding the always required restrictions to the new nodes
+                // below
+                let req_restrictions = req_restrictions.unwrap();
+                let req_cancellations: Vec<usize> = req_restrictions.iter()
+                    .filter(|(_c, action)| match action { RoomCourseFitAction::CancelCourse => true, _ => false })
+                    .map(|(c, _action)| *c)
+                    .filter(|c| !courses[*c].fixed_course)
+                    .collect();
+                let req_shrinks: Vec<(usize, usize)> = req_restrictions.iter()
+                    .map(|(c, action)| (c, match action { RoomCourseFitAction::ShrinkCourse(v) => Some(v), _ => None }))
+                    .filter(|(_c, action)| action.is_some())
+                    .filter(|(c, _action)| !node.no_more_shrinking.contains(c))
+                    .map(|(c, action)| (*c, *action.unwrap()))
+                    .collect();
+
                 // Add a new node for every possible constraint to fix room feasibility, as proposed
                 // by check_room_feasibility()
-                for (i, (c, action)) in restrictions.iter().enumerate() {
+                for (i, (c, action)) in alt_restrictions.iter().enumerate() {
                     if !node.no_more_shrinking.contains(c) {
                         let mut new_node = current_node.clone();
                         match action {
@@ -348,6 +364,8 @@ fn run_bab_node(
                                 new_node.cancelled_courses.push(*c);
                             }
                         }
+                        //new_node.cancelled_courses.extend(&req_cancellations);
+                        new_node.shrinked_courses.extend(&req_shrinks);
                         // Do not consider courses for future shrinking/cancelling, that have been
                         // considered in their own branch.
                         // With three rooms (15, 10, 5) and three courses (A, B, C), but only A and
@@ -366,7 +384,7 @@ fn run_bab_node(
                         // introduce a redundant restriction with the branches left of it.
                         new_node
                             .no_more_shrinking
-                            .extend(restrictions[..i].iter().map(|(c, _s)| c));
+                            .extend(alt_restrictions[..i].iter().map(|(c, _s)| c));
                         branches.push(new_node);
                     }
                 }
@@ -423,7 +441,7 @@ enum RoomCourseFitAction {
 ///
 /// # Result
 ///
-/// Returns a pair of `(is_feasible, restrictions)`.
+/// Returns a pair of `(is_feasible, alternative_restrictions, required_restrictions)`.
 ///
 /// `restrictions` is a Vec of possible size constraints to fix feasibility. Each entry has to be
 /// interpreted as `(course_index, action)`, where `action` is either `CancelCourse` or
@@ -436,7 +454,7 @@ fn check_room_feasibility(
     courses: &Vec<Course>,
     assignment: &Assignment,
     rooms: &Vec<usize>,
-) -> (bool, Option<Vec<(usize, RoomCourseFitAction)>>) {
+) -> (bool, Option<Vec<(usize, RoomCourseFitAction)>>, Option<Vec<(usize, RoomCourseFitAction)>>) {
     // Calculate course sizes (incl. instructors and room_offset)
     let mut course_size: Vec<(&Course, usize)> =
         courses.iter().map(|c| (c, c.room_offset)).collect();
@@ -456,7 +474,7 @@ fn check_room_feasibility(
 
     if let None = conflicting_room {
         // No conflict found -> assignment is feasible w.r.t. course rooms
-        return (true, None);
+        return (true, None, None);
     }
 
     // Build course constraint alternatives by finding all courses larger than the conflicting room,
@@ -482,6 +500,24 @@ fn check_room_feasibility(
                 })
                 .collect(),
         ),
+        Some(
+            course_size
+                 .iter()
+                 .filter(|(_c, s)| s <= conflicting_room)
+                 .map(|(c, _s)| {
+                     (
+                         c.index,
+                         if *conflicting_room >= (c.num_min + c.room_offset + c.instructors.len()) {
+                             RoomCourseFitAction::ShrinkCourse(
+                                 *conflicting_room - c.room_offset - c.instructors.len(),
+                             )
+                         } else {
+                             RoomCourseFitAction::CancelCourse
+                         },
+                     )
+                 })
+                 .collect(),
+        )
     );
 }
 
