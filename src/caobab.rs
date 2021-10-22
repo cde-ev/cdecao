@@ -342,7 +342,7 @@ fn run_bab_node(
                                 new_node.shrinked_courses.push((*c, *s));
                             }
                             RoomCourseFitAction::CancelCourse => {
-                                if courses[*c].fixed_course {
+                                if courses[*c].fixed_course || node.enforced_courses.contains(c) {
                                     continue;
                                 }
                                 new_node.cancelled_courses.push(*c);
