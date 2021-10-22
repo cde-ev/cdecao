@@ -354,7 +354,7 @@ fn run_bab_node(
     // If room size list is given, check feasibility of solution w.r.t room sizes
     if let Some(ref room_sizes) = pre_computed_problem.room_sizes {
         let (feasible, alt_restrictions, req_restrictions) =
-            check_room_feasibility(courses, &assignment, room_sizes);
+            check_room_feasibility(courses, &node.cancelled_courses, &assignment, room_sizes);
         if !feasible {
             let mut branches = Vec::<BABNode>::new();
             if let Some(alt_restrictions) = alt_restrictions {
@@ -443,21 +443,31 @@ enum RoomCourseFitAction {
 ///
 /// Returns a pair of `(is_feasible, alternative_restrictions, required_restrictions)`.
 ///
-/// `restrictions` is a Vec of possible size constraints to fix feasibility. Each entry has to be
-/// interpreted as `(course_index, action)`, where `action` is either `CancelCourse` or
-/// `ShrinkCourse(max_num)` with max_num not including course instructors and room_offset, i.e. it
-/// can be directly used for `BABNode.shrinked_courses`.
+/// `alternative_restrictions` is a Vec of possible alternative size constraints to fix feasibility.
+/// Each entry has to be interpreted as `(course_index, action)`, where `action` is either
+/// `CancelCourse` or `ShrinkCourse(max_num)` with max_num not including course instructors and
+/// room_offset, i.e. it can be directly used for `BABNode.shrinked_courses`.
 /// The vector is ordered in ascending order by course sizes in the current assignment. This order
 /// should be kept to solve more promising subproblems (with size restrictions on smaller courses)
 /// first.
+/// `required_restrictions` is a similar Vec of additional courses that should be restricted to the
+/// same room size to avoid calculating unpromising BaB nodes: It contains size constraints for all
+/// courses which are currently fit into the conflicting room, constraining them to the size
+/// of the conflicting room, so they can not grow larger due to other restrictions. That will most
+/// likely not preclude an optimal solution, since in case any of these courses would grow above
+/// this room limit, we have the same room problem again and giving the place to the currently
+/// constrained course would have been the more optimal solution in nearly any place.
 fn check_room_feasibility(
     courses: &Vec<Course>,
+    cancelled_courses: &Vec<usize>,
     assignment: &Assignment,
     rooms: &Vec<usize>,
 ) -> (bool, Option<Vec<(usize, RoomCourseFitAction)>>, Option<Vec<(usize, RoomCourseFitAction)>>) {
     // Calculate course sizes (incl. instructors and room_offset)
     let mut course_size: Vec<(&Course, usize)> =
-        courses.iter().map(|c| (c, c.room_offset)).collect();
+        courses.iter()
+            .map(|c| (c, if cancelled_courses.contains(&c.index) { 0 } else {c.room_offset}))
+            .collect();
     for c in assignment.iter() {
         course_size[*c].1 += 1;
     }
@@ -504,6 +514,7 @@ fn check_room_feasibility(
             course_size
                  .iter()
                  .filter(|(_c, s)| s <= conflicting_room)
+                 .filter(|(c, _s)| !cancelled_courses.contains(&c.index))
                  .map(|(c, _s)| {
                      (
                          c.index,
