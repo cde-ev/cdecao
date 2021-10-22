@@ -278,7 +278,7 @@ fn run_bab_node(
     for (c, s) in effective_num_max.iter().enumerate() {
         let delta = courses[c].num_max - s;
         for j in 0..delta {
-            let y = pre_computed_problem.inverse_course_map[c] + j;
+            let y = pre_computed_problem.inverse_course_map[c] + courses[c].num_max - 1 - j;
             skip_y[y] = true;
         }
         num_skip_y += delta;
@@ -295,6 +295,8 @@ fn run_bab_node(
         for j in 0..courses[*c].num_min {
             let y = pre_computed_problem.inverse_course_map[*c] + j;
             mandatory_y[y] = true;
+            assert!(!skip_y[y], "Trying to make the {}th course place of course {} mandatory \
+            although it is already skipped.", j, c);
         }
     }
 
