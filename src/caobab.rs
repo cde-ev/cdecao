@@ -488,28 +488,30 @@ fn check_room_feasibility(
     }
 
     // Find largest room type with non-fitting courses
-    let conflicting_room = course_size
+    let conflict = course_size
         .iter()
         .rev()
         .zip(rooms)
         .skip_while(|((_course, size), room_size)| size <= room_size)
-        .next() // Iterator -> Option
-        .map(|((_c, _s), r)| r);
+        .next();  // Iterator -> Option;
 
-    if let None = conflicting_room {
+    if let None = conflict {
         // No conflict found -> assignment is feasible w.r.t. course rooms
         return (true, None, None);
     }
 
     // Build course constraint alternatives by finding all courses larger than the conflicting room,
     // beginning with the smallest
-    let conflicting_room = conflicting_room.unwrap();
+    let ((_conflicting_course, conflicting_course_size), conflicting_room) = conflict.unwrap();
     return (
         false,
         Some(
             course_size
                 .iter()
                 .filter(|(_c, s)| s > conflicting_room)
+                // As an heuristic, we only consider courses up to 1.5 times larger than the
+                // conflicting course for shrinking
+                .filter(|(_c, s)| *s <= 15 * conflicting_course_size / 10)
                 .map(|(c, _s)| {
                     (
                         c.index,
