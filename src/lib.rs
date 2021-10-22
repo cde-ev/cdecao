@@ -45,7 +45,7 @@ pub struct Course {
     name: String,
     /// Maximum number of attendees (excl. course instructors)
     num_max: usize,
-    /// Maximum number of attendees (excl. course instructors)
+    /// Minimum number of attendees (excl. course instructors)
     num_min: usize,
     /// Ids of course instructor's indexes in the
     instructors: Vec<usize>,
