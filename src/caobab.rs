@@ -361,16 +361,19 @@ fn run_bab_node(
                 // Some preparation for adding the always required restrictions to the new nodes
                 // below
                 let req_restrictions = req_restrictions.unwrap();
-                let req_cancellations: Vec<usize> = req_restrictions.iter()
+                // There should not be any required course cancellations due to room limitations,
+                // because these would be courses that are currently smaller than the conflicting
+                // room size but cannot take place with that room size. I.e. they are currently
+                // below their minimum size, which we have checked above for all courses.
+                let num_req_cancellations: usize = req_restrictions.iter()
                     .filter(|(_c, action)| match action { RoomCourseFitAction::CancelCourse => true, _ => false })
-                    .map(|(c, _action)| *c)
-                    .filter(|c| !courses[*c].fixed_course)
-                    .collect();
+                    .count();
+                assert_eq!(num_req_cancellations, 0);
                 let req_shrinks: Vec<(usize, usize)> = req_restrictions.iter()
                     .map(|(c, action)| (c, match action { RoomCourseFitAction::ShrinkCourse(v) => Some(v), _ => None }))
                     .filter(|(_c, action)| action.is_some())
-                    .filter(|(c, _action)| !node.no_more_shrinking.contains(c))
                     .map(|(c, action)| (*c, *action.unwrap()))
+                    .filter(|(c, _action)| !node.no_more_shrinking.contains(c))  // TODO Maybe filter redundant shrink constraints
                     .collect();
 
                 // Add a new node for every possible constraint to fix room feasibility, as proposed
@@ -389,7 +392,6 @@ fn run_bab_node(
                                 new_node.cancelled_courses.push(*c);
                             }
                         }
-                        //new_node.cancelled_courses.extend(&req_cancellations);
                         new_node.shrinked_courses.extend(&req_shrinks);
                         // Do not consider courses for future shrinking/cancelling, that have been
                         // considered in their own branch.
