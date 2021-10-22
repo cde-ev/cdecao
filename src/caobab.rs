@@ -326,6 +326,31 @@ fn run_bab_node(
         }
     }
 
+    // Check feasibility of the solution w.r.t course min size and participants, if not, get the most conflicting course
+    let (feasible, participant_problem, branch_course) =
+        check_feasibility(courses, participants, &assignment, &node, &skip_x);
+    if !feasible {
+        let mut branches = Vec::<BABNode>::new();
+        if let Some(c) = branch_course {
+            // If we didn't fail at an unresolvable wrong assignment error, create new subproblem with course enforced
+            if !participant_problem {
+                let mut new_node = current_node.clone();
+                new_node.enforced_courses.push(c);
+                branches.push(new_node);
+            }
+
+            // Return modified subproblem with course in cancelled courses (if cancelling the course is allowed)
+            if !courses[c].fixed_course {
+                current_node.cancelled_courses.push(c);
+                branches.push(current_node);
+            } else if report_no_solution {
+                info!("Cannot cancel course {:?}, as it is fixed.", courses[c].name);
+            }
+        }
+
+        return Infeasible(branches, score);
+    }
+
     // If room size list is given, check feasibility of solution w.r.t room sizes
     if let Some(ref room_sizes) = pre_computed_problem.room_sizes {
         let (feasible, alt_restrictions, req_restrictions) =
@@ -391,31 +416,6 @@ fn run_bab_node(
             }
             return Infeasible(branches, score);
         }
-    }
-
-    // Check feasibility of the solution w.r.t course min size and participants, if not, get the most conflicting course
-    let (feasible, participant_problem, branch_course) =
-        check_feasibility(courses, participants, &assignment, &node, &skip_x);
-    if !feasible {
-        let mut branches = Vec::<BABNode>::new();
-        if let Some(c) = branch_course {
-            // If we didn't fail at an unresolvable wrong assignment error, create new subproblem with course enforced
-            if !participant_problem {
-                let mut new_node = current_node.clone();
-                new_node.enforced_courses.push(c);
-                branches.push(new_node);
-            }
-
-            // Return modified subproblem with course in cancelled courses (if cancelling the course is allowed)
-            if !courses[c].fixed_course {
-                current_node.cancelled_courses.push(c);
-                branches.push(current_node);
-            } else if report_no_solution {
-                info!("Cannot cancel course {:?}, as it is fixed.", courses[c].name);
-            }
-        }
-
-        return Infeasible(branches, score);
     }
 
     debug!("Yes! We found a feasible solution with score {}.", score);
