@@ -542,9 +542,10 @@ fn check_feasibility(
     let mut max_score = 0;
     let mut course: Option<usize> = None;
     for (c, size) in course_size.iter().enumerate() {
-        if !node.cancelled_courses.contains(&c) && !node.enforced_courses.contains(&c) {
+        if !node.cancelled_courses.contains(&c) {
             if *size < courses[c].num_min {
-                let score = courses[c].num_min - size;
+                assert!(!node.enforced_courses.contains(&c), "Course {} has been enforced but still does not meet its minimum number: {} < {}", courses[c].index, *size, courses[c].num_min);
+                let score = courses[c].num_min - *size;
                 if score > max_score {
                     max_score = score;
                     course = Some(c);
