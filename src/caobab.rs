@@ -475,6 +475,18 @@ fn check_room_feasibility(
     }
     course_size.sort_by_key(|(_c, s)| *s);
 
+    if cfg!(debug_assertions) {
+        for (c, s) in course_size.iter() {
+            if cancelled_courses.contains(&c.index) {
+                assert_eq!(*s, 0);
+            } else {
+                assert!(*s >= c.num_min + c.room_offset + c.instructors.len(),
+                        "Course {} is smaller than expected (effective size={}, num_min={}, room_offset={}, instructors={})",
+                        c.index, s, c.num_min, c.room_offset, c.instructors.len());
+            }
+        }
+    }
+
     // Find largest room type with non-fitting courses
     let conflicting_room = course_size
         .iter()
