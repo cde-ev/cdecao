@@ -129,7 +129,7 @@ pub fn hungarian_algorithm(
             .and(&labels_y)
             .and(mandatory_y)
             .for_each(|w, &a, &l, &m| {
-                *w &= (a as Label == labels_x[u] + l && (!dummy_x[u] || !m));
+                *w &= (a as Label == labels_x[u] + l && !(dummy_x[u] && m));
             });
         let mut nlxt_neighbour_of = Array1::from_elem([ny], u);
 
@@ -147,7 +147,7 @@ pub fn hungarian_algorithm(
                     if *s_x {
                         for (y, weight) in adjacency_matrix.index_axis(Axis(0), x).indexed_iter() {
                             // TODO speed up, use ndarray::Zip?
-                            if !t[y] && !skip_y[y] && (!dummy_x[x] || !mandatory_y[y]) {
+                            if !t[y] && !skip_y[y] && !(dummy_x[x] && mandatory_y[y]) {
                                 let delta = labels_x[x] + labels_y[y] - *weight as Label;
                                 if delta == delta_min {
                                     // Y-Node with edge with same delta found. Add it to the new neighbourhood.
@@ -191,7 +191,7 @@ pub fn hungarian_algorithm(
                     .and(&labels_y)
                     .and(mandatory_y)
                     .for_each(|v, w, &t_nor_s, &a, &l, &m| {
-                        if t_nor_s && a as Label == labels_x[z] + l && (!dummy_x[z] || !m) {
+                        if t_nor_s && a as Label == labels_x[z] + l && !(dummy_x[z] && m) {
                             *v = true;
                             *w = z;
                         }
