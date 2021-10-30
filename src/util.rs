@@ -67,10 +67,36 @@ impl<'a, T> Iterator for KSelectionIterator<'a, T> {
 
         Some(self.index.as_ref().unwrap().iter().map(|i| &self.data[*i]).collect())
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        if let Some(ref index) = self.index {
+            let mut rank = 0;
+            for i in 0..self.k {
+                rank += binom(index[i], i+1);
+            }
+            let remaining = binom(self.data.len(), self.k) - rank - 1;
+            return (remaining, Some(remaining));
+        } else {
+            let num = binom(self.data.len(), self.k);
+            return (num, Some(num));
+        }
+    }
+}
+
+fn binom(n: usize, k: usize) -> usize {
+    if k > n {
+        return 0;
+    }
+    let mut res = 1usize;
+    for i in 0..k {
+        res = res * (n - i) / (i + 1);
+    }
+    return res;
 }
 
 #[cfg(test)]
 mod test {
+    use super::binom;
     use super::IterSelections;
 
     #[test]
@@ -88,10 +114,33 @@ mod test {
         assert_eq!(selections, vec![
             vec!["a", "b"],
             vec!["a", "c"],
-            vec!["a", "d"],
             vec!["b", "c"],
+            vec!["a", "d"],
             vec!["b", "d"],
             vec!["c", "d"],
         ])
+    }
+
+    #[test]
+    fn binom_test() {
+        assert_eq!(binom(4, 4), 1);
+        assert_eq!(binom(10, 9), 10);
+        assert_eq!(binom(4, 2), 6);
+        assert_eq!(binom(4, 1), 4);
+        assert_eq!(binom(4, 0), 1);
+        assert_eq!(binom(0, 0), 1);
+        assert_eq!(binom(3, 4), 0);
+    }
+
+    #[test]
+    fn size_hint_test() {
+        let data = [1, 2, 3, 4];
+        let mut iterator = data[..].iter_selections(2);
+        assert_eq!(iterator.size_hint().0, 6);
+        assert_eq!(iterator.size_hint().1, Some(6));
+        for i in 0..6 {
+            iterator.next();
+            assert_eq!(iterator.size_hint().0, 6-i-1);
+        }
     }
 }
