@@ -12,6 +12,7 @@
 mod bab;
 pub mod caobab;
 mod hungarian;
+mod util;
 
 pub mod io;
 
