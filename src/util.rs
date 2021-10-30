@@ -34,27 +34,29 @@ impl<'a, T> Iterator for KSelectionIterator<'a, T> {
     fn next(&mut self) -> Option<Self::Item> {
         let n = self.data.len();
 
-        // update self.current_index
+        // update self.index
         if let Some(ref mut index) = self.index {
-            let mut j = self.k-1;
+            let mut j = 0;
             loop {
-                if index[j] < n-(self.k-j) {
+                if j == self.k-1 {
+                    if index[j] >= n-1 {
+                        return None;
+                    }
                     index[j] += 1;
                     break;
+                } else {
+                    if index[j] < index[j+1]-1 {
+                        index[j] += 1;
+                        break;
+                    }
                 }
-                if j == 0 {
-                    return None
-                }
-                j -= 1;
+                j += 1;
             }
-            if j < self.k-1 {
-                let v = index[j];
-                for l in 1..self.k-j {
-                    index[j+l] = v + l;
-                }
+            for k in 0..j {
+                index[k] = k;
             }
 
-            // initialization of index
+        // initialization of index
         } else {
             if self.k == 0 || self.k > n {
                 return None;
