@@ -18,7 +18,7 @@ use chrono::{SecondsFormat, Utc};
 use serde_json::json;
 use std::cmp::max;
 
-use log::{info};
+use log::{info, warn};
 
 const MINIMUM_EXPORT_VERSION: (u64, u64) = (7, 0);
 const MAXIMUM_EXPORT_VERSION: (u64, u64) = (15, std::u64::MAX);
@@ -72,6 +72,8 @@ pub fn read<R: std::io::Read>(
     track: Option<u64>,
     ignore_inactive_courses: bool,
     ignore_assigned: bool,
+    room_factor_field: Option<&str>,
+    room_offset_field: Option<&str>,
 ) -> Result<(Vec<Participant>, Vec<Course>, ImportAmbienceData), String> {
     let data: serde_json::Value = serde_json::from_reader(reader).map_err(|err| err.to_string())?;
 
@@ -168,6 +170,35 @@ pub fn read<R: std::io::Read>(
                 .and_then(|v| v.as_str())
                 .ok_or(format!("No 'shortname' found for course {}", course_id))?
         );
+
+        // Analyze fields to extract room_factor and room_offset
+        let fields = course_data
+            .get("fields")
+            .and_then(|v| v.as_object())
+            .ok_or(format!("No 'fields' found for course {}", course_id))?;
+        let room_factor = if let Some(field_name) = room_factor_field {
+            match fields.get(field_name).and_then(|v| v.as_f64()) {
+                Some(v) => v,
+                None => {
+                    warn!("No numeric field '{}' as room_factor field found in course {}. Using the default value 1.0.", field_name, course_name);
+                    1.0
+                }
+            }
+        } else {
+            1.0
+        };
+        let room_offset = if let Some(field_name) = room_offset_field {
+            match fields.get(field_name).and_then(|v| v.as_u64()) {
+                Some(v) => v,
+                None => {
+                    warn!("No integer field '{}' as room_offset field found in course {}. Using the default value 0.", field_name, course_name);
+                    0
+                }
+            }
+        } else {
+            0
+        };
+
         courses.push(crate::Course {
             index: i,
             dbid: course_id as usize,
@@ -181,8 +212,8 @@ pub fn read<R: std::io::Read>(
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0) as usize,
             instructors: Vec::new(),
-            room_factor: 1.0,
-            room_offset: 0,
+            room_factor: room_factor as f32,
+            room_offset: room_offset as usize,
             fixed_course: false,
         });
         i += 1;
@@ -556,7 +587,7 @@ mod tests {
     fn parse_testaka_sitzung() {
         let data = include_bytes!("test_ressources/TestAka_partial_export_event.json");
         let (participants, courses, import_ambience) =
-            super::read(&data[..], Some(3), false, false).unwrap();
+            super::read(&data[..], Some(3), false, false, None, None).unwrap();
 
         super::super::assert_data_consitency(&participants, &courses);
         // Check courses
@@ -612,7 +643,7 @@ mod tests {
         // cancelled or rejected registration parts)
         // Morgenkreis
         let (participants, courses, _import_ambience) =
-            super::read(&data[..], Some(1), false, false).unwrap();
+            super::read(&data[..], Some(1), false, false, None, None).unwrap();
         super::super::assert_data_consitency(&participants, &courses);
         assert_eq!(courses.len(), 4);
         assert_eq!(participants.len(), 2);
@@ -620,7 +651,7 @@ mod tests {
 
         // Kaffee
         let (participants, courses, _import_ambience) =
-            super::read(&data[..], Some(2), false, false).unwrap();
+            super::read(&data[..], Some(2), false, false, None, None).unwrap();
         super::super::assert_data_consitency(&participants, &courses);
         assert_eq!(courses.len(), 4);
         assert_eq!(participants.len(), 2);
@@ -634,7 +665,7 @@ mod tests {
         // Check that only participants are parsed (no not_applied, applied, waitlist, guest,
         // cancelled or rejected registration parts)
         // Morgenkreis
-        let result = super::read(&data[..], None, false, false);
+        let result = super::read(&data[..], None, false, false, None, None);
         assert!(result.is_err());
         assert!(result.err().unwrap().find("Kaffeekränzchen").is_some());
     }
@@ -643,7 +674,7 @@ mod tests {
     fn test_ignore_assigned() {
         let data = include_bytes!("test_ressources/TestAka_partial_export_event.json");
         let (participants, courses, _import_ambience) =
-            super::read(&data[..], Some(3), false, true).unwrap();
+            super::read(&data[..], Some(3), false, true, None, None).unwrap();
         super::super::assert_data_consitency(&participants, &courses);
 
         assert_eq!(courses.len(), 4);
@@ -661,7 +692,7 @@ mod tests {
     fn test_ignore_cancelled() {
         let data = include_bytes!("test_ressources/TestAka_partial_export_event.json");
         let (participants, courses, _import_ambience) =
-            super::read(&data[..], Some(3), true, false).unwrap();
+            super::read(&data[..], Some(3), true, false, None, None).unwrap();
         super::super::assert_data_consitency(&participants, &courses);
 
         assert_eq!(courses.len(), 3);
