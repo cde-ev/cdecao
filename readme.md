@@ -24,6 +24,27 @@ or
 cdecao data.json assignment.json
 ```
 
+
+### Course Room Fitting
+
+The implemented course assignment algorithm includes an (experimental) extension for considering constraints on
+**available course rooms**. To use this functionality, simple give a list of available course room sizes (incl. course
+instructors):
+```sh
+cdecao --rooms "20,20,20,10,10,10,10,10,10,8,8" --print data.json
+```
+This works with both data file formats. For more control about course room matching, the "effective size" of each course
+can be defined as an affine function of the course's actual number of participants. For this purpose, each course has
+two attributes `room_factor` and `room_offset`, where
+
+*effective_size = room_offset + room_factor * (num_participants + num_instructors)*.
+
+The algorithm will automatically reduce the number of participants of some courses and cancel courses if required, such
+that all courses can find room with at least their effective size. Different combinations (not all possible – for
+complexity reasons) of "shrunk" and cancelled courses are computed to find the one which allows the best course
+assignment.
+
+
 ### CdE Datenbank Export format options
 
 By default, the application uses a very simple JSON format for input of course and participant lists and output of the
@@ -43,24 +64,10 @@ re-assigning them). To do so, use `--ignore-cancelled` resp. `--ignore-assigned`
 participants prevents their assigned courses from being cancelled (unless they are already cancelled and
 `--ignore-cancelled` is given). *This might impair the solution's quality or even make the problem unsolvable.*
 
-### Course Room Fitting
-
-The implemented course assignment algorithm includes an (experimental) extension for considering constraints on
-**available course rooms**. To use this functionality, simple give a list of available course room sizes (incl. course
-instructors):
-```sh
-cdecao --rooms "20,20,20,10,10,10,10,10,10,8,8" --print data.json
-```
-This works with both data file formats. For more control about course room matching, the "effective size" of each course
-can be defined as an affine function of the course's actual number of participants. For this purpose, each course can
-have the two attributes `room_factor` and `room_offset`, such that:
-
-*effective_size = room_offset + room_factor * (num_participants + num_instructors)*
-
-The algorithm will automatically reduce the number of participants of some courses and cancel courses if required, such
-that all courses can find room with at least their effective size. Different combinations (not all possible – for
-complexity reasons) of "shrunk" and cancelled courses are computed to find the one which allows the best course
-assignment. 
+The *room_factor* and *room_offset* for course room fitting can be specified for each course via data fields in the
+CdE Datenbank. With the command line options `--room-factor-field` and `--room-offset-field` the name of the respective
+fields can be specified. The *room_factor* field needs to be a numeric (float or integer) data field, the *room_offset*
+field needs to be an integer-typed data field.
 
 
 ### Logging options
