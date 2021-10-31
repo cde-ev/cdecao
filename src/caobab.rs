@@ -51,7 +51,6 @@ pub fn solve(
             cancelled_courses: Vec::new(),
             enforced_courses: Vec::new(),
             shrinked_courses: Vec::new(),
-            no_more_shrinking: Vec::new(),
         },
         num_cpus::get() as u32,
     )
@@ -159,8 +158,6 @@ struct BABNode {
     /// number of actual attendees to be assigned by the algorithm (without course instructors and
     /// room_offset etc.)
     shrinked_courses: Vec<(usize, usize)>,
-    /// Courses that should not be shrinked any more. (to eliminate redundant branches)
-    no_more_shrinking: Vec<usize>,
 }
 
 // As we want to do a pseudo depth-first search, BABNodes are ordered by their depth in the Branch and Bound tree for
