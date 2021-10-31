@@ -17,6 +17,10 @@ use std::sync::Arc;
 fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
     // Idea: Course 1 or 2 must be cancelled, b/c otherwise, we don't have enough participants to fill all courses.
     // Course 1 will win due to Participant 5's choices, so Course 2 will be cancelled.
+    //
+    // .. unless there are room constraints: Course 0 needs a large room (offset = 10),
+    // Course 2 requires more space per participant (factor = 3.5) than Course 1.
+    // With rooms = [15, 5], Course 1 cannot take place; with rooms = [15, 7], Course 1 should win.
     (
         vec![
             Participant {
@@ -64,7 +68,8 @@ fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
                 num_max: 2,
                 num_min: 2,
                 instructors: vec![0],
-                room_offset: 0,
+                room_factor: 1.0,
+                room_offset: 10,
                 fixed_course: false,
             },
             Course {
@@ -74,6 +79,7 @@ fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
                 num_max: 8,
                 num_min: 2,
                 instructors: vec![1],
+                room_factor: 2.0,
                 room_offset: 0,
                 fixed_course: false,
             },
@@ -84,6 +90,7 @@ fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
                 num_max: 10,
                 num_min: 2,
                 instructors: vec![2],
+                room_factor: 1.5,
                 room_offset: 0,
                 fixed_course: false,
             },
@@ -104,6 +111,7 @@ fn create_other_problem() -> (Vec<Course>, Vec<Participant>) {
             num_min: min,
             num_max: max,
             instructors: Vec::new(),
+            room_factor: 1.0,
             room_offset: 0,
             fixed_course: false,
         };
@@ -533,6 +541,7 @@ fn test_bab_node_large() {
             num_min: MIN_PLACES_PER_COURSE,
             num_max: MAX_PLACES_PER_COURSE,
             instructors: Vec::new(),
+            room_factor: 1.0,
             room_offset: 0,
             fixed_course: false,
         });
@@ -724,4 +733,53 @@ fn test_caobab_fixed_course() {
             assert!(course_size[2] >= 4);
         }
     };
+}
+
+#[test]
+fn test_caobab_rooms_scaling() {
+    let (participants, courses) = create_simple_problem();
+    let courses = Arc::new(courses);
+    let participants = Arc::new(participants);
+    crate::io::assert_data_consitency(&participants, &courses);
+
+    for (rooms, expected_cancelled_courses) in [
+            (vec![15, 5], [false, true, false]),
+            (vec![15, 7], [false, false, true]),
+            (vec![10, 5], [true, false, false])] {
+        let (result, _statistics) = super::solve(courses.clone(), participants.clone(), Some(&rooms), false);
+
+        match result {
+            None => panic!("Expected to get a result for rooms={:?}", rooms),
+
+            Some((assignment, score)) => {
+                print!("test_caobab_rooms_scaling (rooms={:?}): assignment: {:?}\n", rooms, assignment);
+
+                // Check general feasibility of assignment
+                check_assignment(&*courses, &*participants, &assignment, None);
+
+                // Check score
+                assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 2));
+                assert!(score < participants.len() as u32 * (super::WEIGHT_OFFSET as u32));
+
+                // Calculate course sizes
+                let mut course_size = vec![0usize; courses.len()];
+                for c in assignment.iter() {
+                    course_size[*c] += 1;
+                }
+
+                for (i, (size, expected_cancel)) in course_size.iter().zip(expected_cancelled_courses).enumerate() {
+                    if expected_cancel {
+                        assert_eq!(*size, 0, "Course {} should be cancelled with rooms={:?}", i, rooms);
+                    } else {
+                        assert!(*size >= 1, "Course {} should take place with rooms={:?}", i, rooms);
+                    }
+                }
+            }
+        };
+    }
+
+    for rooms in [vec![5, 5], vec![5]] {
+        let (result, _statistics) = super::solve(courses.clone(), participants.clone(), Some(&rooms), false);
+        assert!(result.is_none(), "No result expected for rooms={:?}. Assignment is {:?}", rooms, result.unwrap());
+    }
 }

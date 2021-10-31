@@ -420,10 +420,16 @@ fn check_room_feasibility(
     node: &BABNode,
 ) -> (bool, Option<Vec<(Vec<(usize, usize)>, Vec<usize>)>>) {
     // Calculate course sizes (incl. instructors and room_offset)
-    let mut course_size: Vec<(&Course, usize)> =
-        courses.iter().map(|c| (c, c.room_offset)).collect(); // TODO only add offset if course is not cancelled
+    let mut course_size: Vec<(&Course, usize)> = courses.iter().map(|c| (c, 0)).collect();
     for c in assignment.iter() {
         course_size[*c].1 += 1;
+    }
+    for (c, ref mut s) in course_size.iter_mut() {
+        *s = if *s == 0 {
+            0
+        } else {
+            c.room_offset + ((c.room_factor * (*s as f32)).ceil() as usize)
+        };
     }
     course_size.sort_by_key(|(_c, s)| *s);
 
