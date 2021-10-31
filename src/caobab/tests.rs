@@ -129,7 +129,8 @@ fn create_other_problem() -> (Vec<Course>, Vec<Participant>) {
         make_course(1, 12),
         make_course(1, 10),
         make_course(1, 10),
-        make_course(4, 10)];
+        make_course(4, 10),
+    ];
     let mut participants = Vec::new();
     participants.append(&mut make_parts(6, vec![0, 1, 2]));
     participants.append(&mut make_parts(3, vec![0, 1, 3]));
@@ -631,7 +632,8 @@ fn test_caobab_rooms() {
     let rooms = vec![10, 5, 8];
 
     // Run caobab
-    let (result, statistics) = super::solve(courses.clone(), participants.clone(), Some(&rooms), false);
+    let (result, statistics) =
+        super::solve(courses.clone(), participants.clone(), Some(&rooms), false);
 
     match result {
         None => panic!("Expected to get a result."),

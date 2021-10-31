@@ -22,6 +22,7 @@ use crate::util::{binom, IterSelections};
 use crate::{Assignment, Course, Participant};
 use log::{debug, info};
 use std::sync::Arc;
+use std::cmp::min;
 
 /// Main method of the module to solve a course assignement problem using the branch and bound method together with the
 /// hungarian method.
@@ -330,7 +331,7 @@ fn run_bab_node(
     // If room size list is given, check feasibility of solution w.r.t room sizes
     if let Some(ref room_sizes) = pre_computed_problem.room_sizes {
         let (feasible, restrictions) =
-            check_room_feasibility(courses, &assignment, room_sizes, 5, 10, &current_node);
+            check_room_feasibility(courses, &assignment, room_sizes, &current_node);
         if !feasible {
             let mut branches = Vec::<BABNode>::new();
             if let Some(restrictions) = restrictions {
@@ -394,11 +395,12 @@ fn run_bab_node(
 ///
 /// To chose the range, we first check how many courses have to be shrinked to the conflicting
 /// room's size (i.e. courses that are assigned to a room of that size but not larger). If this
-/// number is smaller than `min_k`, we add the next few smaller courses to reach `min_k`. The size
-/// of this set determines the size of the selections. If this set is smaller than `min_n`, we add
-/// the next few larger courses to get the set of a courses to take selections from. This means, if
-/// the number of conflicting courses for the given room size is already larger than min_n, only one
-/// constraint set will be generated.
+/// number is smaller than `min_k`, we add the next few smaller courses to reach `MIN_K`. The size
+/// of this set determines the size of the selections. If this set is smaller than `MAX_N`, we add
+/// up to `MAX_NTOK` larger courses (but limited to `MAX_N`). This means, if the number of
+/// conflicting courses for the given room size is already larger than `MAX_N`, n equals k, so only
+/// one constraint set will be generated. Otherwise, we can generate up to
+/// (MAX_N choose (MAX_N-MAX_NTOK)) constraint sets.
 ///
 /// # Arguments
 ///
@@ -406,10 +408,6 @@ fn run_bab_node(
 /// * `assignment` - The assignment to be checked (must include course instructors)
 /// * `rooms` - An ordered list of course rooms in **descending** order, filled with zero entries to
 ///     length of course list
-/// * `min_k` – Minimum k for generating k-selections of courses to be shrinked out of a set of
-///   `min_n` similar sized courses.
-/// * `min_n` – Minimum size of the set of courses of similar size than the conflicting course to
-///             take k-selections of courses to be shrinked to the conflicting room size from.
 /// * `node` – The current BaB node, used to avoid conflicting restrictions (cancelled vs. enforced)
 ///            and redundant restrictions.
 ///
@@ -422,8 +420,6 @@ fn check_room_feasibility(
     courses: &Vec<Course>,
     assignment: &Assignment,
     rooms: &Vec<usize>,
-    min_k: usize,
-    min_n: usize,
     node: &BABNode,
 ) -> (bool, Option<Vec<(Vec<(usize, usize)>, Vec<usize>)>>) {
     // Calculate course sizes (incl. instructors and room_offset)
@@ -449,8 +445,11 @@ fn check_room_feasibility(
         return (true, None);
     }
 
-    // Calculate range of courses to generate selections for shrinking from, according to min_k and
-    // min_n
+    // Calculate range of courses to generate selections for shrinking from
+    const MIN_K: usize = 5;
+    const MAX_NTOK: usize = 4;
+    const MAX_N: usize = 20;
+
     let conflicting_course_index: usize = conflicting_course_index.unwrap();
     let conflicting_room_size = rooms[rooms.len() - 1 - conflicting_course_index];
     let smallest_conflicting_course_index = course_size
@@ -460,25 +459,21 @@ fn check_room_feasibility(
     assert!(conflicting_course_index >= smallest_conflicting_course_index);
     let mut k = conflicting_course_index - smallest_conflicting_course_index + 1;
     let lower_bound;
-    if k < min_k {
-        if conflicting_course_index + 1 < min_k {
+    if k < MIN_K {
+        if conflicting_course_index + 1 < MIN_K {
             lower_bound = 0;
             k = conflicting_course_index + 1;
         } else {
-            lower_bound = conflicting_course_index + 1 - min_k;
-            k = min_k;
+            lower_bound = conflicting_course_index + 1 - MIN_K;
+            k = MIN_K;
         }
     } else {
         lower_bound = smallest_conflicting_course_index;
     }
 
     let mut upper_bound = conflicting_course_index + 1;
-    if upper_bound - lower_bound < min_n {
-        upper_bound = if lower_bound + min_n >= course_size.len() {
-            course_size.len()
-        } else {
-            lower_bound + min_n
-        };
+    if upper_bound - lower_bound < MAX_N {
+        upper_bound = min(min(conflicting_course_index + MAX_NTOK, lower_bound + MAX_N), course_size.len());
     }
 
     // Generate possible constraint sets from combinatorial selections from the calculated range.
