@@ -83,7 +83,7 @@ impl<'a, T> Iterator for KSelectionIterator<'a, T> {
     }
 }
 
-fn binom(n: usize, k: usize) -> usize {
+pub fn binom(n: usize, k: usize) -> usize {
     if k > n {
         return 0;
     }
