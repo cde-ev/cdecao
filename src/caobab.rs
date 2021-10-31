@@ -492,10 +492,6 @@ fn check_room_feasibility(
     )
     .unwrap();
     let mut result = Vec::with_capacity(binom(upper_bound - lower_bound, k));
-    println!(
-        "cci: {}, lower_bound: {}, upper_bound: {}, k: {}",
-        conflicting_course_index, lower_bound, upper_bound, k
-    );
     for selection in course_size[lower_bound..upper_bound].iter_selections(k) {
         let constraint_set = create_room_constraint_set(
             node,
