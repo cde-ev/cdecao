@@ -532,8 +532,8 @@ fn create_room_constraint_set<'a>(
                 continue;
             }
         }
-        if to_size >= (course.num_min + course.room_offset + course.instructors.len()) {
-            let shrink_size = to_size - course.room_offset - course.instructors.len();
+        if to_size >= (course.room_offset + (course.room_factor * (course.num_min + course.instructors.len()) as f32).ceil() as usize) {
+            let shrink_size = (((to_size - course.room_offset) as f32 / course.room_factor).floor()) as usize - course.instructors.len();
             // Don't shrink courses that are already shrinked further in the current node
             if current_node
                 .shrinked_courses
