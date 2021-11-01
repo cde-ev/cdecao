@@ -92,7 +92,8 @@ fn main() {
     let (result, statistics) = caobab::solve(courses.clone(), participants.clone(), rooms.as_ref(), args.is_present("report_no_solution"));
     info!("Finished solving course assignment. {}", statistics);
 
-    if let Some((assignment, _)) = result {
+    if let Some((assignment, score)) = result {
+        info!("Solution found with score {}.", score);
         if let Some(outpath) = args.value_of("OUTPUT") {
             debug!("Opening output file {} ...", outpath);
             match File::create(outpath) {
