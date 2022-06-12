@@ -33,6 +33,10 @@ cdecao --cde pa19_partial_event_export.json
 ```
 In this case, the resulting output file can be imported into the CdE Datenbank using the "Partial Import" feature.
 
+For CdE events with more than one course track, the algorithm can only assign participants in one of the course tracks per execution.
+Therefore, the relevant track's id has to be given via the `--track` parameter.
+If not `--track` is specified and the given event input file contains multiple tracks, the program outputs an overview of available tracks and their ids and exits. 
+
 If using the --cde data format, you can optionally select to **ignore already cancelled courses** (instead of considering
 them for assignment and probably un-cancelling them) and/or to **ignore already assigned participants** (instead of
 re-assigning them). To do so, use `--ignore-cancelled` resp. `--ignore-assigned`. Attention: Ignoring assigned
