@@ -130,20 +130,17 @@ fn main() {
 }
 
 /// Helper function to construct and execute parser for command line options
-fn parse_cli_args() -> clap::ArgMatches<'static> {
-    clap::App::new("CdE Course Assignment Optimization")
-        .version(clap::crate_version!())
-        .author(clap::crate_authors!())
-        .about(clap::crate_description!())
+fn parse_cli_args() -> clap::ArgMatches {
+    clap::command!()
         .arg(
-            clap::Arg::with_name("cde")
-                .short("c")
+            clap::Arg::new("cde")
+                .short('c')
                 .long("cde")
                 .help("Use CdE Datenbank format for input and output files"),
         )
         .arg(
-            clap::Arg::with_name("track")
-                .short("t")
+            clap::Arg::new("track")
+                .short('t')
                 .long("track")
                 .help(
                     "Specify CdE-Datenbank id of the course track to assign courses in. Only \
@@ -153,8 +150,8 @@ fn parse_cli_args() -> clap::ArgMatches<'static> {
                 .takes_value(true),
         )
         .arg(
-            clap::Arg::with_name("ignore_cancelled")
-                .short("i")
+            clap::Arg::new("ignore_cancelled")
+                .short('i')
                 .long("ignore-cancelled")
                 .help(
                     "Ignore already cancelled courses. Otherwise, they are considered for \
@@ -163,8 +160,8 @@ fn parse_cli_args() -> clap::ArgMatches<'static> {
                 ),
         )
         .arg(
-            clap::Arg::with_name("ignore_assigned")
-                .short("j")
+            clap::Arg::new("ignore_assigned")
+                .short('j')
                 .long("ignore-assigned")
                 .help(
                     "Ignore already assigned participants. Otherwise all participants are \
@@ -175,7 +172,7 @@ fn parse_cli_args() -> clap::ArgMatches<'static> {
                 ),
         )
         .arg(
-            clap::Arg::with_name("report_no_solution")
+            clap::Arg::new("report_no_solution")
                 .long("report-no-solution")
                 .help(
                     "Log some unsolvable Branch-and-Bound nodes with INFO log level. This will \
@@ -183,26 +180,26 @@ fn parse_cli_args() -> clap::ArgMatches<'static> {
                 ),
         )
         .arg(
-            clap::Arg::with_name("rooms")
-                .short("r")
+            clap::Arg::new("rooms")
+                .short('r')
                 .long("rooms")
                 .help("Comma-separated list of available course room sizes, e.g. 15,10,10,8")
                 .value_name("ROOMS")
                 .takes_value(true),
         )
         .arg(
-            clap::Arg::with_name("print").short("p").long("print").help(
+            clap::Arg::new("print").short('p').long("print").help(
                 "Print the caluclated course assignment to stdout in a human readable format",
             ),
         )
         .arg(
-            clap::Arg::with_name("INPUT")
+            clap::Arg::new("INPUT")
                 .help("Sets the input file to use")
                 .required(true)
                 .index(1),
         )
         .arg(
-            clap::Arg::with_name("OUTPUT")
+            clap::Arg::new("OUTPUT")
                 .help("Sets the output file to use")
                 .index(2),
         )
