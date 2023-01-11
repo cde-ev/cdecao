@@ -20,14 +20,14 @@ fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     let args = parse_cli_args();
 
-    if !args.is_present("OUTPUT") && !args.is_present("print") {
+    if !args.get_one::<String>("OUTPUT").is_some() && !args.get_flag("print") {
         warn!(
             "No OUTPUT file and no --print option given. Assignment will not be exported anywhere."
         );
     }
 
     // Parse rooms list
-    let rooms = args.value_of("rooms").map(|rooms_raw| {
+    let rooms = args.get_one("rooms").map(|rooms_raw: &String| {
         rooms_raw
             .split(",")
             .map(|r| r.parse::<usize>())
@@ -39,16 +39,16 @@ fn main() {
     });
 
     // Open input file
-    let inpath = args.value_of("INPUT").unwrap();
+    let inpath: &String = args.get_one("INPUT").unwrap();
     debug!("Opening input file {} ...", inpath);
     let file = std::fs::File::open(inpath).unwrap_or_else(|e| {
         error!("Could not open input file {}: {}", inpath, e);
         std::process::exit(exitcode::NOINPUT)
     });
     // Read input file
-    let (participants, courses, import_ambience) = if args.is_present("cde") {
+    let (participants, courses, import_ambience) = if args.get_flag("cde") {
         // --cde file format
-        let track_id: Option<u64> = args.value_of("track").map(|t| {
+        let track_id: Option<u64> = args.get_one("track").map(|t: &String| {
             t.parse().unwrap_or_else(|e| {
                 error!("Could not parse track id: {}", e);
                 std::process::exit(exitcode::DATAERR)
@@ -57,8 +57,8 @@ fn main() {
         cdecao::io::cdedb::read(
             file,
             track_id,
-            args.is_present("ignore_cancelled"),
-            args.is_present("ignore_assigned"),
+            args.get_flag("ignore_cancelled"),
+            args.get_flag("ignore_assigned"),
         )
         .map(|(p, c, a)| (p, c, Some(a)))
     } else {
@@ -89,17 +89,17 @@ fn main() {
     // Execute assignment algorithm
     let courses = Arc::new(courses);
     let participants = Arc::new(participants);
-    let (result, statistics) = caobab::solve(courses.clone(), participants.clone(), rooms.as_ref(), args.is_present("report_no_solution"));
+    let (result, statistics) = caobab::solve(courses.clone(), participants.clone(), rooms.as_ref(), args.get_flag("report_no_solution"));
     info!("Finished solving course assignment. {}", statistics);
 
     if let Some((assignment, score)) = result {
         info!("Solution found with score {}.", score);
-        if let Some(outpath) = args.value_of("OUTPUT") {
+        if let Some(outpath) = args.get_one::<String>("OUTPUT") {
             debug!("Opening output file {} ...", outpath);
             match File::create(outpath) {
                 Err(e) => error!("Could not open output file {}: {}.", outpath, e),
                 Ok(file) => {
-                    let res = if args.is_present("cde") {
+                    let res = if args.get_flag("cde") {
                         cdecao::io::cdedb::write(
                             file,
                             &assignment,
@@ -118,7 +118,7 @@ fn main() {
             }
         }
 
-        if args.is_present("print") {
+        if args.get_flag("print") {
             print!(
                 "The assignment is:\n{}",
                 cdecao::io::format_assignment(&assignment, &*courses, &*participants)
@@ -136,7 +136,8 @@ fn parse_cli_args() -> clap::ArgMatches {
             clap::Arg::new("cde")
                 .short('c')
                 .long("cde")
-                .help("Use CdE Datenbank format for input and output files"),
+                .help("Use CdE Datenbank format for input and output files")
+                .action(clap::ArgAction::SetTrue),
         )
         .arg(
             clap::Arg::new("track")
@@ -147,7 +148,6 @@ fn parse_cli_args() -> clap::ArgMatches {
                      useful in combination with --cde input data format.",
                 )
                 .value_name("TRACK_ID")
-                .takes_value(true),
         )
         .arg(
             clap::Arg::new("ignore_cancelled")
@@ -157,7 +157,8 @@ fn parse_cli_args() -> clap::ArgMatches {
                     "Ignore already cancelled courses. Otherwise, they are considered for \
                      assignment and might be un-cancelled. Only possible with --cde data \
                      format.",
-                ),
+                )
+                .action(clap::ArgAction::SetTrue),
         )
         .arg(
             clap::Arg::new("ignore_assigned")
@@ -169,7 +170,8 @@ fn parse_cli_args() -> clap::ArgMatches {
                      possible with --cde data format. If present, courses with assigned \
                      participants will not be cancelled. Attention: This might impair the \
                      solution's quality or even make the problem unsolvable.",
-                ),
+                )
+                .action(clap::ArgAction::SetTrue),
         )
         .arg(
             clap::Arg::new("report_no_solution")
@@ -177,20 +179,21 @@ fn parse_cli_args() -> clap::ArgMatches {
                 .help(
                     "Log some unsolvable Branch-and-Bound nodes with INFO log level. This will \
                     be a great help with debugging unsolvable course assignement problems.",
-                ),
+                )
+                .action(clap::ArgAction::SetTrue),
         )
         .arg(
             clap::Arg::new("rooms")
                 .short('r')
                 .long("rooms")
                 .help("Comma-separated list of available course room sizes, e.g. 15,10,10,8")
-                .value_name("ROOMS")
-                .takes_value(true),
+                .value_name("ROOMS"),
         )
         .arg(
             clap::Arg::new("print").short('p').long("print").help(
                 "Print the caluclated course assignment to stdout in a human readable format",
-            ),
+            )
+            .action(clap::ArgAction::SetTrue),
         )
         .arg(
             clap::Arg::new("INPUT")
