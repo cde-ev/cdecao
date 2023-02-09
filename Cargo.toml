@@ -1,6 +1,6 @@
 [package]
 name = "cdecao"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Michael Thies <mail@mhthies.de>"]
 edition = "2018"
 
