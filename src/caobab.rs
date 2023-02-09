@@ -550,8 +550,8 @@ fn create_room_constraint_set<'a>(
             }
             shrink.push((course.index, shrink_size));
         } else {
-            // Don't cancel courses that are enforced in the current node
-            if current_node.enforced_courses.contains(&course.index) {
+            // Don't cancel courses that are fixed or enforced in the current node
+            if current_node.enforced_courses.contains(&course.index) || course.fixed_course {
                 if all_required {
                     return None;
                 } else {
