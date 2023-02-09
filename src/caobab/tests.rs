@@ -129,12 +129,13 @@ fn create_other_problem() -> (Vec<Course>, Vec<Participant>) {
         make_course(1, 12),
         make_course(1, 10),
         make_course(1, 10),
-        make_course(3, 10)];
+        make_course(4, 10)];
     let mut participants = Vec::new();
     participants.append(&mut make_parts(6, vec![0, 1, 2]));
     participants.append(&mut make_parts(3, vec![0, 1, 3]));
     participants.append(&mut make_parts(2, vec![0, 2, 1]));
     participants.append(&mut make_parts(2, vec![0, 2, 3]));
+    participants.append(&mut make_parts(1, vec![0, 3, 2]));
     participants.append(&mut make_parts(1, vec![1, 0, 2]));
     participants.append(&mut make_parts(2, vec![1, 0, 3]));
     participants.append(&mut make_parts(2, vec![1, 2, 0]));
@@ -144,10 +145,10 @@ fn create_other_problem() -> (Vec<Course>, Vec<Participant>) {
     //
     // course |  1   2   3
     // --------------------
-    // 0      | 13   4   2
+    // 0      | 14   4   2
     // 1      |  5   9   3
-    // 2      |  0   6   8
-    // 3      |  2   0   7
+    // 2      |  0   6   9
+    // 3      |  2   1   7
 
     // Idea: With rooms 10, 7, 5, the course 0 will be restricted to 10 participants, course 2 will
     // be cancelled
@@ -655,8 +656,8 @@ fn test_caobab_rooms() {
             // * course 0 shrinked to 10 participants
             // * course 1 having 7 participants
             // * course 2 cancelled
-            // * course 3 forced to 3 paricipants
-            assert_eq!(course_size, vec![10, 7, 0, 3]);
+            // * course 3 forced to 4 paricipants
+            assert_eq!(course_size, vec![10, 7, 0, 4]);
 
             // This solution should require at least three infeasible nodes
             assert!(statistics.num_infeasible >= 3);
