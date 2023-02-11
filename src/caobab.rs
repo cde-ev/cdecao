@@ -393,15 +393,18 @@ fn run_bab_node(
 /// To chose the range, we first check how many courses have to be shrinked to the conflicting
 /// room's size (i.e. courses that are assigned to a room of that size but not larger). If this
 /// number is smaller than `min_k`, we add the next few smaller courses to reach `MIN_K`. The size
-/// of this set determines the size of the selections. If this set is smaller than `MAX_N`, we add
-/// up to `MAX_NTOK` larger courses (but limited to `MAX_N`). This means, if the number of
-/// conflicting courses for the given room size is already larger than `MAX_N`, n equals k, so only
-/// one constraint set will be generated. Otherwise, we can generate up to
-/// (MAX_N choose (MAX_N-MAX_NTOK)) constraint sets.
+/// of this set determines the size `k` of the selections (i.e. how many courses are shrinked in
+/// each generated new subproblem).
+///
+/// If this set is smaller than `MAX_N`, we add up to `MAX_NTOK` larger courses (but limited to
+/// `MAX_N`) to form the total set of courses to consider for shrinking. This means, if the number
+/// of conflicting courses for the given room size is already larger than `MAX_N`, n equals k, so
+/// only one constraint set will be generated. Otherwise, we can generate up to
+/// (MAX_N choose (MAX_N-MAX_NTOK)) constraints sets.
 ///
 /// # Arguments
 ///
-/// * `courses` - List of courses
+/// * `courses` - The list of all courses (as referenced by `node` and `assignment`)
 /// * `assignment` - The assignment to be checked (must include course instructors)
 /// * `rooms` - An ordered list of course rooms in **descending** order, filled with zero entries to
 ///     length of course list
@@ -431,6 +434,9 @@ fn check_room_feasibility(
             c.room_offset + ((c.room_factor * (*s as f32)).ceil() as usize)
         };
     }
+
+    // Note: The courses are ordered by (effective) size in ascending order.
+    // Only for finding the largest conflicting course, we reverse the iteration order.
     course_size.sort_by_key(|(_c, s)| *s);
 
     // Find index largest room type with non-fitting courses
@@ -455,6 +461,7 @@ fn check_room_feasibility(
 
     let conflicting_course_index: usize = conflicting_course_index.unwrap();
     let conflicting_room_size = rooms[rooms.len() - 1 - conflicting_course_index];
+    // index of the smallest course, which is too large for `conflicting_room_size`
     let smallest_conflicting_course_index = course_size
         .iter()
         .position(|(_course, size)| *size > conflicting_room_size)
@@ -474,6 +481,7 @@ fn check_room_feasibility(
         lower_bound = smallest_conflicting_course_index;
     }
 
+    // exclusive upper bound of the "n" range to consider for selections
     let mut upper_bound = conflicting_course_index + 1;
     if upper_bound - lower_bound < MAX_N {
         upper_bound = min(min(conflicting_course_index + MAX_NTOK, lower_bound + MAX_N), course_size.len());
@@ -493,7 +501,7 @@ fn check_room_feasibility(
         conflicting_room_size,
         false,
     )
-    .unwrap();
+    .unwrap();  // This cannot fail, because `all_required` is not set
     let mut result = Vec::with_capacity(binom(upper_bound - lower_bound, k));
     for selection in course_size[lower_bound..upper_bound].iter_selections(k) {
         let constraint_set = create_room_constraint_set(
@@ -506,6 +514,8 @@ fn check_room_feasibility(
         if let Some(mut constraint_set) = constraint_set {
             constraint_set.0.extend_from_slice(&always_shrinked[..]);
             constraint_set.1.extend_from_slice(&always_cancelled[..]);
+            // We should always generate new constraints, when all courses from the k-selection can
+            // be cancelled/shrinked
             assert!(!(constraint_set.0.is_empty() && constraint_set.1.is_empty()));
             result.push(constraint_set);
         }
@@ -515,6 +525,33 @@ fn check_room_feasibility(
     (false, Some(result))
 }
 
+/// Helper function of [check_room_feasibility] for generating a valid constraints set which shrinks
+/// a selected list courses to the required size. 
+/// 
+/// This function takes care of
+/// - taking course instructors into account for room size
+/// - applying respective [Course::room_offset] and [Course::room_factor] of each course
+/// - Creating shrink-constraint OR cancel-constraint, depending on the minimum size of the course
+/// - ignoring sink-constraints when courses are already shrinked further
+/// - ignoring cancel-constraints when courses are enforced or fixed
+///
+/// # Arguments
+///
+/// * `current_node` - The current branch-and-bound node, i.e. constraint set, to check for enforced
+///     and already shrinked courses
+/// * `courses` - The courses to create room constraints for
+/// * `to_size` - The room size to shrink the `courses` to
+/// * `all_required` – If true, a (new) constraint is expected to be applied to all given `courses`.
+///     If this cannot be fulfilled due to existing constraints, the function returns `None`.
+///
+/// # Result
+///
+/// Returns
+/// * `None` if `all_required`, but some constraint would have been ignored
+/// * A tuple `(shink_constraints, cancel_concstraints)`, where `shrink_constraints` is a Vec of
+///     course-shrink constraints to be appended to [BABNode::shrinked_courses] and
+///     `cancel_constraints` is a Vec of courses to be cancelled, to be appended to
+///     [BABNode::cancelled_courses].
 fn create_room_constraint_set<'a>(
     current_node: &BABNode,
     courses: impl IntoIterator<Item = &'a Course>,
