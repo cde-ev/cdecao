@@ -490,8 +490,9 @@ fn check_room_feasibility(
 
     // Generate possible constraint sets from combinatorial selections from the calculated range.
     debug!(
-        "Creating room constraint sets from all k-selections from course sizes [{}..{}] with k={}",
-        lower_bound, upper_bound, k
+        "Creating room constraint sets from all k-selections from course_size[{}..{}] (effective course size {}-{}) \
+        with k={} for room of size {}",
+        lower_bound, upper_bound, course_size[lower_bound].1, course_size[upper_bound-1].1, k, conflicting_room_size
     );
     let (always_shrinked, always_cancelled) = create_room_constraint_set(
         node,
