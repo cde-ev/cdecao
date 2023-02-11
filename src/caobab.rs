@@ -456,8 +456,9 @@ fn check_room_feasibility(
 
     // Calculate range of courses to generate selections for shrinking from
     const MIN_K: usize = 5;
-    const MAX_NTOK: usize = 4;
-    const MAX_N: usize = 20;
+    const MAX_NTOK: usize = 5;
+    const MAX_N: usize = 17;
+    // Maximum (n chose k): 17!/12!/5! = 6188
 
     let conflicting_course_index: usize = conflicting_course_index.unwrap();
     let conflicting_room_size = rooms[rooms.len() - 1 - conflicting_course_index];
