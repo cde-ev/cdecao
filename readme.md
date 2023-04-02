@@ -24,6 +24,27 @@ or
 cdecao data.json assignment.json
 ```
 
+
+### Course Room Fitting
+
+The implemented course assignment algorithm includes an (experimental) extension for considering constraints on
+**available course rooms**. To use this functionality, simple give a list of available course room sizes (incl. course
+instructors):
+```sh
+cdecao --rooms "20,20,20,10,10,10,10,10,10,8,8" --print data.json
+```
+This works with both data file formats. For more control about course room matching, the "effective size" of each course
+can be defined as an affine function of the course's actual number of participants. For this purpose, each course has
+two attributes `room_factor` and `room_offset`, where
+
+*effective_size = room_offset + room_factor * (num_participants + num_instructors)*.
+
+The algorithm will automatically reduce the number of participants of some courses and cancel courses if required, such
+that all courses can find room with at least their effective size. Different combinations (not all possible – for
+complexity reasons) of "shrunk" and cancelled courses are computed to find the one which allows the best course
+assignment.
+
+
 ### CdE Datenbank Export format options
 
 By default, the application uses a very simple JSON format for input of course and participant lists and output of the
@@ -43,16 +64,10 @@ re-assigning them). To do so, use `--ignore-cancelled` resp. `--ignore-assigned`
 participants prevents their assigned courses from being cancelled (unless they are already cancelled and
 `--ignore-cancelled` is given). *This might impair the solution's quality or even make the problem unsolvable.*
 
-### Course Room Fitting
-
-The implemented course assignment algorithm includes an (experimental) extension for considering constraints on
-**available course rooms**. To use this functionality, simple give a list of available course room sizes (incl. course
-instructors):
-```sh
-cdecao --rooms "20,20,20,10,10,10,10,10,10,8,8" --print data.json
-```
-This works with both data file formats. Attention: This problem might get computationally *really* complex and may not
-be solved within an reasonable time.
+The *room_factor* and *room_offset* for course room fitting can be specified for each course via data fields in the
+CdE Datenbank. With the command line options `--room-factor-field` and `--room-offset-field` the name of the respective
+fields can be specified. The *room_factor* field needs to be a numeric (float or integer) data field, the *room_offset*
+field needs to be an integer-typed data field.
 
 
 ### Logging options
@@ -79,13 +94,14 @@ The default input format for courses and participants data looks like this:
             "name": "1. Example Course",
             "num_min": 5,
             "num_max": 15,
-            "instructors": [0, 1],
+            "instructors": [0, 1]
         },
         {
             "name": "2. Another Course",
             "num_min": 6,
             "num_max": 10,
             "instructors": [5],
+            "room_factor": 1.5,
             "room_offset": 2,
             "fixed_course": true
         },
@@ -111,9 +127,12 @@ each participant is an ordered list of course choices of this participant, repre
 (which is a nonsense-example, since he is instructor of that course) and the (not shown) seventh course in the list as
 his third choice.
 
-`room_offset` and `fixed_course` are optional values for each course. They default to `0` resp. `false`. The value of
-`room_offset` is always added to the number of planned course attendees of this course, when checking if the course
-would fit a specific room. A course with `fixed_course = true` will always take place; the algorithm is not allowed to
+`room_factor`, `room_offset` and `fixed_course` are optional values for each course. They default to `0` resp. `1.0`
+resp. `false`. `room_factor` and `room_offset` are only required when course room fitting is used. They are used to
+calculate the "effective size" of the course, in the sense of how big of a room the course will require with a given
+number of participants, as described above.
+
+A course with `fixed_course = true` will always take place; the algorithm is not allowed to
 consider cancelling it (of course, this might impair the optimal solution's quality or even make the problem
 infeasible).
 

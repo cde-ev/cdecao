@@ -12,6 +12,7 @@
 mod bab;
 pub mod caobab;
 mod hungarian;
+mod util;
 
 pub mod io;
 
@@ -49,11 +50,11 @@ pub struct Course {
     num_min: usize,
     /// Ids of course instructor's indexes in the
     instructors: Vec<usize>,
-    // TODO implement room_factors
-    // /// Scaling factor for room size check: The room of this course must have
-    // /// >= room_factor * num_participants (incl. instructors) places. E.g. for dancing courses
-    // /// this might be somewhere around 2.5
-    // room_factor: f32
+    /// Scaling factor for room size check: The room of this course must have
+    /// >= room_offset + room_factor * num_participants (incl. instructors) places. E.g. for dancing
+    /// courses this might be somewhere around 2.5
+    #[serde(default = "default_room_factor")]
+    room_factor: f32,
     /// Offset to add to the number of assigned participants to check if the course fits a room of a
     /// specific size
     #[serde(default)]
@@ -64,6 +65,8 @@ pub struct Course {
     fixed_course: bool,
 }
 
+fn default_room_factor() -> f32 { 1.0 }
+
 /// A course assignment as result of the overall algorithm. It maps the participant index to the course index, such that
-/// the course of participants[i] is courses[assignment[i]].
+/// the course of participants\[i\] is courses\[assignment\[i\]\].
 pub type Assignment = Vec<usize>;

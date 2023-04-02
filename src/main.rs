@@ -59,6 +59,10 @@ fn main() {
             track_id,
             args.get_flag("ignore_cancelled"),
             args.get_flag("ignore_assigned"),
+            args.get_one::<String>("room_factor_field")
+            .map(|x| &**x),
+            args.get_one::<String>("room_offset_field")
+            .map(|x| &**x),
         )
         .map(|(p, c, a)| (p, c, Some(a)))
     } else {
@@ -172,6 +176,30 @@ fn parse_cli_args() -> clap::ArgMatches {
                      solution's quality or even make the problem unsolvable.",
                 )
                 .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            clap::Arg::new("room_factor_field")
+                .long("room-factor-field")
+                .value_name("FIELD_NAME")
+                .help(
+                    "The name of a course-associated data field from the CdE Datenbank, which \
+                     stores a fixed offset to be added to the course size when comparing the \
+                     course size with the awailable rooms. Only useful for the --cde data format \
+                     and with --rooms given. If not present, the default offset of 0 is used for \
+                     all courses.",
+                )
+        )
+        .arg(
+            clap::Arg::new("room_offset_field")
+                .long("room-offset-field")
+                .value_name("FIELD_NAME")
+                .help(
+                    "The name of a course-associated data field from the CdE Datenbank, which \
+                     stores a scaling factor to be multiplied with the course size (before adding \
+                     the offset) when comparing the course size with the awailable rooms. Only \
+                     useful for the --cde data format and with --rooms given. If not present, the \
+                     default factor of 1.0 is used for all courses.",
+                )
         )
         .arg(
             clap::Arg::new("report_no_solution")

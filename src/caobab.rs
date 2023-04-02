@@ -18,9 +18,11 @@
 use crate::bab;
 use crate::bab::NodeResult::{Feasible, Infeasible, NoSolution};
 use crate::hungarian::{EdgeWeight, Score};
+use crate::util::{binom, IterSelections};
 use crate::{Assignment, Course, Participant};
 use log::{debug, info};
 use std::sync::Arc;
+use std::cmp::min;
 
 /// Main method of the module to solve a course assignement problem using the branch and bound method together with the
 /// hungarian method.
@@ -49,7 +51,6 @@ pub fn solve(
             cancelled_courses: Vec::new(),
             enforced_courses: Vec::new(),
             shrinked_courses: Vec::new(),
-            no_more_shrinking: Vec::new(),
         },
         num_cpus::get() as u32,
     )
@@ -157,8 +158,6 @@ struct BABNode {
     /// number of actual attendees to be assigned by the algorithm (without course instructors and
     /// room_offset etc.)
     shrinked_courses: Vec<(usize, usize)>,
-    /// Courses that should not be shrinked any more. (to eliminate redundant branches)
-    no_more_shrinking: Vec<usize>,
 }
 
 // As we want to do a pseudo depth-first search, BABNodes are ordered by their depth in the Branch and Bound tree for
@@ -328,47 +327,18 @@ fn run_bab_node(
 
     // If room size list is given, check feasibility of solution w.r.t room sizes
     if let Some(ref room_sizes) = pre_computed_problem.room_sizes {
-        let (feasible, restrictions) = check_room_feasibility(courses, &assignment, room_sizes);
+        let (feasible, restrictions) =
+            check_room_feasibility(courses, &assignment, room_sizes, &current_node);
         if !feasible {
             let mut branches = Vec::<BABNode>::new();
             if let Some(restrictions) = restrictions {
                 // Add a new node for every possible constraint to fix room feasibility, as proposed
                 // by check_room_feasibility()
-                for (i, (c, action)) in restrictions.iter().enumerate() {
-                    if !node.no_more_shrinking.contains(c) {
-                        let mut new_node = current_node.clone();
-                        match action {
-                            RoomCourseFitAction::ShrinkCourse(s) => {
-                                new_node.shrinked_courses.push((*c, *s));
-                            }
-                            RoomCourseFitAction::CancelCourse => {
-                                if courses[*c].fixed_course || node.enforced_courses.contains(c) {
-                                    continue;
-                                }
-                                new_node.cancelled_courses.push(*c);
-                            }
-                        }
-                        // Do not consider courses for future shrinking/cancelling, that have been
-                        // considered in their own branch.
-                        // With three rooms (15, 10, 5) and three courses (A, B, C), but only A and
-                        // B being restrictable to 5 people, the tree might look like this:
-                        //
-                        //                                                       current node
-                        //                                                /              |       \
-                        //                                           /                   |          \
-                        //                          shrink A to 10                shrink B to 10    shrink C to 10
-                        //                         /             \                       |                |
-                        //            shrink B to 10            shrink C to 10    shrink C to 10          ⚡
-                        //             /         \                    |                  |
-                        //    shrink A to 5    shrink B to 5    shrink A to 5     shrink B to 5
-                        //
-                        // As you can see, any additional node at one of the right branches, would
-                        // introduce a redundant restriction with the branches left of it.
-                        new_node
-                            .no_more_shrinking
-                            .extend(restrictions[..i].iter().map(|(c, _s)| c));
-                        branches.push(new_node);
-                    }
+                for mut restriction in restrictions {
+                    let mut new_node = current_node.clone();
+                    new_node.shrinked_courses.append(&mut restriction.0);
+                    new_node.cancelled_courses.append(&mut restriction.1);
+                    branches.push(new_node);
                 }
             }
             return Infeasible(branches, score);
@@ -404,85 +374,233 @@ fn run_bab_node(
     return Feasible(assignment, score);
 }
 
-/// Possible actions to take, if a course does not fit in the given rooms
-enum RoomCourseFitAction {
-    CancelCourse,
-    ShrinkCourse(usize),
-}
-
 /// Check if the given matching is a feasible solution in terms of the Branch and Bound algorithm,
-/// w.r.t. course rooms' sizes. If it is not feasible, a vector of possible max_size constraints
+/// w.r.t. course rooms' sizes. If it is not feasible, a vector of possible constraint sets
 /// is returned.
+///
+/// To check feasibility, we sort all rooms and courses by size in a descending order and assign
+/// the courses to the rooms at the same list position. If any course is larger than the assigned
+/// room, the solution is infeasible. For generating constraints, we consider the largest of these
+/// conflicting courses.
+///
+/// To generate the possible constraints sets, we use some heuristics: In theory, we would have to
+/// check all variants from restricting all possible selections of courses to the size of the
+/// conflicting room. This is not possible due to combinatorial complexity. Thus, we only consider a
+/// range of courses of similar size to the conflicting course and take all possible selections of
+/// this range. All courses with size below that range are restricted to the conflicting room's size
+/// in any case; all courses larger than that range are not considered for restriction.
+///
+/// To chose the range, we first check how many courses have to be shrinked to the conflicting
+/// room's size (i.e. courses that are assigned to a room of that size but not larger). If this
+/// number is smaller than `min_k`, we add the next few smaller courses to reach `MIN_K`. The size
+/// of this set determines the size `k` of the selections (i.e. how many courses are shrinked in
+/// each generated new subproblem).
+///
+/// If this set is smaller than `MAX_N`, we add up to `MAX_NTOK` larger courses (but limited to
+/// `MAX_N`) to form the total set of courses to consider for shrinking. This means, if the number
+/// of conflicting courses for the given room size is already larger than `MAX_N`, n equals k, so
+/// only one constraint set will be generated. Otherwise, we can generate up to
+/// (MAX_N choose (MAX_N-MAX_NTOK)) constraints sets.
 ///
 /// # Arguments
 ///
-/// * `courses` - List of courses
+/// * `courses` - The list of all courses (as referenced by `node` and `assignment`)
 /// * `assignment` - The assignment to be checked (must include course instructors)
 /// * `rooms` - An ordered list of course rooms in **descending** order, filled with zero entries to
 ///     length of course list
+/// * `node` – The current BaB node, used to avoid conflicting restrictions (cancelled vs. enforced)
+///            and redundant restrictions.
 ///
 /// # Result
 ///
-/// Returns a pair of `(is_feasible, restrictions)`.
-///
-/// `restrictions` is a Vec of possible size constraints to fix feasibility. Each entry has to be
-/// interpreted as `(course_index, action)`, where `action` is either `CancelCourse` or
-/// `ShrinkCourse(max_num)` with max_num not including course instructors and room_offset, i.e. it
-/// can be directly used for `BABNode.shrinked_courses`.
-/// The vector is ordered in ascending order by course sizes in the current assignment. This order
-/// should be kept to solve more promising subproblems (with size restrictions on smaller courses)
-/// first.
+/// Returns a tuple `(feasible, constraint_sets)`. `constraint_sets` is either None or a vector of
+/// possible constraint sets, where each entry is a tuple of two vectors
+/// `(shrink_courses, cancel_courses)` to be appended to the respective vectors of the BaB node.
 fn check_room_feasibility(
     courses: &Vec<Course>,
     assignment: &Assignment,
     rooms: &Vec<usize>,
-) -> (bool, Option<Vec<(usize, RoomCourseFitAction)>>) {
+    node: &BABNode,
+) -> (bool, Option<Vec<(Vec<(usize, usize)>, Vec<usize>)>>) {
     // Calculate course sizes (incl. instructors and room_offset)
-    let mut course_size: Vec<(&Course, usize)> =
-        courses.iter().map(|c| (c, c.room_offset)).collect();
+    let mut course_size: Vec<(&Course, usize)> = courses.iter().map(|c| (c, 0)).collect();
     for c in assignment.iter() {
         course_size[*c].1 += 1;
     }
+    for (c, ref mut s) in course_size.iter_mut() {
+        *s = if *s == 0 {
+            0
+        } else {
+            c.room_offset + ((c.room_factor * (*s as f32)).ceil() as usize)
+        };
+    }
+
+    // Note: The courses are ordered by (effective) size in ascending order.
+    // Only for finding the largest conflicting course, we reverse the iteration order.
     course_size.sort_by_key(|(_c, s)| *s);
 
-    // Find largest room type with non-fitting courses
-    let conflicting_room = course_size
+    // Find index largest room type with non-fitting courses
+    let conflicting_course_index = course_size
         .iter()
+        .enumerate()
         .rev()
         .zip(rooms)
-        .skip_while(|((_course, size), room_size)| size <= room_size)
+        .skip_while(|((_i, (_course, size)), room_size)| size <= room_size)
         .next() // Iterator -> Option
-        .map(|((_c, _s), r)| r);
+        .map(|((i, (_c, _s)), _r)| i);
 
-    if let None = conflicting_room {
+    if let None = conflicting_course_index {
         // No conflict found -> assignment is feasible w.r.t. course rooms
         return (true, None);
     }
 
-    // Build course constraint alternatives by finding all courses larger than the conflicting room,
-    // beginning with the smallest
-    let conflicting_room = conflicting_room.unwrap();
-    return (
-        false,
-        Some(
-            course_size
-                .iter()
-                .filter(|(_c, s)| s > conflicting_room)
-                .map(|(c, _s)| {
-                    (
-                        c.index,
-                        if *conflicting_room >= (c.num_min + c.room_offset + c.instructors.len()) {
-                            RoomCourseFitAction::ShrinkCourse(
-                                *conflicting_room - c.room_offset - c.instructors.len(),
-                            )
-                        } else {
-                            RoomCourseFitAction::CancelCourse
-                        },
-                    )
-                })
-                .collect(),
-        ),
+    // Calculate range of courses to generate selections for shrinking from
+    const MIN_K: usize = 5;
+    const MAX_NTOK: usize = 5;
+    const MAX_N: usize = 17;
+    // Maximum (n chose k): 17!/12!/5! = 6188
+
+    let conflicting_course_index: usize = conflicting_course_index.unwrap();
+    let conflicting_room_size = rooms[rooms.len() - 1 - conflicting_course_index];
+    // index of the smallest course, which is too large for `conflicting_room_size`
+    let smallest_conflicting_course_index = course_size
+        .iter()
+        .position(|(_course, size)| *size > conflicting_room_size)
+        .unwrap();
+    assert!(conflicting_course_index >= smallest_conflicting_course_index);
+    let mut k = conflicting_course_index - smallest_conflicting_course_index + 1;
+    let lower_bound;
+    if k < MIN_K {
+        if conflicting_course_index + 1 < MIN_K {
+            lower_bound = 0;
+            k = conflicting_course_index + 1;
+        } else {
+            lower_bound = conflicting_course_index + 1 - MIN_K;
+            k = MIN_K;
+        }
+    } else {
+        lower_bound = smallest_conflicting_course_index;
+    }
+
+    // exclusive upper bound of the "n" range to consider for selections
+    let mut upper_bound = conflicting_course_index + 1;
+    if upper_bound - lower_bound < MAX_N {
+        upper_bound = min(min(conflicting_course_index + MAX_NTOK, lower_bound + MAX_N), course_size.len());
+    }
+
+    // Generate possible constraint sets from combinatorial selections from the calculated range.
+    debug!(
+        "Creating room constraint sets from all k-selections from course_size[{}..{}] (effective course size {}-{}) \
+        with k={} for room of size {}",
+        lower_bound, upper_bound, course_size[lower_bound].1, course_size[upper_bound-1].1, k, conflicting_room_size
     );
+    let (always_shrinked, always_cancelled) = create_room_constraint_set(
+        node,
+        course_size
+            .iter()
+            .filter(|(_c, s)| *s <= conflicting_room_size)
+            .map(|(c, _s)| *c),
+        conflicting_room_size,
+        false,
+    )
+    .unwrap();  // This cannot fail, because `all_required` is not set
+    let mut result = Vec::with_capacity(binom(upper_bound - lower_bound, k));
+    for selection in course_size[lower_bound..upper_bound].iter_selections(k) {
+        let constraint_set = create_room_constraint_set(
+            node,
+            selection.iter().map(|(c, _s)| *c),
+            conflicting_room_size,
+            true,
+        );
+        // Only consider results where all courses from the selection can be cancelled/shrinked
+        if let Some(mut constraint_set) = constraint_set {
+            constraint_set.0.extend_from_slice(&always_shrinked[..]);
+            constraint_set.1.extend_from_slice(&always_cancelled[..]);
+            // We should always generate new constraints, when all courses from the k-selection can
+            // be cancelled/shrinked
+            assert!(!(constraint_set.0.is_empty() && constraint_set.1.is_empty()));
+            result.push(constraint_set);
+        }
+    }
+
+    debug!("Actually created {} room constraint sets", result.len());
+    (false, Some(result))
+}
+
+/// Helper function of [check_room_feasibility] for generating a valid constraints set which shrinks
+/// a selected list courses to the required size. 
+/// 
+/// This function takes care of
+/// - taking course instructors into account for room size
+/// - applying respective [Course::room_offset] and [Course::room_factor] of each course
+/// - Creating shrink-constraint OR cancel-constraint, depending on the minimum size of the course
+/// - ignoring sink-constraints when courses are already shrinked further
+/// - ignoring cancel-constraints when courses are enforced or fixed
+///
+/// # Arguments
+///
+/// * `current_node` - The current branch-and-bound node, i.e. constraint set, to check for enforced
+///     and already shrinked courses
+/// * `courses` - The courses to create room constraints for
+/// * `to_size` - The room size to shrink the `courses` to
+/// * `all_required` – If true, a (new) constraint is expected to be applied to all given `courses`.
+///     If this cannot be fulfilled due to existing constraints, the function returns `None`.
+///
+/// # Result
+///
+/// Returns
+/// * `None` if `all_required`, but some constraint would have been ignored
+/// * A tuple `(shink_constraints, cancel_concstraints)`, where `shrink_constraints` is a Vec of
+///     course-shrink constraints to be appended to [BABNode::shrinked_courses] and
+///     `cancel_constraints` is a Vec of courses to be cancelled, to be appended to
+///     [BABNode::cancelled_courses].
+fn create_room_constraint_set<'a>(
+    current_node: &BABNode,
+    courses: impl IntoIterator<Item = &'a Course>,
+    to_size: usize,
+    all_required: bool,
+) -> Option<(Vec<(usize, usize)>, Vec<usize>)> {
+    let mut cancel = Vec::new();
+    let mut shrink = Vec::new();
+    for course in courses {
+        // Don't consider courses that are already cancelled in the current node
+        if current_node.cancelled_courses.contains(&course.index) {
+            if all_required {
+                return None;
+            } else {
+                continue;
+            }
+        }
+        if to_size >= (course.room_offset + (course.room_factor * (course.num_min + course.instructors.len()) as f32).ceil() as usize) {
+            let shrink_size = (((to_size - course.room_offset) as f32 / course.room_factor).floor()) as usize - course.instructors.len();
+            // Don't shrink courses that are already shrinked further in the current node
+            if current_node
+                .shrinked_courses
+                .iter()
+                .filter(|(c, s)| *c == course.index && *s <= shrink_size)
+                .next()
+                .is_some()
+            {
+                if all_required {
+                    return None;
+                } else {
+                    continue;
+                }
+            }
+            shrink.push((course.index, shrink_size));
+        } else {
+            // Don't cancel courses that are fixed or enforced in the current node
+            if current_node.enforced_courses.contains(&course.index) || course.fixed_course {
+                if all_required {
+                    return None;
+                } else {
+                    continue;
+                }
+            }
+            cancel.push(course.index);
+        }
+    }
+    Some((shrink, cancel))
 }
 
 /// Check if the given matching is a feasible solution in terms of the Branch and Bound algorithm,
