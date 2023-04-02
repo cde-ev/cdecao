@@ -18,6 +18,9 @@ use log::{debug, error, info, warn};
 fn main() {
     // Setup logging & parse command line arguments
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    info!(
+        "This is the CdE Course Assignment Optimizer (cdecao), version {}",
+        option_env!("CARGO_PKG_VERSION").unwrap_or("unknown"));
     let args = parse_cli_args();
 
     if !args.get_one::<String>("OUTPUT").is_some() && !args.get_flag("print") {
