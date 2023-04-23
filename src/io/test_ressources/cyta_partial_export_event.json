@@ -1,0 +1,274 @@
+{
+    "EVENT_SCHEMA_VERSION": [
+        16,
+        0
+    ],
+    "kind": "partial",
+    "id": 3,
+    "timestamp": "2023-04-23T12:39:40.963469+00:00",
+    "courses": {
+        "6": {
+            "title": "Die Kreise des Internets",
+            "description": null,
+            "nr": "\u03c0",
+            "shortname": "Kreise",
+            "instructors": "L. Euler",
+            "max_size": 31,
+            "min_size": 3,
+            "notes": null,
+            "fields": {},
+            "segments": {
+                "4": true
+            }
+        },
+        "7": {
+            "title": "Komplexe L\u00f6sungen f\u00fcr einfache Probleme \u2013 der CyberClub der Ehemaligen im 23. Jahrhundert",
+            "description": null,
+            "nr": "i",
+            "shortname": "CydE",
+            "instructors": "Deep Thought",
+            "max_size": 42,
+            "min_size": 0,
+            "notes": null,
+            "fields": {},
+            "segments": {
+                "4": true
+            }
+        },
+        "8": {
+            "title": "Die alte CdE-Homepage",
+            "description": null,
+            "nr": "1",
+            "shortname": "Aus neu mach alt",
+            "instructors": "\u2013",
+            "max_size": 1,
+            "min_size": 1,
+            "notes": null,
+            "fields": {},
+            "segments": {
+                "4": true
+            }
+        }
+    },
+    "lodgement_groups": {
+        "5": {
+            "title": "CyberTestAkademie"
+        }
+    },
+    "lodgements": {},
+    "registrations": {
+        "7": {
+            "notes": null,
+            "orga_notes": null,
+            "payment": null,
+            "parental_agreement": false,
+            "mixed_lodging": false,
+            "checkin": null,
+            "list_consent": false,
+            "fields": {},
+            "amount_paid": "0.00",
+            "amount_owed": "0.00",
+            "ctime": null,
+            "mtime": null,
+            "parts": {
+                "5": {
+                    "status": 2,
+                    "lodgement_id": null,
+                    "is_camping_mat": false
+                }
+            },
+            "tracks": {
+                "4": {
+                    "course_id": null,
+                    "course_instructor": null,
+                    "choices": [
+                        6,
+                        7
+                    ]
+                }
+            },
+            "persona": {
+                "is_member": false,
+                "id": 4,
+                "username": "daniel@example.cde",
+                "display_name": "Daniel",
+                "family_name": "Dino",
+                "given_names": "Daniel D.",
+                "title": null,
+                "name_supplement": null,
+                "gender": 2,
+                "birthday": "1963-02-19",
+                "telephone": null,
+                "mobile": null,
+                "address_supplement": null,
+                "address": "Am Denkmal 91",
+                "postal_code": "76543",
+                "location": "Atlantis",
+                "country": "DE",
+                "pronouns": null,
+                "pronouns_nametag": false,
+                "pronouns_profile": false,
+                "is_orga": false
+            }
+        },
+        "8": {
+            "notes": null,
+            "orga_notes": null,
+            "payment": null,
+            "parental_agreement": false,
+            "mixed_lodging": false,
+            "checkin": null,
+            "list_consent": false,
+            "fields": {},
+            "amount_paid": "0.00",
+            "amount_owed": "0.00",
+            "ctime": null,
+            "mtime": null,
+            "parts": {
+                "5": {
+                    "status": 2,
+                    "lodgement_id": null,
+                    "is_camping_mat": false
+                }
+            },
+            "tracks": {
+                "4": {
+                    "course_id": null,
+                    "course_instructor": null,
+                    "choices": [
+                        7,
+                        8,
+                        6
+                    ]
+                }
+            },
+            "persona": {
+                "is_member": true,
+                "id": 15,
+                "username": "olaf@example.cde",
+                "display_name": "Olaf",
+                "family_name": "Olafson",
+                "given_names": "Olaf",
+                "title": "Prof.",
+                "name_supplement": null,
+                "gender": 2,
+                "birthday": "0001-01-01",
+                "telephone": null,
+                "mobile": null,
+                "address_supplement": null,
+                "address": null,
+                "postal_code": null,
+                "location": null,
+                "country": "DE",
+                "pronouns": null,
+                "pronouns_nametag": false,
+                "pronouns_profile": false,
+                "is_orga": false
+            }
+        },
+        "9": {
+            "notes": null,
+            "orga_notes": null,
+            "payment": null,
+            "parental_agreement": false,
+            "mixed_lodging": false,
+            "checkin": null,
+            "list_consent": false,
+            "fields": {},
+            "amount_paid": "0.00",
+            "amount_owed": "0.00",
+            "ctime": null,
+            "mtime": null,
+            "parts": {
+                "5": {
+                    "status": 2,
+                    "lodgement_id": null,
+                    "is_camping_mat": false
+                }
+            },
+            "tracks": {
+                "4": {
+                    "course_id": null,
+                    "course_instructor": null,
+                    "choices": []
+                }
+            },
+            "persona": {
+                "is_member": true,
+                "id": 7,
+                "username": "garcia@example.cde",
+                "display_name": "Garcia",
+                "family_name": "Generalis",
+                "given_names": "Garcia G.",
+                "title": null,
+                "name_supplement": null,
+                "gender": 1,
+                "birthday": "1978-12-12",
+                "telephone": null,
+                "mobile": null,
+                "address_supplement": null,
+                "address": "Bei der W\u00fcste 39",
+                "postal_code": "88484",
+                "location": "Weltstadt",
+                "country": "DE",
+                "pronouns": null,
+                "pronouns_nametag": false,
+                "pronouns_profile": false,
+                "is_orga": true
+            }
+        }
+    },
+    "event": {
+        "title": "CyberTestAkademie",
+        "institution": 1,
+        "description": "Ein ganz normales Event \u2013 mit \u2728.",
+        "shortname": "cyta",
+        "registration_start": null,
+        "registration_soft_limit": null,
+        "registration_hard_limit": null,
+        "iban": "DE26370205000008068900",
+        "orga_address": null,
+        "registration_text": null,
+        "mail_text": null,
+        "use_additional_questionnaire": false,
+        "notes": null,
+        "participant_info": null,
+        "offline_lock": false,
+        "is_visible": true,
+        "is_course_list_visible": true,
+        "is_course_state_visible": false,
+        "is_participant_list_visible": false,
+        "is_course_assignment_visible": false,
+        "is_cancelled": false,
+        "is_archived": false,
+        "lodge_field": null,
+        "camping_mat_field": null,
+        "course_room_field": null,
+        "parts": {
+            "5": {
+                "title": "CyberTestAkademie",
+                "shortname": "cyta",
+                "part_begin": "2003-01-02",
+                "part_end": "2003-03-04",
+                "waitlist_field": null,
+                "tracks": {
+                    "4": {
+                        "title": "CyberTestAkademie",
+                        "shortname": "cyta",
+                        "num_choices": 3,
+                        "min_choices": 2,
+                        "sortkey": 1
+                    }
+                }
+            }
+        },
+        "part_groups": {},
+        "track_groups": {},
+        "fees": {},
+        "fields": {},
+        "questionnaire": {
+            "QuestionnaireUsages.registration": [],
+            "QuestionnaireUsages.additional": []
+        }
+    }
+}

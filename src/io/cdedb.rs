@@ -678,6 +678,19 @@ mod tests {
     }
 
     #[test]
+    fn test_single_track_event() {
+        let data = include_bytes!("test_ressources/cyta_partial_export_event.json");
+
+        let (participants, courses, _import_ambience) = 
+            super::read(&data[..], None, false, false, None, None).unwrap();
+        super::super::assert_data_consitency(&participants, &courses);
+        println!("{:?}", participants.iter().map(|p| &p.name).collect::<Vec<&String>>());
+        assert_eq!(courses.len(), 3);
+        // Garcia is Orga, so we only read 2 of 3 participants
+        assert_eq!(participants.len(), 2);
+    }
+
+    #[test]
     fn test_ignore_assigned() {
         let data = include_bytes!("test_ressources/TestAka_partial_export_event.json");
         let (participants, courses, _import_ambience) =
