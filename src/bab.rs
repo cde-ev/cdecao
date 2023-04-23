@@ -167,10 +167,14 @@ where
     // Spawn worker threads
     let mut workers = Vec::<thread::JoinHandle<()>>::new();
     let node_solver = Arc::new(node_solver);
-    for _i in 0..num_threads {
+    for i in 0..num_threads {
         let bab_clone = bab.clone();
         let node_solver_clone = node_solver.clone();
-        workers.push(thread::spawn(move || worker(bab_clone, node_solver_clone)));
+        let thread = thread::Builder::new()
+            .name(format!("BaB Worker {}", i))
+            .spawn(move || worker(bab_clone, node_solver_clone))
+            .unwrap();
+        workers.push(thread);
     }
 
     // Wait for worker threads to finish
