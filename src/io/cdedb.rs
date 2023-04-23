@@ -171,6 +171,18 @@ pub fn read<R: std::io::Read>(
                 .ok_or(format!("No 'shortname' found for course {}", course_id))?
         );
 
+        let num_max = course_data
+            .get("max_size")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(25) as usize;
+        let num_min = course_data
+            .get("min_size")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as usize;
+        if num_max < num_min {
+            return Err(format!("Min participants > max participants for course '{}'", course_name));
+        }
+
         // Analyze fields to extract room_factor and room_offset
         let fields = course_data
             .get("fields")
@@ -180,7 +192,7 @@ pub fn read<R: std::io::Read>(
             match fields.get(field_name).and_then(|v| v.as_f64()) {
                 Some(v) => v,
                 None => {
-                    warn!("No numeric field '{}' as room_factor field found in course {}. Using the default value 1.0.", field_name, course_name);
+                    warn!("No numeric field '{}' as room_factor field found in course '{}'. Using the default value 1.0.", field_name, course_name);
                     1.0
                 }
             }
@@ -191,7 +203,7 @@ pub fn read<R: std::io::Read>(
             match fields.get(field_name).and_then(|v| v.as_u64()) {
                 Some(v) => v,
                 None => {
-                    warn!("No integer field '{}' as room_offset field found in course {}. Using the default value 0.", field_name, course_name);
+                    warn!("No integer field '{}' as room_offset field found in course '{}'. Using the default value 0.", field_name, course_name);
                     0
                 }
             }
@@ -203,14 +215,8 @@ pub fn read<R: std::io::Read>(
             index: i,
             dbid: course_id as usize,
             name: course_name,
-            num_max: course_data
-                .get("max_size")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(25) as usize,
-            num_min: course_data
-                .get("min_size")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0) as usize,
+            num_min,
+            num_max,
             instructors: Vec::new(),
             room_factor: room_factor as f32,
             room_offset: room_offset as usize,

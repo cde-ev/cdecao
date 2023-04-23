@@ -80,5 +80,13 @@ pub fn assert_data_consitency(participants: &Vec<Participant>, courses: &Vec<Cou
                 i
             );
         }
+
+        assert!(
+            c.num_min <= c.num_max,
+            "Min size ({}) > max size ({}) of course {}",
+            c.num_min,
+            c.num_max,
+            c.index
+        );
     }
 }
