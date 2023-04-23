@@ -1,12 +1,11 @@
 {
-    "CDEDB_EXPORT_EVENT_VERSION": 13,
     "EVENT_SCHEMA_VERSION": [
-        13,
-        2
+        16,
+        0
     ],
     "kind": "partial",
     "id": 1,
-    "timestamp": "2020-09-16T19:15:51.516397+00:00",
+    "timestamp": "2023-04-23T12:02:09.906237+00:00",
     "courses": {
         "1": {
             "title": "Planetenretten f\u00fcr Anf\u00e4nger",
@@ -94,19 +93,38 @@
                 "2": true,
                 "3": false
             }
+        },
+        "13": {
+            "title": "Extra-Kurs",
+            "description": "Besser sp\u00e4t als nie.",
+            "nr": "\u03b6",
+            "shortname": "Extra",
+            "instructors": null,
+            "max_size": null,
+            "min_size": null,
+            "notes": null,
+            "fields": {},
+            "segments": {
+                "1": false,
+                "2": true,
+                "3": true
+            }
         }
     },
     "lodgement_groups": {
         "1": {
-            "moniker": "Haupthaus"
+            "title": "Haupthaus"
         },
         "2": {
-            "moniker": "Au\u00dfenWohnGruppe"
+            "title": "Au\u00dfenWohnGruppe"
+        },
+        "3": {
+            "title": "Sonstige"
         }
     },
     "lodgements": {
         "1": {
-            "moniker": "Warme Stube",
+            "title": "Warme Stube",
             "regular_capacity": 5,
             "camping_mat_capacity": 1,
             "notes": null,
@@ -116,7 +134,7 @@
             }
         },
         "2": {
-            "moniker": "Kalte Kammer",
+            "title": "Kalte Kammer",
             "regular_capacity": 10,
             "camping_mat_capacity": 2,
             "notes": "Daf\u00fcr mit Frischluft.",
@@ -126,17 +144,17 @@
             }
         },
         "3": {
-            "moniker": "Kellerverlies",
+            "title": "Kellerverlies",
             "regular_capacity": 0,
             "camping_mat_capacity": 100,
             "notes": "Nur f\u00fcr Notf\u00e4lle.",
-            "group_id": null,
+            "group_id": 3,
             "fields": {
                 "contamination": "low"
             }
         },
         "4": {
-            "moniker": "Einzelzelle",
+            "title": "Einzelzelle",
             "regular_capacity": 1,
             "camping_mat_capacity": 0,
             "notes": null,
@@ -156,11 +174,14 @@
             "checkin": null,
             "list_consent": true,
             "fields": {
-                "lodge": "Die \u00fcblichen Verd\u00e4chtigen :)",
-                "is_child": false
+                "lodge": "Die \u00fcblichen Verd\u00e4chtigen, insb. Berta Beispiel und garcia@example.cde :)",
+                "is_child": false,
+                "anzahl_GROSSBUCHSTABEN": 4
             },
-            "amount_paid": "0.00",
+            "amount_paid": "200.00",
             "amount_owed": "573.99",
+            "ctime": "2023-04-23T12:01:40.788448+00:00",
+            "mtime": null,
             "parts": {
                 "1": {
                     "status": -1,
@@ -216,13 +237,16 @@
                 "name_supplement": null,
                 "gender": 2,
                 "birthday": "1991-03-30",
-                "telephone": "+49 (234) 98765",
+                "telephone": "+4923498765",
                 "mobile": null,
                 "address_supplement": null,
                 "address": "Auf der D\u00fcne 42",
                 "postal_code": "03205",
                 "location": "Musterstadt",
-                "country": null,
+                "country": "DE",
+                "pronouns": "he/him",
+                "pronouns_nametag": true,
+                "pronouns_profile": false,
                 "is_orga": false
             }
         },
@@ -237,10 +261,13 @@
             "fields": {
                 "is_child": false,
                 "brings_balls": true,
-                "transportation": "pedes"
+                "transportation": "pedes",
+                "anzahl_GROSSBUCHSTABEN": 3
             },
             "amount_paid": "0.00",
-            "amount_owed": "589.49",
+            "amount_owed": "466.49",
+            "ctime": "2023-04-23T12:01:40.788448+00:00",
+            "mtime": null,
             "parts": {
                 "1": {
                     "status": 3,
@@ -289,20 +316,23 @@
                 "is_member": false,
                 "id": 5,
                 "username": "emilia@example.cde",
-                "display_name": "Emilia",
+                "display_name": "Emmy",
                 "family_name": "Eventis",
                 "given_names": "Emilia E.",
                 "title": null,
                 "name_supplement": null,
                 "gender": 1,
                 "birthday": "2012-06-02",
-                "telephone": "+49 (5432) 555666777",
-                "mobile": "01577/314159",
+                "telephone": "+495432555666777",
+                "mobile": "+491577314159",
                 "address_supplement": null,
                 "address": "Hohle Gasse 13",
                 "postal_code": "56767",
                 "location": "Wolkenkuckuksheim",
-                "country": "Deutschland",
+                "country": "DE",
+                "pronouns": null,
+                "pronouns_nametag": false,
+                "pronouns_profile": false,
                 "is_orga": false
             }
         },
@@ -316,10 +346,13 @@
             "list_consent": false,
             "fields": {
                 "is_child": false,
-                "transportation": "car"
+                "transportation": "car",
+                "anzahl_GROSSBUCHSTABEN": 3
             },
             "amount_paid": "0.00",
-            "amount_owed": "584.49",
+            "amount_owed": "534.48",
+            "ctime": "2023-04-23T12:01:40.788448+00:00",
+            "mtime": null,
             "parts": {
                 "1": {
                     "status": 2,
@@ -381,7 +414,10 @@
                 "address": "Bei der W\u00fcste 39",
                 "postal_code": "88484",
                 "location": "Weltstadt",
-                "country": null,
+                "country": "DE",
+                "pronouns": null,
+                "pronouns_nametag": false,
+                "pronouns_profile": false,
                 "is_orga": true
             }
         },
@@ -397,10 +433,13 @@
                 "is_child": true,
                 "may_reserve": true,
                 "brings_balls": false,
-                "transportation": "etc"
+                "transportation": "etc",
+                "anzahl_GROSSBUCHSTABEN": 2
             },
             "amount_paid": "0.00",
             "amount_owed": "431.99",
+            "ctime": "2023-04-23T12:01:40.788448+00:00",
+            "mtime": null,
             "parts": {
                 "1": {
                     "status": 6,
@@ -457,12 +496,15 @@
                 "gender": 1,
                 "birthday": "2222-01-01",
                 "telephone": null,
-                "mobile": "0163/456897",
+                "mobile": "+49163456897",
                 "address_supplement": null,
                 "address": "Zwergstra\u00dfe 1",
                 "postal_code": "10999",
                 "location": "Liliput",
-                "country": null,
+                "country": "DE",
+                "pronouns": null,
+                "pronouns_nametag": false,
+                "pronouns_profile": false,
                 "is_orga": false
             }
         },
@@ -476,10 +518,13 @@
             "list_consent": true,
             "fields": {
                 "is_child": false,
-                "transportation": "pedes"
+                "transportation": "pedes",
+                "anzahl_GROSSBUCHSTABEN": 2
             },
             "amount_paid": "0.00",
-            "amount_owed": "584.49",
+            "amount_owed": "584.48",
+            "ctime": "2023-04-23T12:01:40.788448+00:00",
+            "mtime": null,
             "parts": {
                 "1": {
                     "status": 2,
@@ -535,13 +580,16 @@
                 "name_supplement": null,
                 "gender": 10,
                 "birthday": "2019-12-28",
-                "telephone": "+81 (314) 159263",
+                "telephone": "+81314159263",
                 "mobile": null,
                 "address_supplement": null,
                 "address": "Kasumigaseki 1-3-2",
                 "postal_code": null,
                 "location": "Tokyo",
-                "country": "Japan",
+                "country": "JP",
+                "pronouns": null,
+                "pronouns_nametag": false,
+                "pronouns_profile": false,
                 "is_orga": false
             }
         },
@@ -555,10 +603,13 @@
             "list_consent": true,
             "fields": {
                 "is_child": false,
-                "transportation": "pedes"
+                "transportation": "pedes",
+                "anzahl_GROSSBUCHSTABEN": 2
             },
             "amount_paid": "0.00",
             "amount_owed": "10.50",
+            "ctime": "2023-04-23T12:01:40.788448+00:00",
+            "mtime": null,
             "parts": {
                 "1": {
                     "status": 2,
@@ -604,13 +655,16 @@
                 "name_supplement": "MdB",
                 "gender": 1,
                 "birthday": "1981-02-11",
-                "telephone": "+49 (5432) 987654321",
-                "mobile": "0163/123456789",
+                "telephone": "+495432987654321",
+                "mobile": "+4916312345678",
                 "address_supplement": "bei Spielmanns",
                 "address": "Im Garten 77",
                 "postal_code": "34576",
                 "location": "Utopia",
-                "country": null,
+                "country": "DE",
+                "pronouns": "she/her",
+                "pronouns_nametag": false,
+                "pronouns_profile": true,
                 "is_orga": false
             }
         }
@@ -624,18 +678,18 @@
         "registration_soft_limit": "2200-10-30T00:00:00+00:00",
         "registration_hard_limit": "2221-10-30T00:00:00+00:00",
         "iban": "DE26370205000008068900",
-        "nonmember_surcharge": "5.00",
         "orga_address": "aka@example.cde",
         "registration_text": null,
         "mail_text": "Wir verwenden ein neues Kristallkugel-basiertes Kurszuteilungssystem; bis wir das ordentlich ans Laufen gebracht haben, m\u00fcsst ihr leider etwas auf die Teilnehmerliste warten.",
         "use_additional_questionnaire": false,
         "notes": "Todoliste ... just kidding ;)",
+        "participant_info": "Die Kristallkugel hat gute Dienste geleistet, nicht wahr?",
         "offline_lock": false,
         "is_visible": true,
         "is_course_list_visible": true,
         "is_course_state_visible": false,
         "is_participant_list_visible": false,
-        "courses_in_participant_list": false,
+        "is_course_assignment_visible": false,
         "is_cancelled": false,
         "is_archived": false,
         "lodge_field": "lodge",
@@ -647,7 +701,6 @@
                 "shortname": "Wu",
                 "part_begin": "2222-02-02",
                 "part_end": "2222-02-02",
-                "fee": "10.50",
                 "waitlist_field": null,
                 "tracks": {}
             },
@@ -656,7 +709,6 @@
                 "shortname": "1.H.",
                 "part_begin": "2222-11-01",
                 "part_end": "2222-11-11",
-                "fee": "123.00",
                 "waitlist_field": null,
                 "tracks": {
                     "1": {
@@ -680,7 +732,6 @@
                 "shortname": "2.H.",
                 "part_begin": "2222-11-11",
                 "part_end": "2222-11-30",
-                "fee": "450.99",
                 "waitlist_field": null,
                 "tracks": {
                     "3": {
@@ -693,32 +744,70 @@
                 }
             }
         },
-        "fee_modifiers": {
-            "is_child1": {
+        "part_groups": {},
+        "track_groups": {},
+        "fees": {
+            "Teilnahmebeitrag Warmup": {
+                "amount": "10.50",
+                "condition": "part.Wu",
+                "notes": null
+            },
+            "Teilnahmebeitrag 1. H\u00e4lfte": {
+                "amount": "123.00",
+                "condition": "part.1.H.",
+                "notes": null
+            },
+            "Teilnahmebeitrag 2. H\u00e4lfte": {
+                "amount": "450.99",
+                "condition": "part.2.H.",
+                "notes": null
+            },
+            "Kinderpreis Warmup": {
                 "amount": "-5.00",
-                "part": "Wu",
-                "field": "is_child"
+                "condition": "part.Wu and field.is_child",
+                "notes": null
             },
-            "is_child2": {
+            "Kinderpreis 1. H\u00e4lfte": {
                 "amount": "-12.00",
-                "part": "1.H.",
-                "field": "is_child"
+                "condition": "part.1.H. and field.is_child",
+                "notes": null
             },
-            "is_child3": {
+            "Kinderpreis 2. H\u00e4lfte": {
                 "amount": "-19.00",
-                "part": "2.H.",
-                "field": "is_child"
+                "condition": "part.2.H. and field.is_child",
+                "notes": null
+            },
+            "Externenzusatzbeitrag": {
+                "amount": "5.00",
+                "condition": "any_part and not (is_member or field.is_child)",
+                "notes": null
+            },
+            "Mengenrabatt": {
+                "amount": "-0.01",
+                "condition": "all_parts",
+                "notes": null
+            },
+            "Orgarabatt": {
+                "amount": "-50.00",
+                "condition": "part.1.H. and part.2.H. and is_orga",
+                "notes": null
             }
         },
         "fields": {
             "brings_balls": {
+                "title": "Bringt B\u00e4lle mit",
+                "sortkey": 0,
                 "kind": 2,
                 "association": 1,
+                "checkin": true,
                 "entries": null
             },
             "transportation": {
+                "title": "Reist an mit",
+                "sortkey": 0,
                 "kind": 1,
                 "association": 1,
+                "checkin": false,
                 "entries": [
                     [
                         "pedes",
@@ -735,23 +824,35 @@
                 ]
             },
             "lodge": {
+                "title": "Zimmerw\u00fcnsche",
+                "sortkey": 0,
                 "kind": 1,
                 "association": 1,
+                "checkin": false,
                 "entries": null
             },
             "may_reserve": {
+                "title": "W\u00fcrde auf Isomatte schlafen",
+                "sortkey": 0,
                 "kind": 2,
                 "association": 1,
+                "checkin": false,
                 "entries": null
             },
             "room": {
+                "title": "Kursraum",
+                "sortkey": 0,
                 "kind": 1,
                 "association": 2,
+                "checkin": false,
                 "entries": null
             },
             "contamination": {
+                "title": "Verseuchung",
+                "sortkey": 0,
                 "kind": 1,
                 "association": 3,
+                "checkin": false,
                 "entries": [
                     [
                         "high",
@@ -772,10 +873,83 @@
                 ]
             },
             "is_child": {
+                "title": "Ist U12",
+                "sortkey": 0,
                 "kind": 2,
                 "association": 1,
+                "checkin": false,
+                "entries": null
+            },
+            "anzahl_GROSSBUCHSTABEN": {
+                "title": "Anzahl Gro\u00dfbuchstaben",
+                "sortkey": 0,
+                "kind": 3,
+                "association": 1,
+                "checkin": true,
                 "entries": null
             }
+        },
+        "questionnaire": {
+            "QuestionnaireUsages.registration": [
+                {
+                    "title": "Ich bin unter 13 Jahre alt.",
+                    "info": null,
+                    "input_size": null,
+                    "readonly": false,
+                    "default_value": null,
+                    "field_name": "is_child"
+                }
+            ],
+            "QuestionnaireUsages.additional": [
+                {
+                    "title": "Unter\u00fcberschrift",
+                    "info": "mit Text darunter",
+                    "input_size": null,
+                    "readonly": null,
+                    "default_value": null,
+                    "field_name": null
+                },
+                {
+                    "title": "B\u00e4lle",
+                    "info": "Du bringst genug B\u00e4lle mit um einen ganzen Kurs abzuwerfen.",
+                    "input_size": null,
+                    "readonly": false,
+                    "default_value": "True",
+                    "field_name": "brings_balls"
+                },
+                {
+                    "title": null,
+                    "info": "nur etwas Text",
+                    "input_size": null,
+                    "readonly": null,
+                    "default_value": null,
+                    "field_name": null
+                },
+                {
+                    "title": "Weitere \u00dcberschrift",
+                    "info": null,
+                    "input_size": null,
+                    "readonly": null,
+                    "default_value": null,
+                    "field_name": null
+                },
+                {
+                    "title": "Vehikel",
+                    "info": null,
+                    "input_size": null,
+                    "readonly": false,
+                    "default_value": "etc",
+                    "field_name": "transportation"
+                },
+                {
+                    "title": "Hauswunsch",
+                    "info": null,
+                    "input_size": 3,
+                    "readonly": false,
+                    "default_value": null,
+                    "field_name": "lodge"
+                }
+            ]
         }
     }
 }

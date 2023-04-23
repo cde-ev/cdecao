@@ -598,8 +598,8 @@ mod tests {
 
         super::super::assert_data_consitency(&participants, &courses);
         // Check courses
-        // Course "γ. Kurz" is cancelled in this track, thus it should not exist in the parsed data
-        assert_eq!(courses.len(), 4);
+        // Course "γ. Kurz" is not offered in this track, thus it should not exist in the parsed data
+        assert_eq!(courses.len(), 5);
         assert!(find_course_by_id(&courses, 3).is_none());
         assert_eq!(find_course_by_id(&courses, 5).unwrap().name, "ε. Backup");
         assert_eq!(find_course_by_id(&courses, 5).unwrap().instructors.len(), 0);
@@ -652,7 +652,7 @@ mod tests {
         let (participants, courses, _import_ambience) =
             super::read(&data[..], Some(1), false, false, None, None).unwrap();
         super::super::assert_data_consitency(&participants, &courses);
-        assert_eq!(courses.len(), 4);
+        assert_eq!(courses.len(), 5);
         assert_eq!(participants.len(), 2);
         assert!(find_participant_by_id(&participants, 3).is_some());
 
@@ -660,7 +660,7 @@ mod tests {
         let (participants, courses, _import_ambience) =
             super::read(&data[..], Some(2), false, false, None, None).unwrap();
         super::super::assert_data_consitency(&participants, &courses);
-        assert_eq!(courses.len(), 4);
+        assert_eq!(courses.len(), 5);
         assert_eq!(participants.len(), 2);
         assert!(find_participant_by_id(&participants, 3).is_some());
     }
@@ -684,7 +684,8 @@ mod tests {
             super::read(&data[..], Some(3), false, true, None, None).unwrap();
         super::super::assert_data_consitency(&participants, &courses);
 
-        assert_eq!(courses.len(), 4);
+        assert_eq!(courses.len(), 5);
+        // Akira, Emilia and Inga are assigned to course 'α. Heldentum' (id=1), so it shall be fixed
         assert_eq!(find_course_by_id(&courses, 1).unwrap().fixed_course, true);
         assert_eq!(find_course_by_id(&courses, 1).unwrap().room_offset, 3);
         assert_eq!(find_course_by_id(&courses, 4).unwrap().fixed_course, false);
@@ -702,7 +703,9 @@ mod tests {
             super::read(&data[..], Some(3), true, false, None, None).unwrap();
         super::super::assert_data_consitency(&participants, &courses);
 
-        assert_eq!(courses.len(), 3);
+        // Course 'γ. Kurz' (id=3) has not been offered and course 'ε. Backup' (id=5) is cancelled
+        // in track 'Sitzung' (id=3)
+        assert_eq!(courses.len(), 4);
         assert!(find_course_by_id(&courses, 3).is_none());
         assert!(find_course_by_id(&courses, 5).is_none());
         assert_eq!(participants.len(), 5);
