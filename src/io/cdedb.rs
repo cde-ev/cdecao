@@ -22,6 +22,7 @@ use log::{info, warn};
 
 const MINIMUM_EXPORT_VERSION: (u64, u64) = (7, 0);
 const MAXIMUM_EXPORT_VERSION: (u64, u64) = (16, std::u64::MAX);
+const OUTPUT_EXPORT_VERSION: (u64, u64) = (16, 0);
 
 pub struct ImportAmbienceData {
     event_id: u64,
@@ -452,7 +453,7 @@ pub fn write<W: std::io::Write>(
         .collect::<serde_json::Map<String, serde_json::Value>>();
 
     let data = json!({
-        "EVENT_SCHEMA_VERSION": [15, 4],
+        "EVENT_SCHEMA_VERSION": OUTPUT_EXPORT_VERSION,
         "kind": "partial",
         "id": ambience_data.event_id,
         "timestamp": Utc::now().to_rfc3339_opts(SecondsFormat::Millis, false),
