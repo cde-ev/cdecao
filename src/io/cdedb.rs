@@ -128,7 +128,7 @@ pub fn read<R: std::io::Read>(
 
     // Parse courses
     let mut courses = Vec::new();
-    let mut skipped_course_ids = Vec::new();  // Used to ignore KeyErrors for those later
+    let mut skipped_course_ids = Vec::new(); // Used to ignore KeyErrors for those later
     let courses_data = data
         .get("courses")
         .and_then(|v| v.as_object())
@@ -230,8 +230,13 @@ pub fn read<R: std::io::Read>(
     // (num_hidden_instructors, num_hidden_attendees) for each course in the same order as the
     // `courses` vector.
     let mut invisible_course_participants = vec![(0usize, 0usize); courses.len()];
-    let mut courses_by_id: HashMap<u64, &mut crate::Course> =
-        courses.iter_mut().map(|r| (r.dbid as u64, r)).collect();
+    let mut course_index_by_id: HashMap<u64, Option<usize>> = courses
+        .iter()
+        .map(|r| (r.dbid as u64, Some(r.index)))
+        .collect();
+    for course_id in skipped_course_ids {
+        course_index_by_id.insert(course_id as u64, None);
+    }
 
     // Parse Registrations
     let mut registrations = Vec::new();
@@ -287,80 +292,39 @@ pub fn read<R: std::io::Read>(
                 ))?
         );
 
-        // Get registration track data
-        let rt_data = reg_data
-            .get("tracks")
-            .and_then(|v| v.as_object())
-            .ok_or(format!("No 'tracks' found in registration {}", reg_id))?
-            .get(&format!("{}", track_id))
-            .and_then(|v| v.as_object())
-            .ok_or(format!(
-                "Registration track data not present for registration {}",
-                reg_id
-            ))?;
+        let (assigned_course, instructed_course, choices) = parse_participant_course_data(
+            &format!("{} (id={})", reg_name, reg_id),
+            reg_data,
+            track_id,
+            &course_index_by_id,
+        )?;
 
         // Skip already assigned participants (if wanted)
         if ignore_assigned {
-            // Check if course_id is an integer and get this integer
-            if let Some(course_id) = rt_data.get("course_id").and_then(|v| v.as_u64()) {
-                // Add participant to the invisible_course_participants of this course ...
-                if let Some(course) = courses_by_id.get(&course_id) {
-                    match rt_data.get("course_instructor").and_then(|v| v.as_u64()) {
-                        // In case, they are (invisible) instructor of the course ...
-                        Some(c) if c == course_id => {
-                            invisible_course_participants[course.index].0 += 1;
-                        },
-                        // In case, they are (invisible) attendee of the course ...
-                        _ => {
-                            invisible_course_participants[course.index].1 += 1;
-                        }
+            if let Some(course_index) = assigned_course {
+                match instructed_course {
+                    // In case, they are (invisible) instructor of the course ...
+                    Some(c) if c == course_index => {
+                        invisible_course_participants[course_index].0 += 1;
+                    }
+                    // In case, they are (invisible) attendee of the course ...
+                    _ => {
+                        invisible_course_participants[course_index].1 += 1;
                     }
                 }
                 continue;
             }
         }
 
-        // Parse course choices
-        let choices_data = rt_data
-            .get("choices")
-            .and_then(|v| v.as_array())
-            .ok_or(format!(
-                "No 'choices' found in registration {}'s track data",
-                reg_id
-            ))?;
-
-        let mut choices = Vec::<usize>::new();
-        for v in choices_data {
-            let course_id = v.as_u64().ok_or("Course choice is no integer.")?;
-            if let Some(course) = courses_by_id.get(&course_id) {
-                choices.push(course.index);
-            } else if !skipped_course_ids.contains(&(course_id as usize)) {
-                return Err(format!(
-                    "Course choice {} of registration {} does not exist.", course_id, reg_id));
-            }
-        }
-
         // Filter out registrations without choices
         if choices.len() == 0 {
-            if choices_data.len() > 0 {
-                info!("Ignoring participant {} (id {}), who only chose cancelled courses.",
-                      reg_name, reg_id);
-            }
+            // TODO if participant is instructor of a course, add to room_offset
             continue;
         }
 
         // Add course instructors to courses
-        if let Some(instructed_course) = rt_data
-                .get("course_instructor")
-                .and_then(|v| v.as_u64()) {
-            if let Some(course) = courses_by_id.get_mut(&instructed_course) {
-                course.instructors.push(i);
-            } else if !skipped_course_ids.contains(&(instructed_course as usize)) {
-                return Err(format!(
-                    "Instructed course {} of registration {} does not exist.",
-                    instructed_course,
-                    reg_id));
-            }
+        if let Some(instructed_course_index) = instructed_course {
+            courses[instructed_course_index].instructors.push(i);
         }
 
         registrations.push(crate::Participant {
@@ -372,26 +336,12 @@ pub fn read<R: std::io::Read>(
         i += 1;
     }
 
-    // Subtract invisible course attendees from course participant bounds
-    // Prevent courses with invisible course participants from being cancelled and add
-    // invisible course participants to room_offset
-    for mut course in courses.iter_mut() {
-        let invisible_course_attendees = invisible_course_participants[course.index].1;
-        let total_invisible_course_participants = invisible_course_participants[course.index].0 + invisible_course_participants[course.index].1;
-        course.num_min = if invisible_course_attendees > course.num_min
-        {
-            0
-        } else {
-            course.num_min - invisible_course_attendees
-        };
-        course.num_max = if invisible_course_attendees > course.num_max
-        {
-            0
-        } else {
-            course.num_max - invisible_course_attendees
-        };
-        course.fixed_course = total_invisible_course_participants != 0;
-        course.room_offset += total_invisible_course_participants;
+    for course in courses.iter_mut() {
+        adapt_course_for_invisible_participants(
+            course,
+            invisible_course_participants[course.index].0,
+            invisible_course_participants[course.index].1,
+        )
     }
 
     Ok((
@@ -405,6 +355,146 @@ pub fn read<R: std::io::Read>(
             track_id,
         },
     ))
+}
+
+/**
+ * Extract course choice and assignment information from a registration object of the JSON data
+ * 
+ * # Arguments
+ * - `registration_name` -- Name of the participant (incl. id) for error message output
+ * - `reg_data` -- The registration object from the CdEDB JSON export
+ * - `track_id` -- The id of the event track for which the data shall be extracted
+ * - `courses_by_id` -- A Map (CdEDB course id) -> (course index or None). Iff a course exists but
+ *   ignored by the assignment algorithm, the map shall contain a None value for this course id.
+ * 
+ * # Return value
+ * Returns a tuple (assigned_course, instructed_course, [choices]). All courses are referenced by
+ * index according to `courses_by_id`. assigned_course and instructed_course are None, iff no course
+ * is assigned/instructed or the course is marked to be ignored.
+ */
+fn parse_participant_course_data(
+    registration_name: &str,
+    reg_data: &serde_json::Value,
+    track_id: u64,
+    courses_by_id: &HashMap<u64, Option<usize>>,
+) -> Result<(Option<usize>, Option<usize>, Vec<usize>), String> {
+    let registration_track_data = reg_data
+        .get("tracks")
+        .and_then(|v| v.as_object())
+        .ok_or(format!(
+            "No 'tracks' found in registration {}",
+            registration_name
+        ))?
+        .get(&format!("{}", track_id))
+        .and_then(|v| v.as_object())
+        .ok_or(format!(
+            "Registration track data not present for registration {}",
+            registration_name
+        ))?;
+
+    let assigned_course_id = registration_track_data
+        .get("course_id")
+        .ok_or(format!(
+            "No 'course_id' found in registration track of {}",
+            registration_name
+        ))?
+        .as_u64();
+
+    let assigned_course_index = match assigned_course_id {
+        Some(course_id) => {
+            let course_index = courses_by_id.get(&course_id).ok_or(format!(
+                "Assigned course {} of registration {} does not exist.",
+                course_id, registration_name
+            ))?;
+            // If course_index is None, the course_id is valid, but the course is skipped/ignored
+            course_index.as_ref().map(|c| *c)
+        }
+        // No course assigned
+        None => None,
+    };
+
+    let instructed_course_id = registration_track_data
+        .get("course_instructor")
+        .ok_or(format!(
+            "No 'course_instructor' found in registration {}'s registration track",
+            registration_name
+        ))?
+        .as_u64();
+
+    let instructed_course_index = match instructed_course_id {
+        Some(course_id) => {
+            let course_index = courses_by_id.get(&course_id).ok_or(format!(
+                "Instructed course {} of registration {} does not exist.",
+                course_id, registration_name
+            ))?;
+            // If course_index is None, the course_id is valid, but the course is skipped/ignored
+            course_index.as_ref().map(|c| *c)
+        }
+        // No course instructed
+        None => None,
+    };
+
+    let choices_data = registration_track_data
+        .get("choices")
+        .and_then(|v| v.as_array())
+        .ok_or(format!(
+            "No 'choices' found in registration track data of {}",
+            registration_name
+        ))?;
+
+    let mut choices = Vec::<usize>::with_capacity(choices_data.len());
+    for v in choices_data {
+        let course_id = v
+            .as_u64()
+            .ok_or(format!("Course choice {:?} is no integer.", v))?;
+        let course_index = courses_by_id.get(&course_id).ok_or(format!(
+            "Course choice {} of registration {} does not exist.",
+            course_id, registration_name
+        ))?;
+        if let Some(c) = course_index {
+            choices.push(*c);
+        }
+    }
+
+    if choices.len() == 0 && choices_data.len() > 0 {
+        info!(
+            "Participant {}, only chose cancelled courses.",
+            registration_name
+        );
+    }
+
+    Ok((assigned_course_index, instructed_course_index, choices))
+}
+
+/// Adjust a Course to incorporate the "invisible" (ignored) participants in its size and offsets
+///
+/// "Invisible participants" are those, which are fix-assigned to a course and and thus ignored by
+/// the assignment algorithm. I.e. they are not included in the list of participants, we provide
+/// to the algorithm, nor in exported result. So, we need to adjust the course data accordingly, to
+/// "save them a place" in the course.
+///
+/// The following modifications are made to the course:
+/// * the fixed_course flag is set if there are any invisible participants (attendees + instructors)
+/// * the min and max size of the course are reduced by the number of invisible attendees
+/// * the room offset is increased by the number of invisible participants (attendees + instructors)
+fn adapt_course_for_invisible_participants(
+    course: &mut Course,
+    invisible_instructors: usize,
+    invisible_attendees: usize,
+) {
+    let total_invisible_course_participants = invisible_instructors + invisible_attendees;
+    course.num_min = if invisible_attendees > course.num_min {
+        0
+    } else {
+        course.num_min - invisible_attendees
+    };
+    course.num_max = if invisible_attendees > course.num_max {
+        0
+    } else {
+        course.num_max - invisible_attendees
+    };
+    course.fixed_course = total_invisible_course_participants != 0;
+    course.room_offset += total_invisible_course_participants;
 }
 
 /// Write the calculated course assignment as a CdE Datenbank partial import JSON string to a Writer
@@ -681,10 +771,16 @@ mod tests {
     fn test_single_track_event() {
         let data = include_bytes!("test_ressources/cyta_partial_export_event.json");
 
-        let (participants, courses, _import_ambience) = 
+        let (participants, courses, _import_ambience) =
             super::read(&data[..], None, false, false, None, None).unwrap();
         super::super::assert_data_consitency(&participants, &courses);
-        println!("{:?}", participants.iter().map(|p| &p.name).collect::<Vec<&String>>());
+        println!(
+            "{:?}",
+            participants
+                .iter()
+                .map(|p| &p.name)
+                .collect::<Vec<&String>>()
+        );
         assert_eq!(courses.len(), 3);
         // Garcia is Orga, so we only read 2 of 3 participants
         assert_eq!(participants.len(), 2);
