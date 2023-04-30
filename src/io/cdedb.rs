@@ -77,44 +77,7 @@ pub fn read<R: std::io::Read>(
     room_offset_field: Option<&str>,
 ) -> Result<(Vec<Participant>, Vec<Course>, ImportAmbienceData), String> {
     let data: serde_json::Value = serde_json::from_reader(reader).map_err(|err| err.to_string())?;
-
-    // Check export type and version
-    let export_kind = data
-        .get("kind")
-        .and_then(|v| v.as_str())
-        .ok_or("No 'kind' field found in data. Is this a correct CdEdb export file?")?;
-    if export_kind != "partial" {
-        return Err("The given JSON file is no 'Partial Export' of the CdE Datenbank".to_owned());
-    }
-    let export_version =
-        if let Some(version_tag) = data.get("EVENT_SCHEMA_VERSION") {
-            version_tag.as_array()
-                .ok_or("'EVENT_SCHEMA_VERSION' is not an array!")
-                .and_then(|v|
-                    if v.len() == 2
-                    {Ok(v)}
-                    else {Err("'EVENT_SCHEMA_VERSION' does not have 2 entries.")})
-                .and_then(|v| v.iter().map(
-                    |x| x.as_u64()
-                        .ok_or("Entry of 'EVENT_SCHEMA_VERSION' is not an u64 value."))
-                    .collect::<Result<Vec<u64>, &str>>())
-                .and_then(|v| Ok((v[0], v[1])))
-        } else if let Some(version_tag) = data.get("CDEDB_EXPORT_EVENT_VERSION") {
-            // Support for old export schema version field
-            version_tag.as_u64()
-                .ok_or("'CDEDB_EXPORT_EVENT_VERSION' is not an u64 value")
-                .and_then(|v| Ok((v, 0)))
-        } else {
-            Err("No 'EVENT_SCHEMA_VERSION' field found in data. Is this a correct CdEdb \
-            export file?")
-        }?;
-    if export_version < MINIMUM_EXPORT_VERSION || export_version > MAXIMUM_EXPORT_VERSION {
-        return Err(format!(
-            "The given CdE Datenbank Export is not within the supported version range \
-            [{}.{},{}.{}]",
-            MINIMUM_EXPORT_VERSION.0, MINIMUM_EXPORT_VERSION.1, MAXIMUM_EXPORT_VERSION.0,
-            MAXIMUM_EXPORT_VERSION.1));
-    }
+    check_export_type_and_version(&data)?;
 
     // Find part and track ids
     let parts_data = data
@@ -128,7 +91,7 @@ pub fn read<R: std::io::Read>(
 
     // Parse courses
     let mut courses = Vec::new();
-    let mut skipped_course_ids = Vec::new();  // Used to ignore KeyErrors for those later
+    let mut skipped_course_ids = Vec::new(); // Used to ignore KeyErrors for those later
     let courses_data = data
         .get("courses")
         .and_then(|v| v.as_object())
@@ -138,79 +101,24 @@ pub fn read<R: std::io::Read>(
         let course_id: usize = course_id
             .parse()
             .map_err(|e: std::num::ParseIntError| e.to_string())?;
-        let course_segments_data = course_data
-            .get("segments")
-            .and_then(|v| v.as_object())
-            .ok_or(format!(
-                "No 'segments' object found for course {}",
-                course_id
-            ))?;
-        // Skip courses without segment in the relevant track
-        if !course_segments_data.contains_key(&format!("{}", track_id)) {
+
+        let (course_name, course_status, num_min, num_max) =
+            parse_course_base_data(course_id, course_data, track_id)?;
+
+        if matches!(course_status, CourseStatus::NotOffered) {
             continue;
         }
-        // Skip already cancelled courses (if wanted). Only add their id to `skipped_course_ids`
-        if ignore_inactive_courses
-            && !(course_segments_data
-                .get(&format!("{}", track_id))
-                .and_then(|v| v.as_bool())
-                .ok_or(format!("Segment of course {} is not a boolean.", course_id))?)
-        {
+        if matches!(course_status, CourseStatus::Cancelled) && ignore_inactive_courses {
             skipped_course_ids.push(course_id);
             continue;
         }
 
-        let course_name = format!(
-            "{}. {}",
-            course_data
-                .get("nr")
-                .and_then(|v| v.as_str())
-                .ok_or(format!("No 'nr' found for course {}", course_id))?,
-            course_data
-                .get("shortname")
-                .and_then(|v| v.as_str())
-                .ok_or(format!("No 'shortname' found for course {}", course_id))?
-        );
-
-        let num_max = course_data
-            .get("max_size")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(25) as usize;
-        let num_min = course_data
-            .get("min_size")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0) as usize;
-        if num_max < num_min {
-            return Err(format!("Min participants > max participants for course '{}'", course_name));
-        }
-
-        // Analyze fields to extract room_factor and room_offset
-        let fields = course_data
-            .get("fields")
-            .and_then(|v| v.as_object())
-            .ok_or(format!("No 'fields' found for course {}", course_id))?;
-        let room_factor = if let Some(field_name) = room_factor_field {
-            match fields.get(field_name).and_then(|v| v.as_f64()) {
-                Some(v) => v,
-                None => {
-                    warn!("No numeric field '{}' as room_factor field found in course '{}'. Using the default value 1.0.", field_name, course_name);
-                    1.0
-                }
-            }
-        } else {
-            1.0
-        };
-        let room_offset = if let Some(field_name) = room_offset_field {
-            match fields.get(field_name).and_then(|v| v.as_u64()) {
-                Some(v) => v,
-                None => {
-                    warn!("No integer field '{}' as room_offset field found in course '{}'. Using the default value 0.", field_name, course_name);
-                    0
-                }
-            }
-        } else {
-            0
-        };
+        let (room_factor, room_offset) = extract_room_factor_fields(
+            course_data,
+            &course_name,
+            room_factor_field,
+            room_offset_field,
+        )?;
 
         courses.push(crate::Course {
             index: i,
@@ -230,8 +138,13 @@ pub fn read<R: std::io::Read>(
     // (num_hidden_instructors, num_hidden_attendees) for each course in the same order as the
     // `courses` vector.
     let mut invisible_course_participants = vec![(0usize, 0usize); courses.len()];
-    let mut courses_by_id: HashMap<u64, &mut crate::Course> =
-        courses.iter_mut().map(|r| (r.dbid as u64, r)).collect();
+    let mut course_index_by_id: HashMap<u64, Option<usize>> = courses
+        .iter()
+        .map(|r| (r.dbid as u64, Some(r.index)))
+        .collect();
+    for course_id in skipped_course_ids {
+        course_index_by_id.insert(course_id as u64, None);
+    }
 
     // Parse Registrations
     let mut registrations = Vec::new();
@@ -244,123 +157,46 @@ pub fn read<R: std::io::Read>(
         let reg_id: u64 = reg_id
             .parse()
             .map_err(|e: std::num::ParseIntError| e.to_string())?;
-        // Check registration status to skip irrelevant registrations
-        let rp_data = reg_data
-            .get("parts")
-            .and_then(|v| v.as_object())
-            .ok_or(format!("No 'parts' found in registration {}", reg_id))?
-            .get(&format!("{}", part_id))
-            .and_then(|v| v.as_object());
-        if let None = rp_data {
-            continue;
-        }
-        let rp_data = rp_data.unwrap();
-        if rp_data
-            .get("status")
-            .and_then(|v| v.as_i64())
-            .ok_or(format!(
-                "Missing 'status' in registration_part record of reg {}",
-                reg_id
-            ))?
-            != 2
-        {
+
+        let (reg_state, reg_name) = extract_participant_base_data(reg_id, reg_data, part_id)?;
+
+        if !matches!(reg_state, ParticipationState::Participant) {
             continue;
         }
 
-        // Parse persona attributes
-        let persona_data = reg_data
-            .get("persona")
-            .and_then(|v| v.as_object())
-            .ok_or(format!("Missing 'persona' in registration {}", reg_id))?;
-        let reg_name = format!(
-            "{} {}",
-            persona_data
-                .get("given_names")
-                .and_then(|v| v.as_str())
-                .ok_or(format!("No 'given_name' found for registration {}", reg_id))?,
-            persona_data
-                .get("family_name")
-                .and_then(|v| v.as_str())
-                .ok_or(format!(
-                    "No 'family_name' found for registration {}",
-                    reg_id
-                ))?
-        );
-
-        // Get registration track data
-        let rt_data = reg_data
-            .get("tracks")
-            .and_then(|v| v.as_object())
-            .ok_or(format!("No 'tracks' found in registration {}", reg_id))?
-            .get(&format!("{}", track_id))
-            .and_then(|v| v.as_object())
-            .ok_or(format!(
-                "Registration track data not present for registration {}",
-                reg_id
-            ))?;
+        let (assigned_course, instructed_course, choices) = parse_participant_course_data(
+            &format!("{} (id={})", reg_name, reg_id),
+            reg_data,
+            track_id,
+            &course_index_by_id,
+        )?;
 
         // Skip already assigned participants (if wanted)
         if ignore_assigned {
-            // Check if course_id is an integer and get this integer
-            if let Some(course_id) = rt_data.get("course_id").and_then(|v| v.as_u64()) {
-                // Add participant to the invisible_course_participants of this course ...
-                if let Some(course) = courses_by_id.get(&course_id) {
-                    match rt_data.get("course_instructor").and_then(|v| v.as_u64()) {
-                        // In case, they are (invisible) instructor of the course ...
-                        Some(c) if c == course_id => {
-                            invisible_course_participants[course.index].0 += 1;
-                        },
-                        // In case, they are (invisible) attendee of the course ...
-                        _ => {
-                            invisible_course_participants[course.index].1 += 1;
-                        }
+            if let Some(course_index) = assigned_course {
+                match instructed_course {
+                    // In case, they are (invisible) instructor of the course ...
+                    Some(c) if c == course_index => {
+                        invisible_course_participants[course_index].0 += 1;
+                    }
+                    // In case, they are (invisible) attendee of the course ...
+                    _ => {
+                        invisible_course_participants[course_index].1 += 1;
                     }
                 }
                 continue;
             }
         }
 
-        // Parse course choices
-        let choices_data = rt_data
-            .get("choices")
-            .and_then(|v| v.as_array())
-            .ok_or(format!(
-                "No 'choices' found in registration {}'s track data",
-                reg_id
-            ))?;
-
-        let mut choices = Vec::<usize>::new();
-        for v in choices_data {
-            let course_id = v.as_u64().ok_or("Course choice is no integer.")?;
-            if let Some(course) = courses_by_id.get(&course_id) {
-                choices.push(course.index);
-            } else if !skipped_course_ids.contains(&(course_id as usize)) {
-                return Err(format!(
-                    "Course choice {} of registration {} does not exist.", course_id, reg_id));
-            }
-        }
-
         // Filter out registrations without choices
         if choices.len() == 0 {
-            if choices_data.len() > 0 {
-                info!("Ignoring participant {} (id {}), who only chose cancelled courses.",
-                      reg_name, reg_id);
-            }
+            // TODO if participant is instructor of a course, add to room_offset
             continue;
         }
 
         // Add course instructors to courses
-        if let Some(instructed_course) = rt_data
-                .get("course_instructor")
-                .and_then(|v| v.as_u64()) {
-            if let Some(course) = courses_by_id.get_mut(&instructed_course) {
-                course.instructors.push(i);
-            } else if !skipped_course_ids.contains(&(instructed_course as usize)) {
-                return Err(format!(
-                    "Instructed course {} of registration {} does not exist.",
-                    instructed_course,
-                    reg_id));
-            }
+        if let Some(instructed_course_index) = instructed_course {
+            courses[instructed_course_index].instructors.push(i);
         }
 
         registrations.push(crate::Participant {
@@ -372,26 +208,12 @@ pub fn read<R: std::io::Read>(
         i += 1;
     }
 
-    // Subtract invisible course attendees from course participant bounds
-    // Prevent courses with invisible course participants from being cancelled and add
-    // invisible course participants to room_offset
-    for mut course in courses.iter_mut() {
-        let invisible_course_attendees = invisible_course_participants[course.index].1;
-        let total_invisible_course_participants = invisible_course_participants[course.index].0 + invisible_course_participants[course.index].1;
-        course.num_min = if invisible_course_attendees > course.num_min
-        {
-            0
-        } else {
-            course.num_min - invisible_course_attendees
-        };
-        course.num_max = if invisible_course_attendees > course.num_max
-        {
-            0
-        } else {
-            course.num_max - invisible_course_attendees
-        };
-        course.fixed_course = total_invisible_course_participants != 0;
-        course.room_offset += total_invisible_course_participants;
+    for course in courses.iter_mut() {
+        adapt_course_for_invisible_participants(
+            course,
+            invisible_course_participants[course.index].0,
+            invisible_course_participants[course.index].1,
+        )
     }
 
     Ok((
@@ -405,6 +227,418 @@ pub fn read<R: std::io::Read>(
             track_id,
         },
     ))
+}
+
+/**
+ * Check the JSON data structure for the correct CdEDB export type ("partial") and version number
+ *
+ * # Arguments
+ * - `data` -- The full JSON document parsed from the CdEDB export file
+ *
+ * # Result
+ * Returns Ok(()) when the data indicates correct format and version; an error message otherwise.
+ */
+fn check_export_type_and_version(data: &serde_json::Value) -> Result<(), String> {
+    let export_kind = data
+        .get("kind")
+        .and_then(|v| v.as_str())
+        .ok_or("No 'kind' field found in data. Is this a correct CdEdb export file?")?;
+    if export_kind != "partial" {
+        return Err("The given JSON file is no 'Partial Export' of the CdE Datenbank".to_owned());
+    }
+    let export_version = if let Some(version_tag) = data.get("EVENT_SCHEMA_VERSION") {
+        version_tag
+            .as_array()
+            .ok_or("'EVENT_SCHEMA_VERSION' is not an array!")
+            .and_then(|v| {
+                if v.len() == 2 {
+                    Ok(v)
+                } else {
+                    Err("'EVENT_SCHEMA_VERSION' does not have 2 entries.")
+                }
+            })
+            .and_then(|v| {
+                v.iter()
+                    .map(|x| {
+                        x.as_u64()
+                            .ok_or("Entry of 'EVENT_SCHEMA_VERSION' is not an u64 value.")
+                    })
+                    .collect::<Result<Vec<u64>, &str>>()
+            })
+            .and_then(|v| Ok((v[0], v[1])))
+    } else if let Some(version_tag) = data.get("CDEDB_EXPORT_EVENT_VERSION") {
+        // Support for old export schema version field
+        version_tag
+            .as_u64()
+            .ok_or("'CDEDB_EXPORT_EVENT_VERSION' is not an u64 value")
+            .and_then(|v| Ok((v, 0)))
+    } else {
+        Err(
+            "No 'EVENT_SCHEMA_VERSION' field found in data. Is this a correct CdEdb \
+            export file?",
+        )
+    }?;
+    if export_version < MINIMUM_EXPORT_VERSION || export_version > MAXIMUM_EXPORT_VERSION {
+        return Err(format!(
+            "The given CdE Datenbank Export is not within the supported version range \
+            [{}.{},{}.{}]",
+            MINIMUM_EXPORT_VERSION.0,
+            MINIMUM_EXPORT_VERSION.1,
+            MAXIMUM_EXPORT_VERSION.0,
+            MAXIMUM_EXPORT_VERSION.1
+        ));
+    }
+
+    Ok(())
+}
+
+enum CourseStatus {
+    NotOffered,
+    Cancelled,
+    TakesPlace,
+}
+
+/**
+ * Extract basic course information from a course object of the JSON data
+ *
+ * # Arguments
+ * - `course_id` -- CdEDB id of the course for error message output
+ * - `course_data` -- The course object from the CdEDB JSON export
+ * - `track_id` -- The id of the event track for which the data shall be extracted
+ *
+ * # Return value
+ * Returns a tuple (course_name, status, num_min, num_max).
+ *
+ * - The `course_name` is meant for stdout output and error messages. Thus, it is composed from the
+ * course number and short name.
+ * - `status` is determined with regard to the given `track_id`.
+ * - `num_min` and `num_max` are -- according to the CdEDB convention -- counted excl. instructors
+ */
+fn parse_course_base_data(
+    course_id: usize,
+    course_data: &serde_json::Value,
+    track_id: u64,
+) -> Result<(String, CourseStatus, usize, usize), String> {
+    let course_segments_data = course_data
+        .get("segments")
+        .and_then(|v| v.as_object())
+        .ok_or(format!(
+            "No 'segments' object found for course {}",
+            course_id
+        ))?;
+
+    let course_status = if let Some(v) = course_segments_data.get(&format!("{}", track_id)) {
+        let v = v
+            .as_bool()
+            .ok_or(format!("Segment of course {} is not a boolean.", course_id))?;
+        if v {
+            CourseStatus::TakesPlace
+        } else {
+            CourseStatus::Cancelled
+        }
+    } else {
+        CourseStatus::NotOffered
+    };
+
+    let course_name = format!(
+        "{}. {}",
+        course_data
+            .get("nr")
+            .and_then(|v| v.as_str())
+            .ok_or(format!("No 'nr' found for course {}", course_id))?,
+        course_data
+            .get("shortname")
+            .and_then(|v| v.as_str())
+            .ok_or(format!("No 'shortname' found for course {}", course_id))?
+    );
+
+    let num_max = course_data
+        .get("max_size")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(25) as usize;
+    let num_min = course_data
+        .get("min_size")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0) as usize;
+    if num_max < num_min {
+        return Err(format!(
+            "Min participants > max participants for course '{}'",
+            course_name
+        ));
+    }
+
+    Ok((course_name, course_status, num_min, num_max))
+}
+
+/**
+ * Determine the room_factor and room_offset for a course from the course's JSON object
+ *
+ * # Arguments
+ * - `course_name` -- name of the course for error logging output
+ * - `course_data` -- The course object from the CdEDB JSON export
+ * - `room_factor_field` -- Name of the CdEDB custom course field, containing the room size factor,
+ *   if given by the user.
+ * - `room_offset_field` -- Name of the CdEDB custom course field, containing the room size offset,
+ *   if given by the user.
+ *
+ * # Return value
+ * Returns a tuple (room_factor, room_offset).
+ *
+ * Each of the values will be set to default (1.0 resp. 0) if
+ * - no field name is specified or
+ * - the field is not present in this course's data
+ * - the field contains data in a wrong data type.
+ */
+fn extract_room_factor_fields(
+    course_data: &serde_json::Value,
+    course_name: &str,
+    room_factor_field: Option<&str>,
+    room_offset_field: Option<&str>,
+) -> Result<(f64, u64), String> {
+    let fields = course_data
+        .get("fields")
+        .and_then(|v| v.as_object())
+        .ok_or(format!("No 'fields' found for course {}", course_name))?;
+    let room_factor = if let Some(field_name) = room_factor_field {
+        match fields.get(field_name).and_then(|v| v.as_f64()) {
+            Some(v) => v,
+            None => {
+                warn!("No numeric field '{}' as room_factor field found in course '{}'. Using the default value 1.0.", field_name, course_name);
+                1.0
+            }
+        }
+    } else {
+        1.0
+    };
+    let room_offset = if let Some(field_name) = room_offset_field {
+        match fields.get(field_name).and_then(|v| v.as_u64()) {
+            Some(v) => v,
+            None => {
+                warn!("No integer field '{}' as room_offset field found in course '{}'. Using the default value 0.", field_name, course_name);
+                0
+            }
+        }
+    } else {
+        0
+    };
+
+    Ok((room_factor, room_offset))
+}
+
+enum ParticipationState {
+    NotInvolved,
+    Pending,
+    Participant,
+    Waitlist,
+    Guest,
+}
+
+/**
+ * Extract basic participant data (for one event part) from a registration object of the JSON data
+ *
+ * # Arguments
+ * - `reg_id` -- CdEDB id of the registration (for error message output)
+ * - `reg_data` -- The registration object from the CdEDB JSON export
+ * - `part_id` -- The id of the event part for which the data shall be extracted
+ *
+ * # Return value
+ * Returns a tuple `(participation_state, reg_name)`.
+ *
+ * `reg_name` is meant for stdout output and error messages. Thus, it is composed from the
+ * given_names and last_name. (We do not consider the fancy first name selection logic from the
+ * CdEDB here.)
+ */
+fn extract_participant_base_data(
+    reg_id: u64,
+    reg_data: &serde_json::Value,
+    part_id: u64,
+) -> Result<(ParticipationState, String), String> {
+    let rp_data = reg_data
+        .get("parts")
+        .and_then(|v| v.as_object())
+        .ok_or(format!("No 'parts' found in registration {}", reg_id))?
+        .get(&format!("{}", part_id))
+        .and_then(|v| v.as_object());
+
+    let participation_state = if let Some(part) = rp_data {
+        let status = part.get("status").and_then(|v| v.as_i64()).ok_or(format!(
+            "Missing 'status' in registration_part record of reg {}",
+            reg_id
+        ))?;
+        match status {
+            1 => ParticipationState::Pending,
+            2 => ParticipationState::Participant,
+            3 => ParticipationState::Waitlist,
+            4 => ParticipationState::Guest,
+            _ => ParticipationState::NotInvolved,
+        }
+    } else {
+        ParticipationState::NotInvolved
+    };
+
+    // Parse persona attributes
+    let persona_data = reg_data
+        .get("persona")
+        .and_then(|v| v.as_object())
+        .ok_or(format!("Missing 'persona' in registration {}", reg_id))?;
+    let reg_name = format!(
+        "{} {}",
+        persona_data
+            .get("given_names")
+            .and_then(|v| v.as_str())
+            .ok_or(format!("No 'given_name' found for registration {}", reg_id))?,
+        persona_data
+            .get("family_name")
+            .and_then(|v| v.as_str())
+            .ok_or(format!(
+                "No 'family_name' found for registration {}",
+                reg_id
+            ))?
+    );
+
+    Ok((participation_state, reg_name))
+}
+
+/**
+ * Extract course choice and assignment information from a registration object of the JSON data
+ *
+ * # Arguments
+ * - `registration_name` -- Name of the participant (incl. id) for error message output
+ * - `reg_data` -- The registration object from the CdEDB JSON export
+ * - `track_id` -- The id of the event track for which the data shall be extracted
+ * - `courses_by_id` -- A Map (CdEDB course id) -> (course index or None). Iff a course exists but
+ *   ignored by the assignment algorithm, the map shall contain a None value for this course id.
+ *
+ * # Return value
+ * Returns a tuple (assigned_course, instructed_course, [choices]).
+ *
+ * All courses are referenced by index according to `courses_by_id`.
+ * assigned_course and instructed_course are None, iff no course is assigned/instructed or the
+ * course is marked to be ignored.
+ */
+fn parse_participant_course_data(
+    registration_name: &str,
+    reg_data: &serde_json::Value,
+    track_id: u64,
+    courses_by_id: &HashMap<u64, Option<usize>>,
+) -> Result<(Option<usize>, Option<usize>, Vec<usize>), String> {
+    let registration_track_data = reg_data
+        .get("tracks")
+        .and_then(|v| v.as_object())
+        .ok_or(format!(
+            "No 'tracks' found in registration {}",
+            registration_name
+        ))?
+        .get(&format!("{}", track_id))
+        .and_then(|v| v.as_object())
+        .ok_or(format!(
+            "Registration track data not present for registration {}",
+            registration_name
+        ))?;
+
+    let assigned_course_id = registration_track_data
+        .get("course_id")
+        .ok_or(format!(
+            "No 'course_id' found in registration track of {}",
+            registration_name
+        ))?
+        .as_u64();
+
+    let assigned_course_index = match assigned_course_id {
+        Some(course_id) => {
+            let course_index = courses_by_id.get(&course_id).ok_or(format!(
+                "Assigned course {} of registration {} does not exist.",
+                course_id, registration_name
+            ))?;
+            // If course_index is None, the course_id is valid, but the course is skipped/ignored
+            course_index.as_ref().map(|c| *c)
+        }
+        // No course assigned
+        None => None,
+    };
+
+    let instructed_course_id = registration_track_data
+        .get("course_instructor")
+        .ok_or(format!(
+            "No 'course_instructor' found in registration {}'s registration track",
+            registration_name
+        ))?
+        .as_u64();
+
+    let instructed_course_index = match instructed_course_id {
+        Some(course_id) => {
+            let course_index = courses_by_id.get(&course_id).ok_or(format!(
+                "Instructed course {} of registration {} does not exist.",
+                course_id, registration_name
+            ))?;
+            // If course_index is None, the course_id is valid, but the course is skipped/ignored
+            course_index.as_ref().map(|c| *c)
+        }
+        // No course instructed
+        None => None,
+    };
+
+    let choices_data = registration_track_data
+        .get("choices")
+        .and_then(|v| v.as_array())
+        .ok_or(format!(
+            "No 'choices' found in registration track data of {}",
+            registration_name
+        ))?;
+
+    let mut choices = Vec::<usize>::with_capacity(choices_data.len());
+    for v in choices_data {
+        let course_id = v
+            .as_u64()
+            .ok_or(format!("Course choice {:?} is no integer.", v))?;
+        let course_index = courses_by_id.get(&course_id).ok_or(format!(
+            "Course choice {} of registration {} does not exist.",
+            course_id, registration_name
+        ))?;
+        if let Some(c) = course_index {
+            choices.push(*c);
+        }
+    }
+
+    if choices.len() == 0 && choices_data.len() > 0 {
+        info!(
+            "Participant {}, only chose cancelled courses.",
+            registration_name
+        );
+    }
+
+    Ok((assigned_course_index, instructed_course_index, choices))
+}
+
+/// Adjust a Course to incorporate the "invisible" (ignored) participants in its size and offsets
+///
+/// "Invisible participants" are those, which are fix-assigned to a course and and thus ignored by
+/// the assignment algorithm. I.e. they are not included in the list of participants, we provide
+/// to the algorithm, nor in exported result. So, we need to adjust the course data accordingly, to
+/// "save them a place" in the course.
+///
+/// The following modifications are made to the course:
+/// * the fixed_course flag is set if there are any invisible participants (attendees + instructors)
+/// * the min and max size of the course are reduced by the number of invisible attendees
+/// * the room offset is increased by the number of invisible participants (attendees + instructors)
+fn adapt_course_for_invisible_participants(
+    course: &mut Course,
+    invisible_instructors: usize,
+    invisible_attendees: usize,
+) {
+    let total_invisible_course_participants = invisible_instructors + invisible_attendees;
+    course.num_min = if invisible_attendees > course.num_min {
+        0
+    } else {
+        course.num_min - invisible_attendees
+    };
+    course.num_max = if invisible_attendees > course.num_max {
+        0
+    } else {
+        course.num_max - invisible_attendees
+    };
+    course.fixed_course = total_invisible_course_participants != 0;
+    course.room_offset += total_invisible_course_participants;
 }
 
 /// Write the calculated course assignment as a CdE Datenbank partial import JSON string to a Writer
@@ -681,10 +915,16 @@ mod tests {
     fn test_single_track_event() {
         let data = include_bytes!("test_ressources/cyta_partial_export_event.json");
 
-        let (participants, courses, _import_ambience) = 
+        let (participants, courses, _import_ambience) =
             super::read(&data[..], None, false, false, None, None).unwrap();
         super::super::assert_data_consitency(&participants, &courses);
-        println!("{:?}", participants.iter().map(|p| &p.name).collect::<Vec<&String>>());
+        println!(
+            "{:?}",
+            participants
+                .iter()
+                .map(|p| &p.name)
+                .collect::<Vec<&String>>()
+        );
         assert_eq!(courses.len(), 3);
         // Garcia is Orga, so we only read 2 of 3 participants
         assert_eq!(participants.len(), 2);
