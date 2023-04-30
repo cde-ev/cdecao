@@ -638,7 +638,7 @@ fn adapt_course_for_invisible_participants(
         course.num_max - invisible_attendees
     };
     course.fixed_course = total_invisible_course_participants != 0;
-    course.room_offset += total_invisible_course_participants as f32;
+    course.room_offset += total_invisible_course_participants as f32 * course.room_factor;
 }
 
 /// Write the calculated course assignment as a CdE Datenbank partial import JSON string to a Writer
@@ -951,6 +951,8 @@ mod tests {
 
     #[test]
     fn test_course_room_factor_fields() {
+        use assert_float_eq::*;
+
         let data = include_bytes!("test_ressources/TestAka_partial_export_event.json");
 
         // Modify JSON to insert some fields for courses
@@ -1008,12 +1010,12 @@ mod tests {
 
         assert_eq!(courses.len(), 5);
         // Akira, Emilia and Inga are assigned to course 'α. Heldentum' (id=1)
-        assert_eq!(find_course_by_id(&courses, 1).unwrap().room_offset, 5.9); // 2.0 + 3 * 1.3
-        assert_eq!(find_course_by_id(&courses, 1).unwrap().room_factor, 1.3);
-        assert_eq!(find_course_by_id(&courses, 4).unwrap().room_offset, 0.0); // default
-        assert_eq!(find_course_by_id(&courses, 4).unwrap().room_factor, 0.5);
-        assert_eq!(find_course_by_id(&courses, 13).unwrap().room_offset, 1.5);
-        assert_eq!(find_course_by_id(&courses, 13).unwrap().room_factor, 1.0); // default
+        assert_f32_near!(find_course_by_id(&courses, 1).unwrap().room_offset, 5.9); // 2.0 + 3 * 1.3
+        assert_f32_near!(find_course_by_id(&courses, 1).unwrap().room_factor, 1.3);
+        assert_f32_near!(find_course_by_id(&courses, 4).unwrap().room_offset, 0.0); // default
+        assert_f32_near!(find_course_by_id(&courses, 4).unwrap().room_factor, 0.5);
+        assert_f32_near!(find_course_by_id(&courses, 13).unwrap().room_offset, 1.5);
+        assert_f32_near!(find_course_by_id(&courses, 13).unwrap().room_factor, 1.0); // default
     }
 
     #[test]
