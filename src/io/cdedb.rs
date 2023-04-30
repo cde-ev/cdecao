@@ -127,8 +127,8 @@ pub fn read<R: std::io::Read>(
             num_min,
             num_max,
             instructors: Vec::new(),
-            room_factor: room_factor as f32,
-            room_offset: room_offset as usize,
+            room_factor: room_factor,
+            room_offset: room_offset,
             fixed_course: false,
         });
         i += 1;
@@ -384,7 +384,7 @@ fn parse_course_base_data(
  * # Return value
  * Returns a tuple (room_factor, room_offset).
  *
- * Each of the values will be set to default (1.0 resp. 0) if
+ * Each of the values will be set to default (1.0 resp. 0.0) if
  * - no field name is specified or
  * - the field is not present in this course's data
  * - the field contains data in a wrong data type.
@@ -394,7 +394,7 @@ fn extract_room_factor_fields(
     course_name: &str,
     room_factor_field: Option<&str>,
     room_offset_field: Option<&str>,
-) -> Result<(f64, u64), String> {
+) -> Result<(f32, f32), String> {
     let fields = course_data
         .get("fields")
         .and_then(|v| v.as_object())
@@ -411,18 +411,18 @@ fn extract_room_factor_fields(
         1.0
     };
     let room_offset = if let Some(field_name) = room_offset_field {
-        match fields.get(field_name).and_then(|v| v.as_u64()) {
+        match fields.get(field_name).and_then(|v| v.as_f64()) {
             Some(v) => v,
             None => {
-                warn!("No integer field '{}' as room_offset field found in course '{}'. Using the default value 0.", field_name, course_name);
-                0
+                warn!("No numeric field '{}' as room_offset field found in course '{}'. Using the default value 0.0.", field_name, course_name);
+                0.0
             }
         }
     } else {
-        0
+        0.0
     };
 
-    Ok((room_factor, room_offset))
+    Ok((room_factor as f32, room_offset as f32))
 }
 
 enum ParticipationState {
@@ -638,7 +638,7 @@ fn adapt_course_for_invisible_participants(
         course.num_max - invisible_attendees
     };
     course.fixed_course = total_invisible_course_participants != 0;
-    course.room_offset += total_invisible_course_participants;
+    course.room_offset += total_invisible_course_participants as f32;
 }
 
 /// Write the calculated course assignment as a CdE Datenbank partial import JSON string to a Writer
@@ -846,8 +846,8 @@ mod tests {
         );
         for c in courses.iter() {
             assert_eq!(
-                c.room_offset, 0,
-                "room_offset of course {} (dbid {}) is not 0",
+                c.room_offset, 0.0,
+                "room_offset of course {} (dbid {}) is not 0.0",
                 c.index, c.dbid
             );
             assert_eq!(
@@ -940,9 +940,9 @@ mod tests {
         assert_eq!(courses.len(), 5);
         // Akira, Emilia and Inga are assigned to course 'α. Heldentum' (id=1), so it shall be fixed
         assert_eq!(find_course_by_id(&courses, 1).unwrap().fixed_course, true);
-        assert_eq!(find_course_by_id(&courses, 1).unwrap().room_offset, 3);
+        assert_eq!(find_course_by_id(&courses, 1).unwrap().room_offset, 3.0);
         assert_eq!(find_course_by_id(&courses, 4).unwrap().fixed_course, false);
-        assert_eq!(find_course_by_id(&courses, 4).unwrap().room_offset, 0);
+        assert_eq!(find_course_by_id(&courses, 4).unwrap().room_offset, 0.0);
 
         assert_eq!(participants.len(), 2);
         assert!(find_participant_by_id(&participants, 2).is_none());
@@ -977,7 +977,7 @@ mod tests {
                 num_min: 3 - 1,
                 instructors: vec![2],
                 room_factor: 1.0,
-                room_offset: 0,
+                room_offset: 0.0,
                 fixed_course: false,
             },
             Course {
@@ -988,7 +988,7 @@ mod tests {
                 num_min: 10,
                 instructors: vec![],
                 room_factor: 1.0,
-                room_offset: 0,
+                room_offset: 0.0,
                 fixed_course: false,
             },
             Course {
@@ -999,7 +999,7 @@ mod tests {
                 num_min: 0,
                 instructors: vec![2],
                 room_factor: 1.0,
-                room_offset: 0,
+                room_offset: 0.0,
                 fixed_course: false,
             },
             Course {
@@ -1010,7 +1010,7 @@ mod tests {
                 num_min: 0,
                 instructors: vec![2],
                 room_factor: 1.0,
-                room_offset: 0,
+                room_offset: 0.0,
                 fixed_course: false,
             },
         ];

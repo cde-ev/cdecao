@@ -69,7 +69,7 @@ fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
                 num_min: 2,
                 instructors: vec![0],
                 room_factor: 1.0,
-                room_offset: 10,
+                room_offset: 10.0,
                 fixed_course: false,
             },
             Course {
@@ -80,7 +80,7 @@ fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
                 num_min: 2,
                 instructors: vec![1],
                 room_factor: 2.0,
-                room_offset: 0,
+                room_offset: 0.0,
                 fixed_course: false,
             },
             Course {
@@ -91,7 +91,7 @@ fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
                 num_min: 2,
                 instructors: vec![2],
                 room_factor: 1.5,
-                room_offset: 0,
+                room_offset: 0.0,
                 fixed_course: false,
             },
         ],
@@ -112,7 +112,7 @@ fn create_other_problem() -> (Vec<Course>, Vec<Participant>) {
             num_max: max,
             instructors: Vec::new(),
             room_factor: 1.0,
-            room_offset: 0,
+            room_offset: 0.0,
             fixed_course: false,
         };
         next_corse_id += 1;
@@ -542,7 +542,7 @@ fn test_bab_node_large() {
             num_max: MAX_PLACES_PER_COURSE,
             instructors: Vec::new(),
             room_factor: 1.0,
-            room_offset: 0,
+            room_offset: 0.0,
             fixed_course: false,
         });
     }

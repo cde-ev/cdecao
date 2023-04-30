@@ -438,7 +438,7 @@ fn check_room_feasibility(
         *s = if *s == 0 {
             0
         } else {
-            c.room_offset + ((c.room_factor * (*s as f32)).ceil() as usize)
+            (c.room_offset + c.room_factor * (*s as f32)).ceil() as usize
         };
     }
 
@@ -582,11 +582,11 @@ fn create_room_constraint_set<'a>(
             }
         }
         if to_size
-            >= (course.room_offset
-                + (course.room_factor * (course.num_min + course.instructors.len()) as f32).ceil()
+            >= ((course.room_offset
+                 + course.room_factor * (course.num_min + course.instructors.len()) as f32).ceil()
                     as usize)
         {
-            let shrink_size = (((to_size - course.room_offset) as f32 / course.room_factor).floor())
+            let shrink_size = (((to_size as f32) - course.room_offset) / course.room_factor).floor()
                 as usize
                 - course.instructors.len();
             // Don't shrink courses that are already shrinked further in the current node

@@ -66,8 +66,7 @@ participants prevents their assigned courses from being cancelled (unless they a
 
 The *room_factor* and *room_offset* for course room fitting can be specified for each course via data fields in the
 CdE Datenbank. With the command line options `--room-factor-field` and `--room-offset-field` the name of the respective
-fields can be specified. The *room_factor* field needs to be a numeric (float or integer) data field, the *room_offset*
-field needs to be an integer-typed data field.
+fields can be specified. Both fields needs to be a numeric (float or integer) data field.
 
 
 ### Logging options
@@ -102,7 +101,7 @@ The default input format for courses and participants data looks like this:
             "num_max": 10,
             "instructors": [5],
             "room_factor": 1.5,
-            "room_offset": 2,
+            "room_offset": 2.0,
             "fixed_course": true
         },
         ...
@@ -127,7 +126,7 @@ each participant is an ordered list of course choices of this participant, repre
 (which is a nonsense-example, since he is instructor of that course) and the (not shown) seventh course in the list as
 his third choice.
 
-`room_factor`, `room_offset` and `fixed_course` are optional values for each course. They default to `0` resp. `1.0`
+`room_factor`, `room_offset` and `fixed_course` are optional values for each course. They default to `1.0` resp. `0.0`
 resp. `false`. `room_factor` and `room_offset` are only required when course room fitting is used. They are used to
 calculate the "effective size" of the course, in the sense of how big of a room the course will require with a given
 number of participants, as described above.

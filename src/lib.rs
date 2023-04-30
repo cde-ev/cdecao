@@ -58,7 +58,7 @@ pub struct Course {
     /// Offset to add to the number of assigned participants to check if the course fits a room of a
     /// specific size
     #[serde(default)]
-    room_offset: usize,
+    room_offset: f32,
     /// If true, the course may *not* be cancelled by the assignment algorithm. This may be the
     /// case, if the course has fixed participants.
     #[serde(default)]
