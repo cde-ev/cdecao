@@ -926,7 +926,7 @@ mod tests {
                 .collect::<Vec<&String>>()
         );
         assert_eq!(courses.len(), 3);
-        // Garcia is Orga, so we only read 2 of 3 participants
+        // Garcia has no choices, so we only read 2 of 3 participants
         assert_eq!(participants.len(), 2);
     }
 
@@ -950,6 +950,73 @@ mod tests {
     }
 
     #[test]
+    fn test_course_room_factor_fields() {
+        let data = include_bytes!("test_ressources/TestAka_partial_export_event.json");
+
+        // Modify JSON to insert some fields for courses
+        let mut json_data = serde_json::from_reader::<&[u8], serde_json::Value>(&data[..]).unwrap();
+        let c1_fields = json_data
+            .as_object_mut()
+            .unwrap()
+            .get_mut("courses")
+            .unwrap()
+            .get_mut("1")
+            .unwrap()
+            .get_mut("fields")
+            .unwrap()
+            .as_object_mut()
+            .unwrap();
+        c1_fields.insert("my_offset_field".into(), serde_json::json!(2.0));
+        c1_fields.insert("my_factor_field".into(), serde_json::json!(1.3));
+        let c4_fields = json_data
+            .as_object_mut()
+            .unwrap()
+            .get_mut("courses")
+            .unwrap()
+            .get_mut("4")
+            .unwrap()
+            .get_mut("fields")
+            .unwrap()
+            .as_object_mut()
+            .unwrap();
+        c4_fields.insert("my_offset_field".into(), serde_json::Value::Null);
+        c4_fields.insert("my_factor_field".into(), serde_json::json!(0.5));
+        let c13_fields = json_data
+            .as_object_mut()
+            .unwrap()
+            .get_mut("courses")
+            .unwrap()
+            .get_mut("13")
+            .unwrap()
+            .get_mut("fields")
+            .unwrap()
+            .as_object_mut()
+            .unwrap();
+        c13_fields.insert("my_offset_field".into(), serde_json::json!(1.5));
+        let modified_data = serde_json::to_vec(&json_data).unwrap();
+
+        let (participants, courses, _import_ambience) = super::read(
+            &modified_data[..],
+            Some(3),
+            false,
+            true,
+            Some("my_factor_field"),
+            Some("my_offset_field"),
+        )
+        .unwrap();
+        super::super::assert_data_consitency(&participants, &courses);
+
+        assert_eq!(courses.len(), 5);
+        // Akira, Emilia and Inga are assigned to course 'α. Heldentum' (id=1)
+        assert_eq!(find_course_by_id(&courses, 1).unwrap().room_offset, 5.9); // 2.0 + 3 * 1.3
+        assert_eq!(find_course_by_id(&courses, 1).unwrap().room_factor, 1.3);
+        assert_eq!(find_course_by_id(&courses, 4).unwrap().room_offset, 0.0); // default
+        assert_eq!(find_course_by_id(&courses, 4).unwrap().room_factor, 0.5);
+        assert_eq!(find_course_by_id(&courses, 13).unwrap().room_offset, 1.5);
+        assert_eq!(find_course_by_id(&courses, 13).unwrap().room_factor, 1.0); // default
+    }
+
+    #[test]
     fn test_ignore_cancelled() {
         let data = include_bytes!("test_ressources/TestAka_partial_export_event.json");
         let (participants, courses, _import_ambience) =
@@ -963,8 +1030,6 @@ mod tests {
         assert!(find_course_by_id(&courses, 5).is_none());
         assert_eq!(participants.len(), 5);
     }
-
-    // TODO test parsing single track event
 
     #[test]
     fn test_write_result() {
