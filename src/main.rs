@@ -20,7 +20,8 @@ fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     info!(
         "This is the CdE Course Assignment Optimizer (cdecao), version {}",
-        option_env!("CARGO_PKG_VERSION").unwrap_or("unknown"));
+        option_env!("CARGO_PKG_VERSION").unwrap_or("unknown")
+    );
     let args = parse_cli_args();
 
     if !args.get_one::<String>("OUTPUT").is_some() && !args.get_flag("print") {
@@ -62,10 +63,8 @@ fn main() {
             track_id,
             args.get_flag("ignore_cancelled"),
             args.get_flag("ignore_assigned"),
-            args.get_one::<String>("room_factor_field")
-            .map(|x| &**x),
-            args.get_one::<String>("room_offset_field")
-            .map(|x| &**x),
+            args.get_one::<String>("room_factor_field").map(|x| &**x),
+            args.get_one::<String>("room_offset_field").map(|x| &**x),
         )
         .map(|(p, c, a)| (p, c, Some(a)))
     } else {
@@ -96,7 +95,12 @@ fn main() {
     // Execute assignment algorithm
     let courses = Arc::new(courses);
     let participants = Arc::new(participants);
-    let (result, statistics) = caobab::solve(courses.clone(), participants.clone(), rooms.as_ref(), args.get_flag("report_no_solution"));
+    let (result, statistics) = caobab::solve(
+        courses.clone(),
+        participants.clone(),
+        rooms.as_ref(),
+        args.get_flag("report_no_solution"),
+    );
     info!("Finished solving course assignment. {}", statistics);
 
     if let Some((assignment, score)) = result {
@@ -154,7 +158,7 @@ fn parse_cli_args() -> clap::ArgMatches {
                     "Specify CdE-Datenbank id of the course track to assign courses in. Only \
                      useful in combination with --cde input data format.",
                 )
-                .value_name("TRACK_ID")
+                .value_name("TRACK_ID"),
         )
         .arg(
             clap::Arg::new("ignore_cancelled")
@@ -190,7 +194,7 @@ fn parse_cli_args() -> clap::ArgMatches {
                      course size with the awailable rooms. Only useful for the --cde data format \
                      and with --rooms given. If not present, the default offset of 0 is used for \
                      all courses.",
-                )
+                ),
         )
         .arg(
             clap::Arg::new("room_offset_field")
@@ -202,7 +206,7 @@ fn parse_cli_args() -> clap::ArgMatches {
                      the offset) when comparing the course size with the awailable rooms. Only \
                      useful for the --cde data format and with --rooms given. If not present, the \
                      default factor of 1.0 is used for all courses.",
-                )
+                ),
         )
         .arg(
             clap::Arg::new("report_no_solution")
@@ -221,10 +225,11 @@ fn parse_cli_args() -> clap::ArgMatches {
                 .value_name("ROOMS"),
         )
         .arg(
-            clap::Arg::new("print").short('p').long("print").help(
-                "Print the caluclated course assignment to stdout in a human readable format",
-            )
-            .action(clap::ArgAction::SetTrue),
+            clap::Arg::new("print")
+                .short('p')
+                .long("print")
+                .help("Print the caluclated course assignment to stdout in a human readable format")
+                .action(clap::ArgAction::SetTrue),
         )
         .arg(
             clap::Arg::new("INPUT")

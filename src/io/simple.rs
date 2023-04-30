@@ -107,5 +107,4 @@ mod tests {
             serde_json::from_value::<Vec<usize>>(data["assignment"].take()).unwrap();
         assert_eq!(assignment, parsed_assignment);
     }
-
 }

@@ -658,7 +658,6 @@ fn test_caobab_rooms() {
             assert!(statistics.num_infeasible >= 3);
         }
     };
-
 }
 
 #[test]
@@ -671,13 +670,17 @@ fn test_caobab_rooms_fixed_course() {
     let rooms = vec![10, 5, 8];
 
     // Run caobab
-    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), Some(&rooms), false);
+    let (result, _statistics) =
+        super::solve(courses.clone(), participants.clone(), Some(&rooms), false);
 
     match result {
         None => panic!("Expected to get a result."),
 
         Some((assignment, score)) => {
-            print!("test_caobab_rooms_fixed_course: assignment: {:?}\n", assignment);
+            print!(
+                "test_caobab_rooms_fixed_course: assignment: {:?}\n",
+                assignment
+            );
 
             // Check general feasibility of assignment
             check_assignment(&*courses, &*participants, &assignment, None);
@@ -714,7 +717,10 @@ fn test_caobab_fixed_course() {
         None => panic!("Expected to get a result."),
 
         Some((assignment, score)) => {
-            print!("test_caobab_rooms_fixed_course: assignment: {:?}\n", assignment);
+            print!(
+                "test_caobab_rooms_fixed_course: assignment: {:?}\n",
+                assignment
+            );
 
             // Check general feasibility of assignment
             check_assignment(&*courses, &*participants, &assignment, None);
@@ -743,16 +749,21 @@ fn test_caobab_rooms_scaling() {
     crate::io::assert_data_consitency(&participants, &courses);
 
     for (rooms, expected_cancelled_courses) in [
-            (vec![15, 5], [false, true, false]),
-            (vec![15, 7], [false, false, true]),
-            (vec![10, 5], [true, false, false])] {
-        let (result, _statistics) = super::solve(courses.clone(), participants.clone(), Some(&rooms), false);
+        (vec![15, 5], [false, true, false]),
+        (vec![15, 7], [false, false, true]),
+        (vec![10, 5], [true, false, false]),
+    ] {
+        let (result, _statistics) =
+            super::solve(courses.clone(), participants.clone(), Some(&rooms), false);
 
         match result {
             None => panic!("Expected to get a result for rooms={:?}", rooms),
 
             Some((assignment, score)) => {
-                print!("test_caobab_rooms_scaling (rooms={:?}): assignment: {:?}\n", rooms, assignment);
+                print!(
+                    "test_caobab_rooms_scaling (rooms={:?}): assignment: {:?}\n",
+                    rooms, assignment
+                );
 
                 // Check general feasibility of assignment
                 check_assignment(&*courses, &*participants, &assignment, None);
@@ -767,11 +778,24 @@ fn test_caobab_rooms_scaling() {
                     course_size[*c] += 1;
                 }
 
-                for (i, (size, expected_cancel)) in course_size.iter().zip(expected_cancelled_courses).enumerate() {
+                for (i, (size, expected_cancel)) in course_size
+                    .iter()
+                    .zip(expected_cancelled_courses)
+                    .enumerate()
+                {
                     if expected_cancel {
-                        assert_eq!(*size, 0, "Course {} should be cancelled with rooms={:?}", i, rooms);
+                        assert_eq!(
+                            *size, 0,
+                            "Course {} should be cancelled with rooms={:?}",
+                            i, rooms
+                        );
                     } else {
-                        assert!(*size >= 1, "Course {} should take place with rooms={:?}", i, rooms);
+                        assert!(
+                            *size >= 1,
+                            "Course {} should take place with rooms={:?}",
+                            i,
+                            rooms
+                        );
                     }
                 }
             }
@@ -779,7 +803,13 @@ fn test_caobab_rooms_scaling() {
     }
 
     for rooms in [vec![5, 5], vec![5]] {
-        let (result, _statistics) = super::solve(courses.clone(), participants.clone(), Some(&rooms), false);
-        assert!(result.is_none(), "No result expected for rooms={:?}. Assignment is {:?}", rooms, result.unwrap());
+        let (result, _statistics) =
+            super::solve(courses.clone(), participants.clone(), Some(&rooms), false);
+        assert!(
+            result.is_none(),
+            "No result expected for rooms={:?}. Assignment is {:?}",
+            rooms,
+            result.unwrap()
+        );
     }
 }

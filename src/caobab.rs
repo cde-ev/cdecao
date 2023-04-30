@@ -21,8 +21,8 @@ use crate::hungarian::{EdgeWeight, Score};
 use crate::util::{binom, IterSelections};
 use crate::{Assignment, Course, Participant};
 use log::{debug, info};
-use std::sync::Arc;
 use std::cmp::min;
+use std::sync::Arc;
 
 /// Main method of the module to solve a course assignement problem using the branch and bound method together with the
 /// hungarian method.
@@ -294,8 +294,12 @@ fn run_bab_node(
         for j in 0..courses[*c].num_min {
             let y = pre_computed_problem.inverse_course_map[*c] + j;
             mandatory_y[y] = true;
-            assert!(!skip_y[y], "Trying to make the {}th course place of course {} mandatory \
-            although it is already skipped.", j, c);
+            assert!(
+                !skip_y[y],
+                "Trying to make the {}th course place of course {} mandatory \
+            although it is already skipped.",
+                j, c
+            );
         }
     }
 
@@ -363,7 +367,10 @@ fn run_bab_node(
                 current_node.cancelled_courses.push(c);
                 branches.push(current_node);
             } else if report_no_solution {
-                info!("Cannot cancel course {:?}, as it is fixed.", courses[c].name);
+                info!(
+                    "Cannot cancel course {:?}, as it is fixed.",
+                    courses[c].name
+                );
             }
         }
 
@@ -485,7 +492,10 @@ fn check_room_feasibility(
     // exclusive upper bound of the "n" range to consider for selections
     let mut upper_bound = conflicting_course_index + 1;
     if upper_bound - lower_bound < MAX_N {
-        upper_bound = min(min(conflicting_course_index + MAX_NTOK, lower_bound + MAX_N), course_size.len());
+        upper_bound = min(
+            min(conflicting_course_index + MAX_NTOK, lower_bound + MAX_N),
+            course_size.len(),
+        );
     }
 
     // Generate possible constraint sets from combinatorial selections from the calculated range.
@@ -503,7 +513,7 @@ fn check_room_feasibility(
         conflicting_room_size,
         false,
     )
-    .unwrap();  // This cannot fail, because `all_required` is not set
+    .unwrap(); // This cannot fail, because `all_required` is not set
     let mut result = Vec::with_capacity(binom(upper_bound - lower_bound, k));
     for selection in course_size[lower_bound..upper_bound].iter_selections(k) {
         let constraint_set = create_room_constraint_set(
@@ -528,8 +538,8 @@ fn check_room_feasibility(
 }
 
 /// Helper function of [check_room_feasibility] for generating a valid constraints set which shrinks
-/// a selected list courses to the required size. 
-/// 
+/// a selected list courses to the required size.
+///
 /// This function takes care of
 /// - taking course instructors into account for room size
 /// - applying respective [Course::room_offset] and [Course::room_factor] of each course
@@ -571,8 +581,14 @@ fn create_room_constraint_set<'a>(
                 continue;
             }
         }
-        if to_size >= (course.room_offset + (course.room_factor * (course.num_min + course.instructors.len()) as f32).ceil() as usize) {
-            let shrink_size = (((to_size - course.room_offset) as f32 / course.room_factor).floor()) as usize - course.instructors.len();
+        if to_size
+            >= (course.room_offset
+                + (course.room_factor * (course.num_min + course.instructors.len()) as f32).ceil()
+                    as usize)
+        {
+            let shrink_size = (((to_size - course.room_offset) as f32 / course.room_factor).floor())
+                as usize
+                - course.instructors.len();
             // Don't shrink courses that are already shrinked further in the current node
             if current_node
                 .shrinked_courses

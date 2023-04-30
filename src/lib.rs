@@ -65,7 +65,9 @@ pub struct Course {
     fixed_course: bool,
 }
 
-fn default_room_factor() -> f32 { 1.0 }
+fn default_room_factor() -> f32 {
+    1.0
+}
 
 /// A course assignment as result of the overall algorithm. It maps the participant index to the course index, such that
 /// the course of participants\[i\] is courses\[assignment\[i\]\].
