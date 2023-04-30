@@ -229,6 +229,15 @@ pub fn read<R: std::io::Read>(
     ))
 }
 
+/**
+ * Check the JSON data structure for the correct CdEDB export type ("partial") and version number
+ *
+ * # Arguments
+ * - `data` -- The full JSON document parsed from the CdEDB export file
+ *
+ * # Result
+ * Returns Ok(()) when the data indicates correct format and version; an error message otherwise.
+ */
 fn check_export_type_and_version(data: &serde_json::Value) -> Result<(), String> {
     let export_kind = data
         .get("kind")
@@ -290,7 +299,7 @@ enum CourseStatus {
 }
 
 /**
- * Extract course choice and assignment information from a registration object of the JSON data
+ * Extract basic course information from a course object of the JSON data
  *
  * # Arguments
  * - `course_id` -- CdEDB id of the course for error message output
@@ -361,6 +370,25 @@ fn parse_course_base_data(
     Ok((course_name, course_status, num_min, num_max))
 }
 
+/**
+ * Determine the room_factor and room_offset for a course from the course's JSON object
+ *
+ * # Arguments
+ * - `course_name` -- name of the course for error logging output
+ * - `course_data` -- The course object from the CdEDB JSON export
+ * - `room_factor_field` -- Name of the CdEDB custom course field, containing the room size factor,
+ *   if given by the user.
+ * - `room_offset_field` -- Name of the CdEDB custom course field, containing the room size offset,
+ *   if given by the user.
+ *
+ * # Return value
+ * Returns a tuple (room_factor, room_offset).
+ *
+ * Each of the values will be set to default (1.0 resp. 0) if
+ * - no field name is specified or
+ * - the field is not present in this course's data
+ * - the field contains data in a wrong data type.
+ */
 fn extract_room_factor_fields(
     course_data: &serde_json::Value,
     course_name: &str,
@@ -405,6 +433,21 @@ enum ParticipationState {
     Guest,
 }
 
+/**
+ * Extract basic participant data (for one event part) from a registration object of the JSON data
+ *
+ * # Arguments
+ * - `reg_id` -- CdEDB id of the registration (for error message output)
+ * - `reg_data` -- The registration object from the CdEDB JSON export
+ * - `part_id` -- The id of the event part for which the data shall be extracted
+ *
+ * # Return value
+ * Returns a tuple `(participation_state, reg_name)`.
+ *
+ * `reg_name` is meant for stdout output and error messages. Thus, it is composed from the
+ * given_names and last_name. (We do not consider the fancy first name selection logic from the
+ * CdEDB here.)
+ */
 fn extract_participant_base_data(
     reg_id: u64,
     reg_data: &serde_json::Value,
