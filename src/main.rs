@@ -24,7 +24,7 @@ fn main() {
     );
     let args = parse_cli_args();
 
-    if !args.get_one::<String>("OUTPUT").is_some() && !args.get_flag("print") {
+    if args.get_one::<String>("OUTPUT").is_none() && !args.get_flag("print") {
         warn!(
             "No OUTPUT file and no --print option given. Assignment will not be exported anywhere."
         );
@@ -33,7 +33,7 @@ fn main() {
     // Parse rooms list
     let rooms = args.get_one("rooms").map(|rooms_raw: &String| {
         rooms_raw
-            .split(",")
+            .split(',')
             .map(|r| r.parse::<usize>())
             .collect::<Result<Vec<usize>, std::num::ParseIntError>>()
             .unwrap_or_else(|e| {
@@ -87,7 +87,7 @@ fn main() {
         participants.len()
     );
 
-    if participants.len() == 0 {
+    if participants.is_empty() {
         error!("Calculating course assignments is only possible with 1 or more participants.");
         std::process::exit(exitcode::DATAERR);
     }

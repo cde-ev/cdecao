@@ -31,17 +31,17 @@ use std::fmt::Write;
 /// ```
 pub fn format_assignment(
     assignment: &Assignment,
-    courses: &Vec<Course>,
-    participants: &Vec<Participant>,
+    courses: &[Course],
+    participants: &[Participant],
 ) -> String {
     let mut result = String::new();
     for c in courses.iter() {
         write!(result, "\n===== {} =====\n", c.name).unwrap();
         for (ap, ac) in assignment.iter().enumerate() {
             if *ac == c.index {
-                write!(
+                writeln!(
                     result,
-                    "{}{}\n",
+                    "{}{}",
                     participants[ap].name,
                     if c.instructors.contains(&ap) {
                         " (instr)"
@@ -53,7 +53,8 @@ pub fn format_assignment(
             }
         }
     }
-    return result;
+
+    result
 }
 
 /// Assert that a given courses/participants data structure is consistent (in terms of object's

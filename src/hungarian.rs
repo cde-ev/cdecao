@@ -137,7 +137,7 @@ pub fn hungarian_algorithm(
         loop {
             // Try to get next neighbour of S in the equality graph. If there is none, update the labels
             let mut y = nlxt.iter().position(|x| *x);
-            if let None = y {
+            if y.is_none() {
                 // To update the labels, calculate minimal delta between edge weight and sum of nodes' labels. In the
                 // same turn, we can keep track of the new equality graph neighbourhood:
                 // After the updates, the neighbourhood consists of Y-nodes, not in T, connected to X-nodes in S via
@@ -224,7 +224,8 @@ pub fn hungarian_algorithm(
         .filter(|(y, _x)| !skip_y[[*y]])
         .map(|(y, x)| adjacency_matrix[(*x, y)] as Score)
         .fold(Score::from(0u8), |acc, x| acc + x);
-    return (m_match, score);
+
+    (m_match, score)
 }
 
 // =============================================================================

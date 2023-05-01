@@ -153,7 +153,7 @@ where
     pending_nodes.push(PendingProblem(base_problem, Score::max_value()));
     let bab = Arc::new(BranchAndBound {
         shared_state: Mutex::new(SharedState {
-            pending_nodes: pending_nodes,
+            pending_nodes,
             busy_threads: 0,
             best_result: None,
             best_score: Score::min_value(),
@@ -192,13 +192,14 @@ where
         .into_inner()
         .expect("Could not move SharedState out of mutex.");
     shared_state.statistics.total_time = total_time;
-    return (
+    
+    (
         match shared_state.best_result {
             None => None,
             Some(x) => Some((x, shared_state.best_score)),
         },
         shared_state.statistics,
-    );
+    )
 }
 
 /// Worker thread entry point for the parallel branch and bound solving
@@ -263,7 +264,7 @@ fn worker<SubProblem: Ord + Send, Solution: Send, Score: Ord + Copy>(
             }
 
             // check if we are finished, awake other threads and exit
-            if shared_state.pending_nodes.len() == 0 && shared_state.busy_threads == 0 {
+            if shared_state.pending_nodes.is_empty() && shared_state.busy_threads == 0 {
                 bab.condvar.notify_all();
                 break;
             }

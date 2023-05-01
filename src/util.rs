@@ -42,11 +42,9 @@ impl<'a, T> Iterator for KSelectionIterator<'a, T> {
                     }
                     index[j] += 1;
                     break;
-                } else {
-                    if index[j] < index[j + 1] - 1 {
-                        index[j] += 1;
-                        break;
-                    }
+                } else if index[j] < index[j + 1] - 1 {
+                    index[j] += 1;
+                    break;
                 }
                 j += 1;
             }
@@ -54,13 +52,13 @@ impl<'a, T> Iterator for KSelectionIterator<'a, T> {
                 index[k] = k;
             }
 
+        // empty iterator
+        } else if self.k == 0 || self.k > n {
+            return None;
+        
         // initialization of index
         } else {
-            if self.k == 0 || self.k > n {
-                return None;
-            } else {
-                self.index = Some((0..self.k).collect());
-            }
+            self.index = Some((0..self.k).collect());
         }
 
         Some(
@@ -76,14 +74,16 @@ impl<'a, T> Iterator for KSelectionIterator<'a, T> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         if let Some(ref index) = self.index {
             let mut rank = 0;
-            for i in 0..self.k {
-                rank += binom(index[i], i + 1);
+            for (i, index_entry) in index.iter().enumerate() {
+                rank += binom(*index_entry, i + 1);
             }
             let remaining = binom(self.data.len(), self.k) - rank - 1;
-            return (remaining, Some(remaining));
+            
+            (remaining, Some(remaining))
         } else {
             let num = binom(self.data.len(), self.k);
-            return (num, Some(num));
+
+            (num, Some(num))
         }
     }
 }
@@ -96,7 +96,8 @@ pub fn binom(n: usize, k: usize) -> usize {
     for i in 0..k {
         res = res * (n - i) / (i + 1);
     }
-    return res;
+    
+    res
 }
 
 #[cfg(test)]

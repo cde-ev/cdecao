@@ -127,8 +127,8 @@ pub fn read<R: std::io::Read>(
             num_min,
             num_max,
             instructors: Vec::new(),
-            room_factor: room_factor,
-            room_offset: room_offset,
+            room_factor,
+            room_offset,
             fixed_course: false,
         });
         i += 1;
@@ -189,7 +189,7 @@ pub fn read<R: std::io::Read>(
         }
 
         // Filter out registrations without choices
-        if choices.len() == 0 {
+        if choices.is_empty() {
             // TODO if participant is instructor of a course, add to room_offset
             continue;
         }
@@ -265,13 +265,13 @@ fn check_export_type_and_version(data: &serde_json::Value) -> Result<(), String>
                     })
                     .collect::<Result<Vec<u64>, &str>>()
             })
-            .and_then(|v| Ok((v[0], v[1])))
+            .map(|v| (v[0], v[1]))
     } else if let Some(version_tag) = data.get("CDEDB_EXPORT_EVENT_VERSION") {
         // Support for old export schema version field
         version_tag
             .as_u64()
             .ok_or("'CDEDB_EXPORT_EVENT_VERSION' is not an u64 value")
-            .and_then(|v| Ok((v, 0)))
+            .map(|v| (v, 0))
     } else {
         Err(
             "No 'EVENT_SCHEMA_VERSION' field found in data. Is this a correct CdEdb \
@@ -551,7 +551,7 @@ fn parse_participant_course_data(
                 course_id, registration_name
             ))?;
             // If course_index is None, the course_id is valid, but the course is skipped/ignored
-            course_index.as_ref().map(|c| *c)
+            course_index.as_ref().copied()
         }
         // No course assigned
         None => None,
@@ -572,7 +572,7 @@ fn parse_participant_course_data(
                 course_id, registration_name
             ))?;
             // If course_index is None, the course_id is valid, but the course is skipped/ignored
-            course_index.as_ref().map(|c| *c)
+            course_index.as_ref().copied()
         }
         // No course instructed
         None => None,
@@ -600,7 +600,7 @@ fn parse_participant_course_data(
         }
     }
 
-    if choices.len() == 0 && choices_data.len() > 0 {
+    if choices.is_empty() && !choices_data.is_empty() {
         info!(
             "Participant {}, only chose cancelled courses.",
             registration_name
@@ -646,7 +646,7 @@ fn adapt_course_for_invisible_participants(
 pub fn write<W: std::io::Write>(
     writer: W,
     assignment: &Assignment,
-    participants: &Vec<Participant>,
+    participants: &[Participant],
     courses: &Vec<Course>,
     ambience_data: ImportAmbienceData,
 ) -> Result<(), String> {
@@ -750,7 +750,7 @@ fn find_track(
                     .and_then(|v| v.as_object())
                     .ok_or("Missing 'tracks' in event part.")?;
                 for (track_id, _track) in tracks_data {
-                    if let Some(_) = result {
+                    if result.is_some() {
                         return Err(format!(
                             "Event has more than one course track. Please select one of the \
                              tracks:\n{}",
@@ -817,7 +817,8 @@ fn track_summary(
         .map(|(id, title, _)| format!("{:>1$} : {2}", id, max_id_len, title))
         .collect::<Vec<_>>()
         .join("\n");
-    return Ok(result);
+    
+    Ok(result)
 }
 
 #[cfg(test)]

@@ -88,11 +88,11 @@ fn precompute_problem(
     rooms: Option<&Vec<usize>>,
 ) -> PreComputedProblem {
     // Calculate adjacency matrix size to allocate 1D-Arrays
-    let m = courses.iter().map(|c| c.num_max).fold(0, |acc, x| acc + x);
-    let max_num_instructors = courses
+    let m = courses.iter().map(|c| c.num_max).sum();
+    let max_num_instructors: usize = courses
         .iter()
         .map(|c| c.instructors.len())
-        .fold(0, |acc, x| acc + x);
+        .sum();
     let n = m + max_num_instructors;
 
     // Generate course_map, inverse_course_map and madatory_y from course list
@@ -139,7 +139,7 @@ fn precompute_problem(
         dummy_x,
         course_map,
         inverse_course_map,
-        room_sizes: room_sizes,
+        room_sizes,
     }
 }
 
@@ -200,8 +200,8 @@ impl PartialEq for BABNode {
 /// matching of participants with course places into an assignment of participants to courses and check the feasibility
 /// of the solution for our overall problem.
 fn run_bab_node(
-    courses: &Vec<Course>,
-    participants: &Vec<Participant>,
+    courses: &[Course],
+    participants: &[Participant],
     pre_computed_problem: &PreComputedProblem,
     mut current_node: BABNode,
     report_no_solution: bool,
@@ -243,13 +243,13 @@ fn run_bab_node(
         .enforced_courses
         .iter()
         .map(|c| courses[*c].num_min)
-        .fold(0, |acc, x| acc + x)
+        .sum::<usize>()
         > participants.len() - num_skip_x
     {
         debug!("Skipping this branch, since too many course places are enforced");
         return NoSolution;
     }
-    if effective_num_max.iter().fold(0, |acc, x| acc + x) < participants.len() - num_skip_x {
+    if effective_num_max.iter().sum::<usize>() < participants.len() - num_skip_x {
         debug!("Skipping this branch, since not enough course places are left");
         return NoSolution;
     }
@@ -257,7 +257,7 @@ fn run_bab_node(
         if !skip_x[x]
             && p.choices
                 .iter()
-                .all(|c| node.cancelled_courses.contains(&c))
+                .all(|c| node.cancelled_courses.contains(c))
         {
             debug!("Skipping this branch, since not all course choices can be fulfilled");
             if report_no_solution {
@@ -340,8 +340,8 @@ fn run_bab_node(
                 // by check_room_feasibility()
                 for mut restriction in restrictions {
                     let mut new_node = current_node.clone();
-                    new_node.shrinked_courses.append(&mut restriction.0);
-                    new_node.cancelled_courses.append(&mut restriction.1);
+                    new_node.shrinked_courses.append(&mut restriction.shrink_courses);
+                    new_node.cancelled_courses.append(&mut restriction.cancel_courses);
                     branches.push(new_node);
                 }
             }
@@ -351,7 +351,7 @@ fn run_bab_node(
 
     // Check feasibility of the solution w.r.t course min size and participants, if not, get the most conflicting course
     let (feasible, participant_problem, branch_course) =
-        check_feasibility(courses, participants, &assignment, &node, &skip_x);
+        check_feasibility(courses, participants, &assignment, node, &skip_x);
     if !feasible {
         let mut branches = Vec::<BABNode>::new();
         if let Some(c) = branch_course {
@@ -378,7 +378,23 @@ fn run_bab_node(
     }
 
     debug!("Yes! We found a feasible solution with score {}.", score);
-    return Feasible(assignment, score);
+    
+    Feasible(assignment, score)
+}
+
+/// A set of constraints to fix a specific room size violation.
+/// 
+/// All the constraints (shrinked courses, cancelled courses) in this set meant to be applied
+/// together, in addition to the constraints already present in the current BaB node.
+/// 
+/// [check_room_feasibility] will create multiple alternative of these constraint sets allow
+/// trying different solutions for the room size violation in different following BaB nodes.
+struct RoomConstraintSet {
+    /// A Vec of course-shrink constraints ((course_index, new_size)) to be appended to
+    /// [BABNode::shrinked_courses]
+    shrink_courses: Vec<(usize, usize)>,
+    /// A Vec of courses to be cancelled, to be appended to [BABNode::cancelled_courses].
+    cancel_courses: Vec<usize>,
 }
 
 /// Check if the given matching is a feasible solution in terms of the Branch and Bound algorithm,
@@ -421,14 +437,13 @@ fn run_bab_node(
 /// # Result
 ///
 /// Returns a tuple `(feasible, constraint_sets)`. `constraint_sets` is either None or a vector of
-/// possible constraint sets, where each entry is a tuple of two vectors
-/// `(shrink_courses, cancel_courses)` to be appended to the respective vectors of the BaB node.
+/// possible constraint sets.
 fn check_room_feasibility(
-    courses: &Vec<Course>,
+    courses: &[Course],
     assignment: &Assignment,
     rooms: &Vec<usize>,
     node: &BABNode,
-) -> (bool, Option<Vec<(Vec<(usize, usize)>, Vec<usize>)>>) {
+) -> (bool, Option<Vec<RoomConstraintSet>>) {
     // Calculate course sizes (incl. instructors and room_offset)
     let mut course_size: Vec<(&Course, usize)> = courses.iter().map(|c| (c, 0)).collect();
     for c in assignment.iter() {
@@ -452,11 +467,10 @@ fn check_room_feasibility(
         .enumerate()
         .rev()
         .zip(rooms)
-        .skip_while(|((_i, (_course, size)), room_size)| size <= room_size)
-        .next() // Iterator -> Option
+        .find(|((_i, (_course, size)), room_size)| size > room_size)
         .map(|((i, (_c, _s)), _r)| i);
 
-    if let None = conflicting_course_index {
+    if conflicting_course_index.is_none() {
         // No conflict found -> assignment is feasible w.r.t. course rooms
         return (true, None);
     }
@@ -504,7 +518,7 @@ fn check_room_feasibility(
         with k={} for room of size {}",
         lower_bound, upper_bound, course_size[lower_bound].1, course_size[upper_bound-1].1, k, conflicting_room_size
     );
-    let (always_shrinked, always_cancelled) = create_room_constraint_set(
+    let always_constraints = create_room_constraint_set(
         node,
         course_size
             .iter()
@@ -524,11 +538,11 @@ fn check_room_feasibility(
         );
         // Only consider results where all courses from the selection can be cancelled/shrinked
         if let Some(mut constraint_set) = constraint_set {
-            constraint_set.0.extend_from_slice(&always_shrinked[..]);
-            constraint_set.1.extend_from_slice(&always_cancelled[..]);
+            constraint_set.shrink_courses.extend_from_slice(&always_constraints.shrink_courses[..]);
+            constraint_set.cancel_courses.extend_from_slice(&always_constraints.cancel_courses[..]);
             // We should always generate new constraints, when all courses from the k-selection can
             // be cancelled/shrinked
-            assert!(!(constraint_set.0.is_empty() && constraint_set.1.is_empty()));
+            assert!(!(constraint_set.shrink_courses.is_empty() && constraint_set.cancel_courses.is_empty()));
             result.push(constraint_set);
         }
     }
@@ -560,16 +574,13 @@ fn check_room_feasibility(
 ///
 /// Returns
 /// * `None` if `all_required`, but some constraint would have been ignored
-/// * A tuple `(shink_constraints, cancel_concstraints)`, where `shrink_constraints` is a Vec of
-///     course-shrink constraints to be appended to [BABNode::shrinked_courses] and
-///     `cancel_constraints` is a Vec of courses to be cancelled, to be appended to
-///     [BABNode::cancelled_courses].
+/// * A [RoomConstraintSet] otherwise
 fn create_room_constraint_set<'a>(
     current_node: &BABNode,
     courses: impl IntoIterator<Item = &'a Course>,
     to_size: usize,
     all_required: bool,
-) -> Option<(Vec<(usize, usize)>, Vec<usize>)> {
+) -> Option<RoomConstraintSet> {
     let mut cancel = Vec::new();
     let mut shrink = Vec::new();
     for course in courses {
@@ -593,9 +604,7 @@ fn create_room_constraint_set<'a>(
             if current_node
                 .shrinked_courses
                 .iter()
-                .filter(|(c, s)| *c == course.index && *s <= shrink_size)
-                .next()
-                .is_some()
+                .any(|(c, s)| *c == course.index && *s <= shrink_size)
             {
                 if all_required {
                     return None;
@@ -616,7 +625,7 @@ fn create_room_constraint_set<'a>(
             cancel.push(course.index);
         }
     }
-    Some((shrink, cancel))
+    Some(RoomConstraintSet {shrink_courses: shrink, cancel_courses: cancel})
 }
 
 /// Check if the given matching is a feasible solution in terms of the Branch and Bound algorithm,
@@ -635,8 +644,8 @@ fn create_room_constraint_set<'a>(
 ///
 /// The result is a triple: (is_feasible, has_participant_problem, course_index_to_restrict)
 fn check_feasibility(
-    courses: &Vec<Course>,
-    participants: &Vec<Participant>,
+    courses: &[Course],
+    participants: &[Participant],
     assignment: &Assignment,
     node: &BABNode,
     is_instructor: &ndarray::Array1<bool>,
@@ -663,7 +672,7 @@ fn check_feasibility(
                         .any(|instr| participants[*instr].choices.contains(c))
                 })
                 .collect();
-            if relevant_courses.len() == 0 {
+            if relevant_courses.is_empty() {
                 return (false, true, None);
             } else {
                 relevant_courses.sort_by_key(|rc| course_size[*rc]);
@@ -676,18 +685,16 @@ fn check_feasibility(
     let mut max_score = 0;
     let mut course: Option<usize> = None;
     for (c, size) in course_size.iter().enumerate() {
-        if !node.cancelled_courses.contains(&c) {
-            if *size < courses[c].num_min {
-                assert!(!node.enforced_courses.contains(&c), "Course {} has been enforced but still does not meet its minimum number: {} < {}", courses[c].index, *size, courses[c].num_min);
-                let score = courses[c].num_min - *size;
-                if score > max_score {
-                    max_score = score;
-                    course = Some(c);
-                }
+        if !node.cancelled_courses.contains(&c) && *size < courses[c].num_min {
+            assert!(!node.enforced_courses.contains(&c), "Course {} has been enforced but still does not meet its minimum number: {} < {}", courses[c].index, *size, courses[c].num_min);
+            let score = courses[c].num_min - *size;
+            if score > max_score {
+                max_score = score;
+                course = Some(c);
             }
         }
     }
-    return (course == None, false, course);
+    (course == None, false, course)
 }
 
 #[cfg(test)]
