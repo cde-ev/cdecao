@@ -31,10 +31,14 @@ pub type Score = u32;
 /// With ten course choices per participant, quadratic weighting (x = 100) and 450 participants, edge weights should be
 /// in the range 45001 -- 45101, so u16 is still sufficient. With 50 courses and max 20 places in each, the matrix will
 /// be 2MB in size, which is easily cachable.
-pub type EdgeWeight = u16;
+/// 
+/// For performance it seems to be better if EdgeWeight is the same type as Label, and even better when all are the same
+/// size as usize and bool. So we'll use isize instead of u16. This quadruples the size of the adjacency matrix in
+/// memory (on 64bit architectures), which is still cachable in L3 cache by modern CPUs.
+pub type EdgeWeight = isize;
 
-pub type Label = i32;
-const LARGE_LABEL: Label = std::i32::MAX;
+pub type Label = isize;
+const LARGE_LABEL: Label = std::isize::MAX;
 
 /// Execute the hungarian algorithm
 ///
@@ -184,6 +188,8 @@ pub fn hungarian_algorithm(
                 s_parents[z] = y;
 
                 // Update neighbourhood with equalitygraph-neighbours of z
+                let label = labels_x[z];
+                let is_dummy = dummy_x[z];
                 Zip::from(&mut nlxt)
                     .and(&mut nlxt_neighbour_of)
                     .and(&(!skip_y & !&t)) // A little trick, because ndarray::Zip only takes 6 Arrays
@@ -191,7 +197,7 @@ pub fn hungarian_algorithm(
                     .and(&labels_y)
                     .and(mandatory_y)
                     .for_each(|v, w, &t_nor_s, &a, &l, &m| {
-                        if t_nor_s && a as Label == labels_x[z] + l && !(dummy_x[z] && m) {
+                        if t_nor_s && a as Label == label + l && !(is_dummy && m) {
                             *v = true;
                             *w = z;
                         }
@@ -364,7 +370,7 @@ mod tests {
         const NUM_COURSES: usize = 15;
         const PLACES_PER_COURSE: usize = 10;
         const NUM_PARTICIPANTS: usize = 100;
-        const WEIGHT_OFFSET: u16 = 50000;
+        const WEIGHT_OFFSET: isize = 50000;
         const CHOICES: usize = 3;
 
         let n = NUM_COURSES * PLACES_PER_COURSE;

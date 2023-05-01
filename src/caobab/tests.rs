@@ -199,7 +199,7 @@ fn test_precompute_problem() {
     }
 
     // check adjacency matrix
-    const WEIGHTS: [u16; 3] = [
+    const WEIGHTS: [isize; 3] = [
         super::WEIGHT_OFFSET,
         super::WEIGHT_OFFSET - 1,
         super::WEIGHT_OFFSET - 2,
