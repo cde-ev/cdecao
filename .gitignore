@@ -1,3 +1,5 @@
-/target
+/target/
+/target_*/
+/dist/
 **/*.rs.bk
 cdecao.sublime-workspace
