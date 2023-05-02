@@ -188,18 +188,20 @@ pub fn hungarian_algorithm(
                 s_parents[z] = y;
 
                 // Update neighbourhood with equalitygraph-neighbours of z
+                let t_nor_s = !skip_y & !&t;
+                let t_nor_s_nor_mandatory = if dummy_x[z] {t_nor_s & !mandatory_y} else {t_nor_s};
                 let label = labels_x[z];
-                let is_dummy = dummy_x[z];
-                Zip::from(&mut nlxt)
-                    .and(&mut nlxt_neighbour_of)
-                    .and(&(!skip_y & !&t)) // A little trick, because ndarray::Zip only takes 6 Arrays
-                    .and(adjacency_matrix.index_axis(Axis(0), z))
+                let new_neighbours = t_nor_s_nor_mandatory & Zip::from(adjacency_matrix.index_axis(Axis(0), z))
                     .and(&labels_y)
-                    .and(mandatory_y)
-                    .for_each(|v, w, &t_nor_s, &a, &l, &m| {
-                        if t_nor_s && a as Label == label + l && !(is_dummy && m) {
-                            *v = true;
-                            *w = z;
+                    .map_collect(|&a, &l| {
+                        a as Label == l + label
+                    });
+                nlxt |= &new_neighbours;
+                Zip::from(&mut nlxt_neighbour_of)
+                    .and(&new_neighbours)
+                    .for_each(|v, &nn| {
+                        if nn {
+                            *v = z;
                         }
                     });
             } else {
