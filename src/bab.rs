@@ -136,9 +136,9 @@ pub enum NodeResult<SubProblem, Solution, Score> {
 ///
 /// Returns the best solution and its score (if one has been found) and some statistics about the solving process.
 pub fn solve<
-    SubProblem: 'static + Ord + Send,
+    SubProblem: 'static + Ord + Send + fmt::Debug,
     Solution: 'static + Send,
-    Score: 'static + Ord + Bounded + Send + Copy,
+    Score: 'static + Ord + Bounded + Send + Copy + fmt::Display,
     F: 'static,
 >(
     node_solver: F,
@@ -203,7 +203,7 @@ where
 }
 
 /// Worker thread entry point for the parallel branch and bound solving
-fn worker<SubProblem: Ord + Send, Solution: Send, Score: Ord + Copy>(
+fn worker<SubProblem: Ord + Send + fmt::Debug, Solution: Send, Score: Ord + Copy + fmt::Display>(
     bab: Arc<BranchAndBound<SubProblem, Solution, Score>>,
     node_solver: Arc<dyn Fn(SubProblem) -> NodeResult<SubProblem, Solution, Score>>,
 ) {
@@ -218,6 +218,8 @@ fn worker<SubProblem: Ord + Send, Solution: Send, Score: Ord + Copy>(
 
                 // Unlock shared_state and solve subproblem
                 std::mem::drop(shared_state);
+                let subproblem_formatted = format!("{:?}", subproblem);
+                debug!("Solving subproblem: {}", subproblem_formatted);
                 let tic = time::Instant::now();
                 let result = node_solver(subproblem);
                 let consumed_time = tic.elapsed();
@@ -234,6 +236,7 @@ fn worker<SubProblem: Ord + Send, Solution: Send, Score: Ord + Copy>(
 
                     NodeResult::Feasible(solution, score) => {
                         shared_state.statistics.num_feasible += 1;
+                        debug!("Yes! We found a feasible solution with score {}: {}", score, subproblem_formatted);
                         if score > shared_state.best_score {
                             debug!(
                                 "Wow, this is the best solution, we found so far. Let's store it."
@@ -246,6 +249,7 @@ fn worker<SubProblem: Ord + Send, Solution: Send, Score: Ord + Copy>(
 
                     NodeResult::Infeasible(new_problems, score) => {
                         shared_state.statistics.num_infeasible += 1;
+                        debug!("We found an infeasible solution with score {}: {}", score, subproblem_formatted);
                         // Add new subproblems to queue
                         for (i, new_problem) in new_problems.into_iter().enumerate() {
                             shared_state
@@ -260,7 +264,11 @@ fn worker<SubProblem: Ord + Send, Solution: Send, Score: Ord + Copy>(
                 }
             } else {
                 shared_state.statistics.num_bound_subproblems += 1;
-                debug!("Bounding this branch, since score is already worse then best known feasible solution.");
+                debug!(
+                    "Bounding this branch, since score {} is already worse then best known feasible solution: {:?}",
+                    parent_score,
+                    subproblem,
+                );
             }
 
             // check if we are finished, awake other threads and exit

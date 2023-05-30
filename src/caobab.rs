@@ -22,6 +22,7 @@ use crate::util::{binom, IterSelections};
 use crate::{Assignment, Course, Participant};
 use log::{debug, info};
 use std::cmp::min;
+use std::fmt::Debug;
 use std::sync::Arc;
 
 /// Main method of the module to solve a course assignement problem using the branch and bound method together with the
@@ -211,10 +212,6 @@ fn run_bab_node(
 
     // We will modify the current_node later for creating a new subproblem. Until then, we want to use it readonly.
     let node = &current_node;
-    debug!(
-        "Solving subproblem with cancelled courses {:?} and enforced courses {:?} and shrinked courses {:?}",
-        node.cancelled_courses, node.enforced_courses, node.shrinked_courses
-    );
 
     // Generate skip_x from course instructors of non-cancelled courses
     let mut skip_x = ndarray::Array1::from_elem([n], false);
@@ -376,8 +373,6 @@ fn run_bab_node(
 
         return Infeasible(branches, score);
     }
-
-    debug!("Yes! We found a feasible solution with score {}.", score);
     
     Feasible(assignment, score)
 }
