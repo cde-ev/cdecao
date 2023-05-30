@@ -66,8 +66,25 @@ fn edge_weight(choice: &Choice) -> EdgeWeight {
 }
 const INSTRUCTOR_SCORE: Score = WEIGHT_OFFSET as u32;
 
-pub fn theoretical_max_score(number_of_participants: usize) -> Score {
-    WEIGHT_OFFSET as Score * number_of_participants as Score
+/// Calculate a simple upper bound for the solution score of the given problem, assuming all course
+/// instructors can instruct their course and all participants can get their best choice.
+pub fn theoretical_max_score(participants: &Vec<Participant>, courses: &Vec<Course>) -> Score {
+    let mut participant_scores: Vec<Score> = participants.iter()
+        .map(|p| {
+            p.choices
+                .iter()
+                .map(|choice| edge_weight(choice) as Score)
+                .max()
+                .unwrap_or(0)
+        })
+    .collect();
+
+    for course in courses {
+        for instructor in course.instructors.iter() {
+            participant_scores[*instructor] = INSTRUCTOR_SCORE;
+        }
+    }
+    return participant_scores.into_iter().sum()
 }
 
 /// Precomputed problem definition for the hungarian method, that can be reused for every Branch and Bound node
