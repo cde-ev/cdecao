@@ -64,6 +64,7 @@ const WEIGHT_OFFSET: EdgeWeight = 50000;
 fn edge_weight(choice: &Choice) -> EdgeWeight {
     WEIGHT_OFFSET - choice.penalty as EdgeWeight
 }
+const INSTRUCTOR_SCORE: Score = WEIGHT_OFFSET as u32;
 
 pub fn theoretical_max_score(number_of_participants: usize) -> Score {
     WEIGHT_OFFSET as Score * number_of_participants as Score
@@ -326,7 +327,7 @@ fn run_bab_node(
             for instr in course.instructors.iter() {
                 assignment[*instr] = c;
             }
-            score += (course.instructors.len() as u32) * (WEIGHT_OFFSET as u32);
+            score += (course.instructors.len() as u32) * INSTRUCTOR_SCORE;
         }
     }
 
