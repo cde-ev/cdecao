@@ -65,6 +65,10 @@ fn edge_weight(choice_index: usize) -> EdgeWeight {
     WEIGHT_OFFSET - (choice_index as EdgeWeight)
 }
 
+pub fn theoretical_max_score(number_of_participants: usize) -> Score {
+    WEIGHT_OFFSET as Score * number_of_participants as Score
+}
+
 /// Precomputed problem definition for the hungarian method, that can be reused for every Branch and Bound node
 struct PreComputedProblem {
     /// Adjacency matrix generated from course choices. Each row represents one participant (or dummy participant),

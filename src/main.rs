@@ -105,6 +105,10 @@ fn main() {
 
     if let Some((assignment, score)) = result {
         info!("Solution found with score {}.", score);
+        info!(
+            "(Higher is better. Perfect fit would be {}.)",
+            cdecao::caobab::theoretical_max_score(participants.len())
+        );
         if let Some(outpath) = args.get_one::<String>("OUTPUT") {
             debug!("Opening output file {} ...", outpath);
             match File::create(outpath) {
