@@ -87,6 +87,8 @@ fn main() {
         participants.len()
     );
 
+    debug!("Courses:\n{}", cdecao::io::debug_list_of_courses(&courses));
+
     if participants.is_empty() {
         error!("Calculating course assignments is only possible with 1 or more participants.");
         std::process::exit(exitcode::DATAERR);

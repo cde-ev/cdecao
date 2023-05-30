@@ -57,6 +57,14 @@ pub fn format_assignment(
     result
 }
 
+pub fn debug_list_of_courses(courses: &[Course]) -> String {
+    courses.iter()
+        .map(|c| format!("{:02} {}", c.index, c.name))
+        .collect::<Vec<String>>()
+        .join("\n")
+}
+
+
 /// Assert that a given courses/participants data structure is consistent (in terms of object's
 /// indexes and cross referencing indexes)
 pub fn assert_data_consitency(participants: &Vec<Participant>, courses: &Vec<Course>) {
