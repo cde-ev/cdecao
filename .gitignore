@@ -3,3 +3,5 @@
 /dist/
 **/*.rs.bk
 cdecao.sublime-workspace
+quick_partial_export.json
+.idea/

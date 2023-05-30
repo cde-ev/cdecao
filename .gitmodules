@@ -1,0 +1,3 @@
+[submodule "cdedb_droid"]
+	path = cdedb_droid
+	url = ssh://gitea@tracker.cde-ev.de:20009/orgas/cdedb_droid.git
