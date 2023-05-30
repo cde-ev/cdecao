@@ -45,6 +45,29 @@ fn main() {
     // Open input file
     let inpath: &String = args.get_one("INPUT").unwrap();
     debug!("Opening input file {} ...", inpath);
+    let apikey: &String = args.get_one("APIKEY").unwrap();
+    let apihost: &String = args.get_one("APIHOST").unwrap();
+    if !apikey.is_empty() && !apihost.is_empty() {
+        let client = reqwest::blocking::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .build()
+            .expect("Client build failed.");
+        let response = client
+            .get(format!("https://{}/db/event/offline/partial", apihost))
+            .header("X-CdEDB-API-token", apikey)
+            .send()
+            .expect("No response.");
+        let data = response
+            .json::<serde_json::Map<String, serde_json::Value>>()
+            .expect("No response body.");
+        match File::create(inpath) {
+            Err(e) => error!("Could not open input file {}: {}.", inpath, e),
+            Ok(file) => {
+                serde_json::to_writer(file, &data.get("export")).map_err(|e| format!("{}", e)).expect("Could not write to file.");
+            }
+        };
+        info!("Retrieved current export from offline vm.");
+    }
     let file = std::fs::File::open(inpath).unwrap_or_else(|e| {
         error!("Could not open input file {}: {}", inpath, e);
         std::process::exit(exitcode::NOINPUT)
@@ -230,6 +253,16 @@ fn parse_cli_args() -> clap::ArgMatches {
                 .long("print")
                 .help("Print the caluclated course assignment to stdout in a human readable format")
                 .action(clap::ArgAction::SetTrue),
+        )
+        .arg(
+            clap::Arg::new("APIKEY")
+                .long("apikey")
+                .value_name("APIKEY"),
+        )
+        .arg(
+            clap::Arg::new("APIHOST")
+                .long("apihost")
+                .value_name("APIHOST"),
         )
         .arg(
             clap::Arg::new("INPUT")
