@@ -29,8 +29,21 @@ pub struct Participant {
     dbid: usize,
     /// Participant's name. Mainly used for info/debug output
     name: String,
-    /// Course choices of the participant as indexes into the list of courses
-    pub choices: Vec<usize>,
+    /// Course choices
+    pub choices: Vec<Choice>,
+}
+
+#[derive(Deserialize, Serialize, PartialEq, Eq, Debug)]
+pub struct Choice {
+    /// Index of the chosen choice in the list of courses
+    #[serde(rename = "course")]
+    course_index: usize,
+    /// Negative weight of this course choice, e.g. 0 for first choice, 1 for second choice, etc.
+    penalty: u32,
+}
+
+pub fn choices_from_list(choices: &[usize]) -> Vec<Choice> {
+    choices.iter().enumerate().map(|(i, c)| Choice{course_index: *c, penalty: i as u32}).collect()
 }
 
 /// Representation of an event course's data
@@ -48,7 +61,7 @@ pub struct Course {
     num_max: usize,
     /// Minimum number of attendees (excl. course instructors)
     num_min: usize,
-    /// Ids of course instructor's indexes in the
+    /// Indexes of course instructor's indexes in the list of participants
     instructors: Vec<usize>,
     /// Scaling factor for room size check: The room of this course must have
     /// >= room_offset + room_factor * num_participants (incl. instructors) places. E.g. for dancing

@@ -70,11 +70,11 @@ pub fn debug_list_of_courses(courses: &[Course]) -> String {
 pub fn assert_data_consitency(participants: &Vec<Participant>, courses: &Vec<Course>) {
     for (i, p) in participants.iter().enumerate() {
         assert_eq!(i, p.index, "Index of {}. participant is {}", i, p.index);
-        for c in p.choices.iter() {
+        for choice in p.choices.iter() {
             assert!(
-                *c < courses.len(),
+                choice.course_index < courses.len(),
                 "Choice {} of {}. participant is invalid",
-                c,
+                choice.course_index,
                 i
             );
         }

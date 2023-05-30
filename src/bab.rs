@@ -303,7 +303,7 @@ mod tests {
         // This test tries to find the closest integer vector to a given vector in a rather stupid
         // way: We branch over each vector entry and calculate the negated distance as score.
 
-        #[derive(Clone)]
+        #[derive(Clone, Debug)]
         struct SubProblem(BTreeMap<usize, i32>);
         impl Ord for SubProblem {
             fn cmp(&self, other: &Self) -> std::cmp::Ordering {

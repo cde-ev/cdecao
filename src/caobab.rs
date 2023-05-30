@@ -15,7 +15,7 @@
 //! subproblem of the course assignment prblem. All the data conversion from Course/Participant objects to matrices and
 //! vectors for the `hungarian_algorithm()` happens within this function.
 
-use crate::bab;
+use crate::{bab, Choice};
 use crate::bab::NodeResult::{Feasible, Infeasible, NoSolution};
 use crate::hungarian::{EdgeWeight, Score};
 use crate::util::{binom, IterSelections};
@@ -61,8 +61,8 @@ pub fn solve(
 /// topic
 const WEIGHT_OFFSET: EdgeWeight = 50000;
 /// Generate edge weight from course choice
-fn edge_weight(choice_index: usize) -> EdgeWeight {
-    WEIGHT_OFFSET - (choice_index as EdgeWeight)
+fn edge_weight(choice: &Choice) -> EdgeWeight {
+    WEIGHT_OFFSET - choice.penalty as EdgeWeight
 }
 
 pub fn theoretical_max_score(number_of_participants: usize) -> Score {
@@ -121,11 +121,11 @@ fn precompute_problem(
     // Generate adjacency matrix
     let mut adjacency_matrix = ndarray::Array2::<EdgeWeight>::zeros([n, m]);
     for (x, p) in participants.iter().enumerate() {
-        for (i, c) in p.choices.iter().enumerate() {
+        for choice in p.choices.iter() {
             // TODO check c < inverse_course_map.len() ?
-            for j in 0..courses[*c].num_max {
-                let y = inverse_course_map[*c] + j;
-                adjacency_matrix[[x, y]] = edge_weight(i);
+            for j in 0..courses[choice.course_index].num_max {
+                let y = inverse_course_map[choice.course_index] + j;
+                adjacency_matrix[[x, y]] = edge_weight(choice);
             }
         }
     }
@@ -258,7 +258,7 @@ fn run_bab_node(
         if !skip_x[x]
             && p.choices
                 .iter()
-                .all(|c| node.cancelled_courses.contains(c))
+                .all(|c| node.cancelled_courses.contains(&c.course_index))
         {
             debug!("Skipping this branch, since not all course choices can be fulfilled");
             if report_no_solution {
@@ -659,7 +659,7 @@ fn check_feasibility(
 
     // Check if solution is infeasible, such that any participant is in an un-chosen course
     for (p, c) in assignment.iter().enumerate() {
-        if !is_instructor[p] && !participants[p].choices.contains(c) {
+        if !is_instructor[p] && !participants[p].choices.iter().any(|choice| choice.course_index == *c) {
             // If so, get smallest non-constrained course, that has an instructor, who chose c
             let mut relevant_courses: Vec<usize> = (0..courses.len())
                 .filter(|rc| !node.cancelled_courses.contains(rc))
@@ -668,7 +668,7 @@ fn check_feasibility(
                     courses[*rc]
                         .instructors
                         .iter()
-                        .any(|instr| participants[*instr].choices.contains(c))
+                        .any(|instr| participants[*instr].choices.iter().any(|choice| choice.course_index == *c))
                 })
                 .collect();
             if relevant_courses.is_empty() {
