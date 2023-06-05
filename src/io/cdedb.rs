@@ -106,6 +106,7 @@ pub fn read<R: std::io::Read>(
             parse_course_base_data(course_id, course_data, track_id)?;
 
         if matches!(course_status, CourseStatus::NotOffered) {
+            skipped_course_ids.push(course_id);
             continue;
         }
         if matches!(course_status, CourseStatus::Cancelled) && ignore_inactive_courses {
