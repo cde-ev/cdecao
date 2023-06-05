@@ -96,13 +96,12 @@ pub fn read<R: std::io::Read>(
         .get("courses")
         .and_then(|v| v.as_object())
         .ok_or("No 'courses' object found in data.".to_owned())?;
-    let mut i = 0;
     for (course_id, course_data) in courses_data.iter() {
         let course_id: usize = course_id
             .parse()
             .map_err(|e: std::num::ParseIntError| e.to_string())?;
 
-        let (course_name, course_status, num_min, num_max) =
+        let (course_name, course_status, num_min, num_max, sort_key) =
             parse_course_base_data(course_id, course_data, track_id)?;
 
         if matches!(course_status, CourseStatus::NotOffered) {
@@ -121,8 +120,8 @@ pub fn read<R: std::io::Read>(
             room_offset_field,
         )?;
 
-        courses.push(crate::Course {
-            index: i,
+        courses.push((sort_key, crate::Course {
+            index: 0,
             dbid: course_id as usize,
             name: course_name,
             num_min,
@@ -131,9 +130,16 @@ pub fn read<R: std::io::Read>(
             room_factor,
             room_offset,
             fixed_course: false,
-        });
-        i += 1;
+        }));
     }
+
+    // Sort courses, drop sort key and add indexes
+    courses.sort_by(|(k1, _), (k2, _)| k1.cmp(k2));
+    let mut courses: Vec<crate::Course> = courses.into_iter().map(|(_k, c)| c).collect();
+    for (index, course) in courses.iter_mut().enumerate() {
+        course.index = index;
+    }
+
     // Store, how many instructors attendees are already set for each course (only relevant if
     // ignore_assigned == true). The vector holds a tuple
     // (num_hidden_instructors, num_hidden_attendees) for each course in the same order as the
@@ -314,12 +320,13 @@ enum CourseStatus {
  * course number and short name.
  * - `status` is determined with regard to the given `track_id`.
  * - `num_min` and `num_max` are -- according to the CdEDB convention -- counted excl. instructors
+ * - A `sort_key` (based on the course number) for a simple sorting of the courses
  */
 fn parse_course_base_data(
     course_id: usize,
     course_data: &serde_json::Value,
     track_id: u64,
-) -> Result<(String, CourseStatus, usize, usize), String> {
+) -> Result<(String, CourseStatus, usize, usize, String), String> {
     let course_segments_data = course_data
         .get("segments")
         .and_then(|v| v.as_object())
@@ -341,17 +348,19 @@ fn parse_course_base_data(
         CourseStatus::NotOffered
     };
 
+    let course_nr = course_data
+        .get("nr")
+        .and_then(|v| v.as_str())
+        .ok_or(format!("No 'nr' found for course {}", course_id))?;
     let course_name = format!(
         "{}. {}",
-        course_data
-            .get("nr")
-            .and_then(|v| v.as_str())
-            .ok_or(format!("No 'nr' found for course {}", course_id))?,
+        course_nr,
         course_data
             .get("shortname")
             .and_then(|v| v.as_str())
             .ok_or(format!("No 'shortname' found for course {}", course_id))?
     );
+    let sort_key = format!("{: >10}", course_nr);
 
     let num_max = course_data
         .get("max_size")
@@ -368,7 +377,7 @@ fn parse_course_base_data(
         ));
     }
 
-    Ok((course_name, course_status, num_min, num_max))
+    Ok((course_name, course_status, num_min, num_max, sort_key))
 }
 
 /**
