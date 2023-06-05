@@ -11,7 +11,8 @@
 
 use super::BABNode;
 use crate::bab::NodeResult;
-use crate::{Assignment, Course, Participant};
+use crate::choices_from_list;
+use crate::{Assignment, Course, Participant, Choice};
 use std::sync::Arc;
 
 fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
@@ -27,37 +28,37 @@ fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
                 index: 0,
                 dbid: 0,
                 name: String::from("Participant 0"),
-                choices: vec![1, 2],
+                choices: choices_from_list(&[1, 2]),
             },
             Participant {
                 index: 1,
                 dbid: 1,
                 name: String::from("Participant 1"),
-                choices: vec![0, 2],
+                choices: choices_from_list(&[0, 2]),
             },
             Participant {
                 index: 2,
                 dbid: 2,
                 name: String::from("Participant 2"),
-                choices: vec![0, 1],
+                choices: choices_from_list(&[0, 1]),
             },
             Participant {
                 index: 3,
                 dbid: 3,
                 name: String::from("Participant 3"),
-                choices: vec![0, 1],
+                choices: choices_from_list(&[0, 1]),
             },
             Participant {
                 index: 4,
                 dbid: 4,
                 name: String::from("Participant 4"),
-                choices: vec![0, 2],
+                choices: choices_from_list(&[0, 2]),
             },
             Participant {
                 index: 5,
                 dbid: 5,
                 name: String::from("Participant 5"),
-                choices: vec![1, 2],
+                choices: choices_from_list(&[1, 2]),
             },
         ],
         vec![
@@ -130,7 +131,7 @@ fn create_other_problem() -> (Vec<Course>, Vec<Participant>) {
                 index: next_part_id,
                 dbid: next_part_id,
                 name: format!("Participant {}", next_part_id),
-                choices: choices.clone(),
+                choices: choices_from_list(&choices),
             });
             next_part_id += 1;
         }
@@ -203,18 +204,13 @@ fn test_precompute_problem() {
     }
 
     // check adjacency matrix
-    const WEIGHTS: [i32; 3] = [
-        super::WEIGHT_OFFSET,
-        super::WEIGHT_OFFSET - 1,
-        super::WEIGHT_OFFSET - 2,
-    ];
     for (x, p) in participants.iter().enumerate() {
         for y in 0..m {
-            let choice = p.choices.iter().position(|c| *c == problem.course_map[y]);
+            let choice = p.choices.iter().filter(|c| c.course_index == problem.course_map[y]).next();
             assert_eq!(
                 problem.adjacency_matrix[(x, y)],
                 match choice {
-                    Some(c) => WEIGHTS[c],
+                    Some(c) => super::WEIGHT_OFFSET - c.penalty as i32,
                     None => 0,
                 },
                 "Edge weigth for participant {} with course place {} is not expected.",
@@ -454,7 +450,7 @@ fn check_assignment(
     for (p, participant) in participants.iter().enumerate() {
         if !course_instructors[p] {
             assert!(
-                participant.choices.contains(&assignment[p]),
+                participant.choices.iter().any(|c| c.course_index == assignment[p]),
                 "Course {} of participant {} is none of their choices ({:?})",
                 assignment[p],
                 p,
@@ -561,7 +557,7 @@ fn test_bab_node_large() {
             choices: Vec::new(),
         };
         for i in 0..3 {
-            participant.choices.push((p + i) % NUM_COURSES);
+            participant.choices.push(Choice {course_index: (p + i) % NUM_COURSES, penalty: i as u32});
         }
         participants.push(participant);
         if p < NUM_COURSES {

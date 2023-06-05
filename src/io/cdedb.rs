@@ -11,7 +11,7 @@
 
 //! IO functionality for use of this program with the CdE Datenbank export and import file formats.
 
-use crate::{Assignment, Course, Participant};
+use crate::{Assignment, Course, Participant, Choice};
 use std::collections::HashMap;
 
 use chrono::{SecondsFormat, Utc};
@@ -533,7 +533,7 @@ fn parse_participant_course_data(
     reg_data: &serde_json::Value,
     track_id: u64,
     courses_by_id: &HashMap<u64, Option<usize>>,
-) -> Result<(Option<usize>, Option<usize>, Vec<usize>), String> {
+) -> Result<(Option<usize>, Option<usize>, Vec<Choice>), String> {
     let registration_track_data = reg_data
         .get("tracks")
         .and_then(|v| v.as_object())
@@ -598,8 +598,8 @@ fn parse_participant_course_data(
             registration_name
         ))?;
 
-    let mut choices = Vec::<usize>::with_capacity(choices_data.len());
-    for v in choices_data {
+    let mut choices = Vec::<Choice>::with_capacity(choices_data.len());
+    for (i, v) in choices_data.iter().enumerate() {
         let course_id = v
             .as_u64()
             .ok_or(format!("Course choice {:?} is no integer.", v))?;
@@ -608,7 +608,7 @@ fn parse_participant_course_data(
             course_id, registration_name
         ))?;
         if let Some(c) = course_index {
-            choices.push(*c);
+            choices.push(Choice { course_index: *c, penalty: i as u32 });
         }
     }
 
@@ -835,7 +835,7 @@ fn track_summary(
 
 #[cfg(test)]
 mod tests {
-    use crate::{Assignment, Course, Participant};
+    use crate::{Assignment, Course, Participant, Choice, choices_from_list};
 
     #[test]
     fn parse_testaka_sitzung() {
@@ -879,8 +879,8 @@ mod tests {
         assert_eq!(
             find_participant_by_id(&participants, 2).unwrap().choices,
             vec![
-                find_course_by_id(&courses, 4).unwrap().index,
-                find_course_by_id(&courses, 2).unwrap().index
+                Choice{course_index: find_course_by_id(&courses, 4).unwrap().index, penalty: 0},
+                Choice{course_index: find_course_by_id(&courses, 2).unwrap().index, penalty: 1}
             ]
         );
 
@@ -1103,25 +1103,25 @@ mod tests {
                 index: 0,
                 dbid: 1,
                 name: String::from("Anton Armin A. Administrator"),
-                choices: vec![0, 2],
+                choices: choices_from_list(&[0, 2]),
             },
             Participant {
                 index: 1,
                 dbid: 2,
                 name: String::from("Emilia E. Eventis"),
-                choices: vec![2, 1],
+                choices: choices_from_list(&[2, 1]),
             },
             Participant {
                 index: 2,
                 dbid: 3,
                 name: String::from("Garcia G. Generalis"),
-                choices: vec![1, 2],
+                choices: choices_from_list(&[1, 2]),
             },
             Participant {
                 index: 3,
                 dbid: 4,
                 name: String::from("Inga Iota"),
-                choices: vec![0, 1],
+                choices: choices_from_list(&[0, 1]),
             },
         ];
         super::super::assert_data_consitency(&participants, &courses);

@@ -110,11 +110,19 @@ The default input format for courses and participants data looks like this:
     "participants": [
         {
             "name": "Anton Administrator",
-            "choices": [1,0,6]
+            "choices": [
+                {"course": 1, "penalty": 0},
+                {"course": 0, "penalty": 1},
+                {"course": 6, "penalty": 2}
+            ]
         },
         {
             "name": "Bertalottå Beispiel",
-            "choices": [6,5,1]
+            "choices": [
+                {"course": 6, "penalty": 0},
+                {"course": 5, "penalty": 1},
+                {"course": 1, "penalty": 2}
+            ]
         },
         ...
     ]
