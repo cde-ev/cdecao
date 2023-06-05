@@ -680,7 +680,7 @@ pub fn write<W: std::io::Write>(
                 format!("{}", courses[cid].dbid),
                 json!({
                 "segments": {
-                    format!("{}", ambience_data.track_id): *size > 0
+                    format!("{}", ambience_data.track_id): *size > 0 || courses[cid].fixed_course
                 }}),
             )
         })
