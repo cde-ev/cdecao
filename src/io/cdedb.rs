@@ -130,6 +130,7 @@ pub fn read<R: std::io::Read>(
             room_factor,
             room_offset,
             fixed_course: false,
+            hidden_participant_names: Vec::new(),
         }));
     }
 
@@ -190,7 +191,8 @@ pub fn read<R: std::io::Read>(
                     _ => {
                         invisible_course_participants[course_index].1 += 1;
                     }
-                }
+                };
+                courses[course_index].hidden_participant_names.push(reg_name);
                 continue;
             }
         }
@@ -1057,6 +1059,7 @@ mod tests {
                 room_factor: 1.0,
                 room_offset: 0.0,
                 fixed_course: false,
+                hidden_participant_names: vec![],
             },
             Course {
                 index: 1,
@@ -1068,6 +1071,7 @@ mod tests {
                 room_factor: 1.0,
                 room_offset: 0.0,
                 fixed_course: false,
+                hidden_participant_names: vec![],
             },
             Course {
                 index: 2,
@@ -1079,6 +1083,7 @@ mod tests {
                 room_factor: 1.0,
                 room_offset: 0.0,
                 fixed_course: false,
+                hidden_participant_names: vec![],
             },
             Course {
                 index: 3,
@@ -1090,6 +1095,7 @@ mod tests {
                 room_factor: 1.0,
                 room_offset: 0.0,
                 fixed_course: false,
+                hidden_participant_names: vec![],
             },
         ];
         let participants = vec![

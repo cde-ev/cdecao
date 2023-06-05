@@ -63,6 +63,9 @@ pub struct Course {
     /// case, if the course has fixed participants.
     #[serde(default)]
     fixed_course: bool,
+    /// Additional participant names to be included in the printed result output
+    #[serde(default)]
+    hidden_participant_names: Vec<String>,
 }
 
 fn default_room_factor() -> f32 {

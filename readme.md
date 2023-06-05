@@ -93,7 +93,8 @@ The default input format for courses and participants data looks like this:
             "name": "1. Example Course",
             "num_min": 5,
             "num_max": 15,
-            "instructors": [0, 1]
+            "instructors": [0, 1],
+            "hidden_participant_names": ["Mister X"]
         },
         {
             "name": "2. Another Course",
@@ -134,6 +135,10 @@ number of participants, as described above.
 A course with `fixed_course = true` will always take place; the algorithm is not allowed to
 consider cancelling it (of course, this might impair the optimal solution's quality or even make the problem
 infeasible).
+
+The `hidden_participant_names` entry can be used to add additional entries to the result output, which are not part of
+the optimization. This can be used to show attendees which are already fix-assigned (and thus removed from the input
+dataset) in a pre-processing step.
 
 The default output format of `cdecao` is a very simple JSON file, which contains the index of the course of each
 participant in the order of the participants' appearance in the input file:

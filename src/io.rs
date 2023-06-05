@@ -21,8 +21,11 @@ use std::fmt::Write;
 /// The output format will look like
 /// ```text
 /// ===== Course name =====
-/// Anton Administrator
-/// Bertalotta Beispiel
+/// (3 participants incl. instructors)
+/// - Anton Administrator
+/// - Bertalotta Beispiel (instr)
+/// further attendees (not optimized):
+/// - Charlie Clown
 ///
 /// ===== Another course name =====
 ///
@@ -37,19 +40,31 @@ pub fn format_assignment(
     let mut result = String::new();
     for c in courses.iter() {
         write!(result, "\n===== {} =====\n", c.name).unwrap();
-        for (ap, ac) in assignment.iter().enumerate() {
-            if *ac == c.index {
-                writeln!(
-                    result,
-                    "{}{}",
-                    participants[ap].name,
-                    if c.instructors.contains(&ap) {
-                        " (instr)"
-                    } else {
-                        ""
-                    }
-                )
-                .unwrap();
+        let assigned: Vec<&Participant> = assignment.iter()
+            .enumerate()
+            .filter(|(_, course_index)| **course_index == c.index)
+            .map(|(participant_index, _)| &participants[participant_index])
+            .collect();
+        let num = assigned.len() + c.hidden_participant_names.len();
+        writeln!(result, "({} participants incl. instructors)", num).unwrap();
+
+        for participant in assigned {
+            writeln!(
+                result,
+                "- {}{}",
+                participant.name,
+                if c.instructors.contains(&participant.index) {
+                    " (instr)"
+                } else {
+                    ""
+                }
+            )
+            .unwrap();
+        }
+        if !c.hidden_participant_names.is_empty() {
+            writeln!(result, "further attendees (not optimized):").unwrap();
+            for name in c.hidden_participant_names.iter() {
+                writeln!(result,"- {}", name).unwrap();
             }
         }
     }

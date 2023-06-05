@@ -71,6 +71,7 @@ fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
                 room_factor: 1.0,
                 room_offset: 10.0,
                 fixed_course: false,
+                hidden_participant_names: vec![],
             },
             Course {
                 index: 1,
@@ -82,6 +83,7 @@ fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
                 room_factor: 2.0,
                 room_offset: 0.0,
                 fixed_course: false,
+                hidden_participant_names: vec![],
             },
             Course {
                 index: 2,
@@ -93,6 +95,7 @@ fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
                 room_factor: 1.5,
                 room_offset: 0.0,
                 fixed_course: false,
+                hidden_participant_names: vec![],
             },
         ],
     )
@@ -114,6 +117,7 @@ fn create_other_problem() -> (Vec<Course>, Vec<Participant>) {
             room_factor: 1.0,
             room_offset: 0.0,
             fixed_course: false,
+            hidden_participant_names: vec![],
         };
         next_corse_id += 1;
         return c;
@@ -544,6 +548,7 @@ fn test_bab_node_large() {
             room_factor: 1.0,
             room_offset: 0.0,
             fixed_course: false,
+            hidden_participant_names: vec![],
         });
     }
 
