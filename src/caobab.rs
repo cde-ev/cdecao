@@ -140,7 +140,10 @@ fn precompute_problem(
     let mut adjacency_matrix = ndarray::Array2::<EdgeWeight>::zeros([n, m]);
     for (x, p) in participants.iter().enumerate() {
         for choice in p.choices.iter() {
-            // TODO check c < inverse_course_map.len() ?
+            debug_assert!(choice.course_index < inverse_course_map.len(),
+                "Invalid course choice index {} of participant {}",
+                choice.course_index,
+                p.index);
             for j in 0..courses[choice.course_index].num_max {
                 let y = inverse_course_map[choice.course_index] + j;
                 adjacency_matrix[[x, y]] = edge_weight(choice);
