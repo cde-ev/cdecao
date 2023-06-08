@@ -347,7 +347,7 @@ fn run_bab_node(
     );
 
     // Convert course place matching to course assignment
-    let mut assignment: Assignment = vec![Some(0usize); participants.len()];
+    let mut assignment: Assignment = vec![None; participants.len()];
     for (cp, p) in matching.iter().enumerate() {
         if !skip_y[cp] && *p < assignment.len() {
             assignment[*p] = Some(pre_computed_problem.course_map[cp]);
