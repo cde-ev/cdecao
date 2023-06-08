@@ -752,6 +752,77 @@ fn test_caobab_fixed_course() {
 }
 
 #[test]
+fn test_caobab_instructor_only_participant_cancelled() {
+    let (mut participants, mut courses) = create_simple_problem();
+    participants.push(Participant {
+        index: 6,
+        dbid: 6,
+        name: String::from("Participant 6 (instr. only)"),
+        choices: vec![],
+    });
+    courses[2].instructors.push(6);
+    let courses = Arc::new(courses);
+    let participants = Arc::new(participants);
+    crate::io::assert_data_consitency(&participants, &courses);
+
+    // Run caobab
+    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), None, false);
+
+    match result {
+        None => panic!("Expected to get a result."),
+
+        Some((assignment, _score)) => {
+            print!(
+                "test_caobab_instructor_only_participant_cancelled: assignment: {:?}\n",
+                assignment
+            );
+
+            check_assignment(&*courses, &*participants, &assignment, None);
+
+            assert_eq!(assignment[6], None)
+        }
+    };
+}
+
+#[test]
+fn test_caobab_instructor_only_participant_active() {
+    let (mut participants, mut courses) = create_simple_problem();
+    participants.push(Participant {
+        index: 6,
+        dbid: 6,
+        name: String::from("Participant 6 (instr. only)"),
+        choices: vec![],
+    });
+    courses[1].instructors.push(6);
+    let courses = Arc::new(courses);
+    let participants = Arc::new(participants);
+    crate::io::assert_data_consitency(&participants, &courses);
+
+    // Run caobab
+    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), None, false);
+
+    match result {
+        None => panic!("Expected to get a result."),
+
+        Some((assignment, score)) => {
+            print!(
+                "test_caobab_instructor_only_participant_cancelled: assignment: {:?}\n",
+                assignment
+            );
+
+            check_assignment(&*courses, &*participants, &assignment, None);
+            assert!(score > (participants.len() as u32 - 1) * (super::WEIGHT_OFFSET as u32 - 2));
+            assert!(score < (participants.len() as u32 - 1) * (super::WEIGHT_OFFSET as u32));
+            assert!(score < super::theoretical_max_score(&participants, &courses));
+            assert!(super::theoretical_max_score(&participants, &courses)
+                <= (participants.len() as u32 - 1) * (super::WEIGHT_OFFSET as u32));
+
+            assert_eq!(assignment[6], Some(1))
+        }
+    };
+}
+
+#[test]
 fn test_caobab_rooms_scaling() {
     let (participants, courses) = create_simple_problem();
     let courses = Arc::new(courses);
