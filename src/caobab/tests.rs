@@ -306,7 +306,7 @@ fn test_check_feasibility() {
     let (participants, courses) = create_simple_problem();
 
     // A feasible assignment
-    let assignment: Assignment = vec![0, 1, 1, 0, 0, 1];
+    let assignment: Assignment = vec![Some(0), Some(1), Some(1), Some(0), Some(0), Some(1)];
     let course_instructors =
         ndarray::Array1::from_vec(vec![true, true, false, false, false, false]);
     let node = BABNode {
@@ -326,7 +326,7 @@ fn test_check_feasibility() {
     );
 
     // Courses 1 & 2 have to few participants. Course 2 lacks more than Course 1.
-    let assignment: Assignment = vec![0, 1, 2, 0, 0, 1];
+    let assignment: Assignment = vec![Some(0), Some(1), Some(2), Some(0), Some(0), Some(1)];
     let course_instructors = ndarray::Array1::from_vec(vec![true, true, true, false, false, false]);
     let node = BABNode {
         cancelled_courses: vec![],
@@ -346,7 +346,7 @@ fn test_check_feasibility() {
 
     // Let's ignore that Participant 4 chose course 0. Participant 5 has been assigned to wrong course 0. We should
     // cancel course 2 to fill course 0 with its instructor.
-    let assignment: Assignment = vec![0, 1, 2, 0, 1, 0];
+    let assignment: Assignment = vec![Some(0), Some(1), Some(2), Some(0), Some(1), Some(0)];
     let course_instructors = ndarray::Array1::from_vec(vec![true, true, true, false, false, false]);
     let node = BABNode {
         cancelled_courses: vec![],
@@ -376,8 +376,10 @@ fn check_assignment(
 ) {
     // Calculate course sizes
     let mut course_size = vec![0usize; courses.len()];
-    for c in assignment.iter() {
-        course_size[*c] += 1;
+    for course in assignment.iter() {
+        if let Some(c) = course {
+            course_size[*c] += 1;
+        }
     }
 
     // Check course sizes
@@ -437,8 +439,8 @@ fn check_assignment(
         if course_size[c] != 0 {
             for i in course.instructors.iter() {
                 assert_eq!(
-                    assignment[*i], c,
-                    "Instructor {} of course {} is assigned to {}",
+                    assignment[*i], Some(c),
+                    "Instructor {} of course {} is assigned to {:?}",
                     *i, c, assignment[*i]
                 );
                 course_instructors[*i] = true;
@@ -448,10 +450,10 @@ fn check_assignment(
 
     // Feasible solutions must not have wrong assigned participants
     for (p, participant) in participants.iter().enumerate() {
-        if !course_instructors[p] {
+        if !course_instructors[p] && !participant.is_instructor_only() {
             assert!(
-                participant.choices.iter().any(|c| c.course_index == assignment[p]),
-                "Course {} of participant {} is none of their choices ({:?})",
+                participant.choices.iter().any(|c| Some(c.course_index) == assignment[p]),
+                "Course {:?} of participant {} is none of their choices ({:?})",
                 assignment[p],
                 p,
                 participant.choices
@@ -606,7 +608,8 @@ fn test_caobab_simple() {
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
             assert!(score < participants.len() as u32 * (super::WEIGHT_OFFSET as u32));
             assert!(
-                assignment == vec![0, 1, 0, 1, 0, 1] || assignment == vec![0, 1, 1, 0, 0, 1],
+                assignment == vec![Some(0), Some(1), Some(0), Some(1), Some(0), Some(1)]
+                    || assignment == vec![Some(0), Some(1), Some(1), Some(0), Some(0), Some(1)],
                 "Unexpected assignment: {:?}",
                 assignment
             );
@@ -644,8 +647,10 @@ fn test_caobab_rooms() {
 
             // Calculate course sizes
             let mut course_size = vec![0usize; courses.len()];
-            for c in assignment.iter() {
-                course_size[*c] += 1;
+            for course in assignment.iter() {
+                if let Some(c) = course {
+                    course_size[*c] += 1;
+                }
             }
 
             // We expect
@@ -692,8 +697,10 @@ fn test_caobab_rooms_fixed_course() {
 
             // Calculate course sizes
             let mut course_size = vec![0usize; courses.len()];
-            for c in assignment.iter() {
-                course_size[*c] += 1;
+            for course in assignment.iter() {
+                if let Some(c) = course {
+                    course_size[*c] += 1;
+                }
             }
 
             assert_eq!(course_size[3], 0);
@@ -732,8 +739,10 @@ fn test_caobab_fixed_course() {
 
             // Calculate course sizes
             let mut course_size = vec![0usize; courses.len()];
-            for c in assignment.iter() {
-                course_size[*c] += 1;
+            for course in assignment.iter() {
+                if let Some(c) = course {
+                    course_size[*c] += 1;
+                }
             }
 
             assert_eq!(course_size[3], 0);
@@ -775,8 +784,10 @@ fn test_caobab_rooms_scaling() {
 
                 // Calculate course sizes
                 let mut course_size = vec![0usize; courses.len()];
-                for c in assignment.iter() {
-                    course_size[*c] += 1;
+                for course in assignment.iter() {
+                    if let Some(c) = course {
+                        course_size[*c] += 1;
+                    }
                 }
 
                 for (i, (size, expected_cancel)) in course_size

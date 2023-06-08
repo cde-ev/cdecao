@@ -198,8 +198,8 @@ pub fn read<R: std::io::Read>(
         }
 
         // Filter out registrations without choices
-        if choices.is_empty() {
-            // TODO if participant is instructor of a course, add to room_offset
+        if choices.is_empty() && instructed_course.is_none() {
+            warn!("Ignoring participant '{}', who has no (valid) course choices.", reg_name);
             continue;
         }
 
@@ -664,20 +664,23 @@ pub fn write<W: std::io::Write>(
 ) -> Result<(), String> {
     // Calculate course sizes
     let mut course_size = vec![0usize; courses.len()];
-    for (_p, c) in assignment.iter().enumerate() {
-        course_size[*c] += 1;
+    for (_p, course) in assignment.iter().enumerate() {
+        if let Some(c) = course {
+            course_size[*c] += 1;
+        }
     }
 
     let registrations_json = assignment
         .iter()
         .enumerate()
+        .filter(|(_pid, cid)| cid.is_some())
         .map(|(pid, cid)| {
             (
                 format!("{}", participants[pid].dbid),
                 json!({
                 "tracks": {
                     format!("{}", ambience_data.track_id): {
-                        "course_id": courses[*cid].dbid
+                        "course_id": courses[cid.unwrap()].dbid
                     }
                 }}),
             )
@@ -1067,7 +1070,7 @@ mod tests {
                 name: String::from("β. Kabarett"),
                 num_max: 20,
                 num_min: 10,
-                instructors: vec![],
+                instructors: vec![4],
                 room_factor: 1.0,
                 room_offset: 0.0,
                 fixed_course: false,
@@ -1123,13 +1126,19 @@ mod tests {
                 name: String::from("Inga Iota"),
                 choices: choices_from_list(&[0, 1]),
             },
+            Participant {
+                index: 4,
+                dbid: 5,
+                name: String::from("Backup course instructor"),
+                choices: vec![],
+            },
         ];
         super::super::assert_data_consitency(&participants, &courses);
         let ambience_data = super::ImportAmbienceData {
             event_id: 1,
             track_id: 3,
         };
-        let assignment: Assignment = vec![0, 0, 2, 0];
+        let assignment: Assignment = vec![Some(0), Some(0), Some(2), Some(0), None];
 
         let mut buffer = Vec::<u8>::new();
         let result = super::write(
@@ -1151,6 +1160,7 @@ mod tests {
         check_output_course(courses_data, "2", "3", false);
 
         let registrations_data = data["registrations"].as_object().unwrap();
+        // Backup course instructor (without assignment) should not be written to result
         assert_eq!(registrations_data.len(), 4);
         check_output_registration(registrations_data, "1", "3", 1);
         check_output_registration(registrations_data, "3", "3", 4);

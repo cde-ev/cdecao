@@ -33,6 +33,14 @@ pub struct Participant {
     pub choices: Vec<Choice>,
 }
 
+impl Participant {
+    /// Check if this participant should be considered for assignment at all or is only there to be
+    /// assigned as a course instructor (as long as their course is not cancelled)
+    pub fn is_instructor_only(&self) -> bool {
+        self.choices.is_empty()
+    }
+}
+
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug)]
 pub struct Choice {
     /// Index of the chosen choice in the list of courses
@@ -87,4 +95,4 @@ fn default_room_factor() -> f32 {
 
 /// A course assignment as result of the overall algorithm. It maps the participant index to the course index, such that
 /// the course of participants\[i\] is courses\[assignment\[i\]\].
-pub type Assignment = Vec<usize>;
+pub type Assignment = Vec<Option<usize>>;

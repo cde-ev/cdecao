@@ -42,7 +42,7 @@ pub fn format_assignment(
         write!(result, "\n===== {} =====\n", c.name).unwrap();
         let assigned: Vec<&Participant> = assignment.iter()
             .enumerate()
-            .filter(|(_, course_index)| **course_index == c.index)
+            .filter(|(_, course_index)| **course_index == Some(c.index))
             .map(|(participant_index, _)| &participants[participant_index])
             .collect();
         let num = assigned.len() + c.hidden_participant_names.len();

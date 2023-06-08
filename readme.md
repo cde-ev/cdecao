@@ -128,6 +128,9 @@ The default input format for courses and participants data looks like this:
     ]
 }
 ```
+Participants with an empty list of course choices are ignored for the assignment. They can still be course instructors
+(if their course is not being cancelled).
+
 The `instructors` entry of each course is a list of indices of participants in the `participants` list. In the example,
 Anton (index 0) and Bertalottå (index 1) are the course instructors of "Example Course". The `choices` entry of
 each participant is an ordered list of course choices of this participant, represented by the courses' index in the

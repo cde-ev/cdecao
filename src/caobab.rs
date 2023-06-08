@@ -95,6 +95,9 @@ struct PreComputedProblem {
     /// Marks all the rows in the adjacency matrix that do not represent an actual participant (may not be used to
     /// fill mandatory course places)
     dummy_x: ndarray::Array1<bool>,
+    /// Marks rows in the adjacency matrix that shall always be ignored for assignment (because these participants
+    /// shall/can not be assigned as course attendees). This is dynamically extended by the list of course instructors.
+    skip_x_always: ndarray::Array1<bool>,
     /// Maps each column in the adjacency matrix to the course's index, the represented course place is belonging to
     course_map: ndarray::Array1<usize>,
     /// maps Course index to the first column index of its first course places
@@ -136,6 +139,13 @@ fn precompute_problem(
         dummy_x[i] = true;
     }
 
+    // Generate skip_x_always
+    let skip_x_always: ndarray::Array1<bool> = participants.iter()
+        .map(|p| p.is_instructor_only())
+        .chain(std::iter::repeat(false))
+        .take(n)
+        .collect();
+
     // Generate adjacency matrix
     let mut adjacency_matrix = ndarray::Array2::<EdgeWeight>::zeros([n, m]);
     for (x, p) in participants.iter().enumerate() {
@@ -163,6 +173,7 @@ fn precompute_problem(
     PreComputedProblem {
         adjacency_matrix,
         dummy_x,
+        skip_x_always,
         course_map,
         inverse_course_map,
         room_sizes,
@@ -239,16 +250,15 @@ fn run_bab_node(
     let node = &current_node;
 
     // Generate skip_x from course instructors of non-cancelled courses
-    let mut skip_x = ndarray::Array1::from_elem([n], false);
-    let mut num_skip_x: usize = 0;
+    let mut skip_x = pre_computed_problem.skip_x_always.clone();
     for (i, c) in courses.iter().enumerate() {
         if !node.cancelled_courses.contains(&i) {
             for instr in c.instructors.iter() {
                 skip_x[*instr] = true;
-                num_skip_x += 1;
             }
         }
     }
+    let num_skip_x = skip_x.iter().filter(|x| **x).count();
 
     // Generate effective_num_max from cancelled courses and shrinked courses
     let mut effective_num_max: Vec<usize> = courses.iter().map(|c| c.num_max).collect();
@@ -335,17 +345,17 @@ fn run_bab_node(
     );
 
     // Convert course place matching to course assignment
-    let mut assignment: Assignment = vec![0usize; participants.len()];
+    let mut assignment: Assignment = vec![Some(0usize); participants.len()];
     for (cp, p) in matching.iter().enumerate() {
         if !skip_y[cp] && *p < assignment.len() {
-            assignment[*p] = pre_computed_problem.course_map[cp];
+            assignment[*p] = Some(pre_computed_problem.course_map[cp]);
         }
     }
     // Add instructors to matching and increase score w.r.t. instructors
     for (c, course) in courses.iter().enumerate() {
         if !node.cancelled_courses.contains(&c) {
             for instr in course.instructors.iter() {
-                assignment[*instr] = c;
+                assignment[*instr] = Some(c);
             }
             score += (course.instructors.len() as u32) * INSTRUCTOR_SCORE;
         }
@@ -466,8 +476,10 @@ fn check_room_feasibility(
 ) -> (bool, Option<Vec<RoomConstraintSet>>) {
     // Calculate course sizes (incl. instructors and room_offset)
     let mut course_size: Vec<(&Course, usize)> = courses.iter().map(|c| (c, 0)).collect();
-    for c in assignment.iter() {
-        course_size[*c].1 += 1;
+    for course in assignment.iter() {
+        if let Some(c) = course {
+            course_size[*c].1 += 1;
+        }
     }
     for (c, ref mut s) in course_size.iter_mut() {
         *s = if *s == 0 {
@@ -672,15 +684,17 @@ fn check_feasibility(
 ) -> (bool, bool, Option<usize>) {
     // Calculate course sizes
     let mut course_size = vec![0usize; courses.len()];
-    for (p, c) in assignment.iter().enumerate() {
+    for (p, course) in assignment.iter().enumerate() {
         if !is_instructor[p] {
-            course_size[*c] += 1;
+            if let Some(c) = course {
+                course_size[*c] += 1;
+            }
         }
     }
 
     // Check if solution is infeasible, such that any participant is in an un-chosen course
     for (p, c) in assignment.iter().enumerate() {
-        if !is_instructor[p] && !participants[p].choices.iter().any(|choice| choice.course_index == *c) {
+        if !is_instructor[p] && !participants[p].is_instructor_only() && !participants[p].choices.iter().any(|choice| Some(choice.course_index) == *c) {
             // If so, get smallest non-constrained course, that has an instructor, who chose c
             let mut relevant_courses: Vec<usize> = (0..courses.len())
                 .filter(|rc| !node.cancelled_courses.contains(rc))
@@ -689,7 +703,7 @@ fn check_feasibility(
                     courses[*rc]
                         .instructors
                         .iter()
-                        .any(|instr| participants[*instr].choices.iter().any(|choice| choice.course_index == *c))
+                        .any(|instr| participants[*instr].choices.iter().any(|choice| Some(choice.course_index) == *c))
                 })
                 .collect();
             if relevant_courses.is_empty() {
