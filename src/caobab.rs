@@ -81,7 +81,9 @@ pub fn theoretical_max_score(participants: &Vec<Participant>, courses: &Vec<Cour
 
     for course in courses {
         for instructor in course.instructors.iter() {
-            participant_scores[*instructor] = INSTRUCTOR_SCORE;
+            if !participants[*instructor].is_instructor_only() {
+                participant_scores[*instructor] = INSTRUCTOR_SCORE;
+            }
         }
     }
     return participant_scores.into_iter().sum()
@@ -356,8 +358,13 @@ fn run_bab_node(
         if !node.cancelled_courses.contains(&c) {
             for instr in course.instructors.iter() {
                 assignment[*instr] = Some(c);
+                // Don't consider instructor_only participants in the score. Otherwise they will
+                // have such a large influence that they effectively soft-enforce their course to
+                // take place.
+                if !participants[*instr].is_instructor_only() {
+                    score += INSTRUCTOR_SCORE;
+                }
             }
-            score += (course.instructors.len() as u32) * INSTRUCTOR_SCORE;
         }
     }
 
