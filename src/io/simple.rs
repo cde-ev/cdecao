@@ -100,7 +100,8 @@ mod tests {
 
     #[test]
     fn write_simple_file() {
-        let assignment: crate::Assignment = vec![0, 0, 2, 2, 2, 0];
+        let assignment: crate::Assignment =
+            vec![Some(0), Some(0), Some(2), Some(2), Some(2), Some(0)];
         let mut buffer = Vec::<u8>::new();
         let result = super::write(&mut buffer, &assignment);
         assert!(result.is_ok());
@@ -108,7 +109,7 @@ mod tests {
         // Parse buffer as JSON file
         let mut data: serde_json::Value = serde_json::from_reader(&buffer[..]).unwrap();
         let parsed_assignment =
-            serde_json::from_value::<Vec<usize>>(data["assignment"].take()).unwrap();
+            serde_json::from_value::<Vec<Option<usize>>>(data["assignment"].take()).unwrap();
         assert_eq!(assignment, parsed_assignment);
     }
 }
