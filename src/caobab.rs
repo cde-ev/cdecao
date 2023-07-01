@@ -81,6 +81,7 @@ pub fn theoretical_max_score(participants: &Vec<Participant>, courses: &Vec<Cour
 
     for course in courses {
         for instructor in course.instructors.iter() {
+            // instructor_only participants are not considered in the score. See run_bab_node().
             if !participants[*instructor].is_instructor_only() {
                 participant_scores[*instructor] = INSTRUCTOR_SCORE;
             }
@@ -98,7 +99,11 @@ struct PreComputedProblem {
     /// fill mandatory course places)
     dummy_x: ndarray::Array1<bool>,
     /// Marks rows in the adjacency matrix that shall always be ignored for assignment (because these participants
-    /// shall/can not be assigned as course attendees). This is dynamically extended by the list of course instructors.
+    /// shall/can not be assigned as course attendees).
+    /// 
+    /// This vector is dynamically extended by the list of course instructors in each BaB node to get the complete
+    /// skip_x vector. In theory, we could remove the rows with skip_x_always[x]==true completely from the matrix, but
+    /// that would require changes to the handling of the participant list to keep the indexes in sync.
     skip_x_always: ndarray::Array1<bool>,
     /// Maps each column in the adjacency matrix to the course's index, the represented course place is belonging to
     course_map: ndarray::Array1<usize>,
@@ -141,7 +146,7 @@ fn precompute_problem(
         dummy_x[i] = true;
     }
 
-    // Generate skip_x_always
+    // Generate skip_x_always: Skip instructor-only participants, don't skip dummy_x rows
     let skip_x_always: ndarray::Array1<bool> = participants.iter()
         .map(|p| p.is_instructor_only())
         .chain(std::iter::repeat(false))
