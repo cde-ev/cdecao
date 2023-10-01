@@ -120,13 +120,22 @@ fn precompute_problem(
     participants: &Vec<Participant>,
     rooms: Option<&Vec<usize>>,
 ) -> PreComputedProblem {
+    // To determine the required number of extra participant rows (which are filled with dummy
+    // participants later), we need to know the maximum number of participants that may be skipped
+    // in any assignment. This includes all course instructors and all participants without choices.
+    let mut skippable_participants: Vec<bool> = participants
+        .iter()
+        .map(|p| p.is_instructor_only())
+        .collect();
+    for course in courses.iter() {
+        for instructor in course.instructors.iter() {
+            skippable_participants[*instructor] = true;
+        }
+    }
+    let max_num_skipped_x = skippable_participants.iter().filter(|x| **x).count();
     // Calculate adjacency matrix size to allocate 1D-Arrays
     let m = courses.iter().map(|c| c.num_max).sum();
-    let max_num_instructors: usize = courses
-        .iter()
-        .map(|c| c.instructors.len())
-        .sum();
-    let n = m + max_num_instructors;
+    let n = m + max_num_skipped_x;
 
     // Generate course_map, inverse_course_map and madatory_y from course list
     let mut course_map = ndarray::Array1::<usize>::zeros([m]);
@@ -323,6 +332,13 @@ fn run_bab_node(
     }
 
     // Amend skip_x to skip x-dummies which are not needed (make matrix square-sized)
+    debug_assert!(
+        n - num_skip_x >= m - num_skip_y,
+        "effective participants + dummy participants ({} - {}) should be <= effective course places ({} - {})",
+        n,
+        num_skip_x,
+        m,
+        num_skip_y);
     for i in 0..(n - m + num_skip_y - num_skip_x) {
         skip_x[participants.len() + i] = true;
     }
