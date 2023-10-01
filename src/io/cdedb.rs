@@ -122,7 +122,7 @@ pub fn read<R: std::io::Read>(
 
         courses.push((sort_key, crate::Course {
             index: 0,
-            dbid: course_id as usize,
+            dbid: course_id,
             name: course_name,
             num_min,
             num_max,

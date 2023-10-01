@@ -120,8 +120,8 @@ fn main() {
                         cdecao::io::cdedb::write(
                             file,
                             &assignment,
-                            &*participants,
-                            &*courses,
+                            &participants,
+                            &courses,
                             import_ambience.unwrap(),
                         )
                     } else {
@@ -138,7 +138,7 @@ fn main() {
         if args.get_flag("print") {
             print!(
                 "The assignment is:\n{}",
-                cdecao::io::format_assignment(&assignment, &*courses, &*participants)
+                cdecao::io::format_assignment(&assignment, &courses, &participants)
             );
         }
     } else {

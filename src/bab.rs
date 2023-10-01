@@ -100,7 +100,7 @@ Average subproblem solver time: {:.3}s\n",
             self.num_new_best,
             self.num_bound_subproblems,
             self.total_time.as_millis() as f32 / 1000f32,
-            (self.total_subproblem_time / self.num_executed_subproblems as u32).as_millis() as f32
+            (self.total_subproblem_time / self.num_executed_subproblems).as_millis() as f32
                 / 1000f32
         )
     }

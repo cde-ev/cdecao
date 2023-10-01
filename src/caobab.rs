@@ -36,14 +36,14 @@ pub fn solve(
     rooms: Option<&Vec<usize>>,
     report_no_solution: bool,
 ) -> (Option<(Assignment, u32)>, bab::Statistics) {
-    let pre_computed_problem = Arc::new(precompute_problem(&*courses, &*participants, rooms));
+    let pre_computed_problem = Arc::new(precompute_problem(&courses, &participants, rooms));
 
     bab::solve(
         move |sub_problem| -> bab::NodeResult<BABNode, Assignment, Score> {
             run_bab_node(
-                &*courses,
-                &*participants,
-                &*pre_computed_problem,
+                &courses,
+                &participants,
+                &pre_computed_problem,
                 sub_problem,
                 report_no_solution,
             )
@@ -68,7 +68,7 @@ const INSTRUCTOR_SCORE: Score = WEIGHT_OFFSET as u32;
 
 /// Calculate a simple upper bound for the solution score of the given problem, assuming all course
 /// instructors can instruct their course and all participants can get their best choice.
-pub fn theoretical_max_score(participants: &Vec<Participant>, courses: &Vec<Course>) -> Score {
+pub fn theoretical_max_score(participants: &[Participant], courses: &[Course]) -> Score {
     let mut participant_scores: Vec<Score> = participants.iter()
         .map(|p| {
             p.choices
@@ -87,7 +87,7 @@ pub fn theoretical_max_score(participants: &Vec<Participant>, courses: &Vec<Cour
             }
         }
     }
-    return participant_scores.into_iter().sum()
+    participant_scores.into_iter().sum()
 }
 
 /// Precomputed problem definition for the hungarian method, that can be reused for every Branch and Bound node
@@ -756,7 +756,7 @@ fn check_feasibility(
             }
         }
     }
-    (course == None, false, course)
+    (course.is_none(), false, course)
 }
 
 #[cfg(test)]
