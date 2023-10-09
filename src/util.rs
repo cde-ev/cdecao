@@ -55,7 +55,7 @@ impl<'a, T> Iterator for KSelectionIterator<'a, T> {
         // empty iterator
         } else if self.k == 0 || self.k > n {
             return None;
-        
+
         // initialization of index
         } else {
             self.index = Some((0..self.k).collect());
@@ -78,7 +78,7 @@ impl<'a, T> Iterator for KSelectionIterator<'a, T> {
                 rank += binom(*index_entry, i + 1);
             }
             let remaining = binom(self.data.len(), self.k) - rank - 1;
-            
+
             (remaining, Some(remaining))
         } else {
             let num = binom(self.data.len(), self.k);
@@ -96,7 +96,7 @@ pub fn binom(n: usize, k: usize) -> usize {
     for i in 0..k {
         res = res * (n - i) / (i + 1);
     }
-    
+
     res
 }
 

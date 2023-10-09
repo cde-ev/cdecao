@@ -51,7 +51,14 @@ pub struct Choice {
 }
 
 pub fn choices_from_list(choices: &[usize]) -> Vec<Choice> {
-    choices.iter().enumerate().map(|(i, c)| Choice{course_index: *c, penalty: i as u32}).collect()
+    choices
+        .iter()
+        .enumerate()
+        .map(|(i, c)| Choice {
+            course_index: *c,
+            penalty: i as u32,
+        })
+        .collect()
 }
 
 /// Representation of an event course's data

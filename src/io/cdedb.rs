@@ -11,7 +11,7 @@
 
 //! IO functionality for use of this program with the CdE Datenbank export and import file formats.
 
-use crate::{Assignment, Course, Participant, Choice};
+use crate::{Assignment, Choice, Course, Participant};
 use std::collections::HashMap;
 
 use chrono::{SecondsFormat, Utc};
@@ -120,18 +120,21 @@ pub fn read<R: std::io::Read>(
             room_offset_field,
         )?;
 
-        courses.push((sort_key, crate::Course {
-            index: 0,
-            dbid: course_id,
-            name: course_name,
-            num_min,
-            num_max,
-            instructors: Vec::new(),
-            room_factor,
-            room_offset,
-            fixed_course: false,
-            hidden_participant_names: Vec::new(),
-        }));
+        courses.push((
+            sort_key,
+            crate::Course {
+                index: 0,
+                dbid: course_id,
+                name: course_name,
+                num_min,
+                num_max,
+                instructors: Vec::new(),
+                room_factor,
+                room_offset,
+                fixed_course: false,
+                hidden_participant_names: Vec::new(),
+            },
+        ));
     }
 
     // Sort courses, drop sort key and add indexes
@@ -192,14 +195,19 @@ pub fn read<R: std::io::Read>(
                         invisible_course_participants[course_index].1 += 1;
                     }
                 };
-                courses[course_index].hidden_participant_names.push(reg_name);
+                courses[course_index]
+                    .hidden_participant_names
+                    .push(reg_name);
                 continue;
             }
         }
 
         // Filter out registrations without choices
         if choices.is_empty() && instructed_course.is_none() {
-            warn!("Ignoring participant '{}', who has no (valid) course choices.", reg_name);
+            warn!(
+                "Ignoring participant '{}', who has no (valid) course choices.",
+                reg_name
+            );
             continue;
         }
 
@@ -608,7 +616,10 @@ fn parse_participant_course_data(
             course_id, registration_name
         ))?;
         if let Some(c) = course_index {
-            choices.push(Choice { course_index: *c, penalty: i as u32 });
+            choices.push(Choice {
+                course_index: *c,
+                penalty: i as u32,
+            });
         }
     }
 
@@ -832,13 +843,13 @@ fn track_summary(
         .map(|(id, title, _)| format!("{:>1$} : {2}", id, max_id_len, title))
         .collect::<Vec<_>>()
         .join("\n");
-    
+
     Ok(result)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{Assignment, Course, Participant, Choice, choices_from_list};
+    use crate::{choices_from_list, Assignment, Choice, Course, Participant};
 
     #[test]
     fn parse_testaka_sitzung() {
@@ -882,8 +893,14 @@ mod tests {
         assert_eq!(
             find_participant_by_id(&participants, 2).unwrap().choices,
             vec![
-                Choice{course_index: find_course_by_id(&courses, 4).unwrap().index, penalty: 0},
-                Choice{course_index: find_course_by_id(&courses, 2).unwrap().index, penalty: 1}
+                Choice {
+                    course_index: find_course_by_id(&courses, 4).unwrap().index,
+                    penalty: 0
+                },
+                Choice {
+                    course_index: find_course_by_id(&courses, 2).unwrap().index,
+                    penalty: 1
+                }
             ]
         );
 
@@ -1031,7 +1048,8 @@ mod tests {
         assert_f32_near!(find_course_by_id(&courses, 4).unwrap().room_offset, 0.0); // default
         assert_f32_near!(find_course_by_id(&courses, 4).unwrap().room_factor, 0.5);
         assert_f32_near!(find_course_by_id(&courses, 13).unwrap().room_offset, 1.5);
-        assert_f32_near!(find_course_by_id(&courses, 13).unwrap().room_factor, 1.0); // default
+        assert_f32_near!(find_course_by_id(&courses, 13).unwrap().room_factor, 1.0);
+        // default
     }
 
     #[test]

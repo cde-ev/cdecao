@@ -192,7 +192,7 @@ where
         .into_inner()
         .expect("Could not move SharedState out of mutex.");
     shared_state.statistics.total_time = total_time;
-    
+
     (
         match shared_state.best_result {
             None => None,
@@ -236,7 +236,10 @@ fn worker<SubProblem: Ord + Send + fmt::Debug, Solution: Send, Score: Ord + Copy
 
                     NodeResult::Feasible(solution, score) => {
                         shared_state.statistics.num_feasible += 1;
-                        debug!("Yes! We found a feasible solution with score {}: {}", score, subproblem_formatted);
+                        debug!(
+                            "Yes! We found a feasible solution with score {}: {}",
+                            score, subproblem_formatted
+                        );
                         if score > shared_state.best_score {
                             debug!(
                                 "Wow, this is the best solution, we found so far. Let's store it."
@@ -249,7 +252,10 @@ fn worker<SubProblem: Ord + Send + fmt::Debug, Solution: Send, Score: Ord + Copy
 
                     NodeResult::Infeasible(new_problems, score) => {
                         shared_state.statistics.num_infeasible += 1;
-                        debug!("We found an infeasible solution with score {}: {}", score, subproblem_formatted);
+                        debug!(
+                            "We found an infeasible solution with score {}: {}",
+                            score, subproblem_formatted
+                        );
                         // Add new subproblems to queue
                         for (i, new_problem) in new_problems.into_iter().enumerate() {
                             shared_state

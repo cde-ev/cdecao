@@ -15,10 +15,10 @@
 //! subproblem of the course assignment prblem. All the data conversion from Course/Participant objects to matrices and
 //! vectors for the `hungarian_algorithm()` happens within this function.
 
-use crate::{bab, Choice};
 use crate::bab::NodeResult::{Feasible, Infeasible, NoSolution};
 use crate::hungarian::{EdgeWeight, Score};
 use crate::util::{binom, IterSelections};
+use crate::{bab, Choice};
 use crate::{Assignment, Course, Participant};
 use log::{debug, info};
 use std::cmp::min;
@@ -70,7 +70,8 @@ const INSTRUCTOR_SCORE: Score = WEIGHT_OFFSET as u32;
 /// Calculate a simple upper bound for the solution score of the given problem, assuming all course
 /// instructors can instruct their course and all participants can get their best choice.
 pub fn theoretical_max_score(participants: &[Participant], courses: &[Course]) -> Score {
-    let mut participant_scores: Vec<Score> = participants.iter()
+    let mut participant_scores: Vec<Score> = participants
+        .iter()
         .map(|p| {
             p.choices
                 .iter()
@@ -78,7 +79,7 @@ pub fn theoretical_max_score(participants: &[Participant], courses: &[Course]) -
                 .max()
                 .unwrap_or(0)
         })
-    .collect();
+        .collect();
 
     for course in courses {
         for instructor in course.instructors.iter() {
@@ -101,7 +102,7 @@ struct PreComputedProblem {
     dummy_x: ndarray::Array1<bool>,
     /// Marks rows in the adjacency matrix that shall always be ignored for assignment (because these participants
     /// shall/can not be assigned as course attendees).
-    /// 
+    ///
     /// This vector is dynamically extended by the list of course instructors in each BaB node to get the complete
     /// skip_x vector. In theory, we could remove the rows with skip_x_always[x]==true completely from the matrix, but
     /// that would require changes to the handling of the participant list to keep the indexes in sync.
@@ -157,7 +158,8 @@ fn precompute_problem(
     }
 
     // Generate skip_x_always: Skip instructor-only participants, don't skip dummy_x rows
-    let skip_x_always: ndarray::Array1<bool> = participants.iter()
+    let skip_x_always: ndarray::Array1<bool> = participants
+        .iter()
         .map(|p| p.is_instructor_only())
         .chain(std::iter::repeat(false))
         .take(n)
@@ -167,10 +169,12 @@ fn precompute_problem(
     let mut adjacency_matrix = ndarray::Array2::<EdgeWeight>::zeros([n, m]);
     for (x, p) in participants.iter().enumerate() {
         for choice in p.choices.iter() {
-            debug_assert!(choice.course_index < inverse_course_map.len(),
+            debug_assert!(
+                choice.course_index < inverse_course_map.len(),
                 "Invalid course choice index {} of participant {}",
                 choice.course_index,
-                p.index);
+                p.index
+            );
             for j in 0..courses[choice.course_index].num_max {
                 let y = inverse_course_map[choice.course_index] + j;
                 adjacency_matrix[[x, y]] = edge_weight(choice);
@@ -401,8 +405,12 @@ fn run_bab_node(
                 // by check_room_feasibility()
                 for mut restriction in restrictions {
                     let mut new_node = current_node.clone();
-                    new_node.shrinked_courses.append(&mut restriction.shrink_courses);
-                    new_node.cancelled_courses.append(&mut restriction.cancel_courses);
+                    new_node
+                        .shrinked_courses
+                        .append(&mut restriction.shrink_courses);
+                    new_node
+                        .cancelled_courses
+                        .append(&mut restriction.cancel_courses);
                     branches.push(new_node);
                 }
             }
@@ -437,15 +445,15 @@ fn run_bab_node(
 
         return Infeasible(branches, score);
     }
-    
+
     Feasible(assignment, score)
 }
 
 /// A set of constraints to fix a specific room size violation.
-/// 
+///
 /// All the constraints (shrinked courses, cancelled courses) in this set meant to be applied
 /// together, in addition to the constraints already present in the current BaB node.
-/// 
+///
 /// [check_room_feasibility] will create multiple alternative of these constraint sets allow
 /// trying different solutions for the room size violation in different following BaB nodes.
 struct RoomConstraintSet {
@@ -599,11 +607,18 @@ fn check_room_feasibility(
         );
         // Only consider results where all courses from the selection can be cancelled/shrinked
         if let Some(mut constraint_set) = constraint_set {
-            constraint_set.shrink_courses.extend_from_slice(&always_constraints.shrink_courses[..]);
-            constraint_set.cancel_courses.extend_from_slice(&always_constraints.cancel_courses[..]);
+            constraint_set
+                .shrink_courses
+                .extend_from_slice(&always_constraints.shrink_courses[..]);
+            constraint_set
+                .cancel_courses
+                .extend_from_slice(&always_constraints.cancel_courses[..]);
             // We should always generate new constraints, when all courses from the k-selection can
             // be cancelled/shrinked
-            assert!(!(constraint_set.shrink_courses.is_empty() && constraint_set.cancel_courses.is_empty()));
+            assert!(
+                !(constraint_set.shrink_courses.is_empty()
+                    && constraint_set.cancel_courses.is_empty())
+            );
             result.push(constraint_set);
         }
     }
@@ -655,8 +670,8 @@ fn create_room_constraint_set<'a>(
         }
         if to_size
             >= ((course.room_offset
-                 + course.room_factor * (course.num_min + course.instructors.len()) as f32).ceil()
-                    as usize)
+                + course.room_factor * (course.num_min + course.instructors.len()) as f32)
+                .ceil() as usize)
         {
             let shrink_size = (((to_size as f32) - course.room_offset) / course.room_factor).floor()
                 as usize
@@ -686,7 +701,10 @@ fn create_room_constraint_set<'a>(
             cancel.push(course.index);
         }
     }
-    Some(RoomConstraintSet {shrink_courses: shrink, cancel_courses: cancel})
+    Some(RoomConstraintSet {
+        shrink_courses: shrink,
+        cancel_courses: cancel,
+    })
 }
 
 /// Check if the given matching is a feasible solution in terms of the Branch and Bound algorithm,
@@ -723,16 +741,24 @@ fn check_feasibility(
 
     // Check if solution is infeasible, such that any participant is in an un-chosen course
     for (p, c) in assignment.iter().enumerate() {
-        if !is_instructor[p] && !participants[p].is_instructor_only() && !participants[p].choices.iter().any(|choice| Some(choice.course_index) == *c) {
+        if !is_instructor[p]
+            && !participants[p].is_instructor_only()
+            && !participants[p]
+                .choices
+                .iter()
+                .any(|choice| Some(choice.course_index) == *c)
+        {
             // If so, get smallest non-constrained course, that has an instructor, who chose c
             let mut relevant_courses: Vec<usize> = (0..courses.len())
                 .filter(|rc| !node.cancelled_courses.contains(rc))
                 .filter(|rc| !node.enforced_courses.contains(rc))
                 .filter(|rc| {
-                    courses[*rc]
-                        .instructors
-                        .iter()
-                        .any(|instr| participants[*instr].choices.iter().any(|choice| Some(choice.course_index) == *c))
+                    courses[*rc].instructors.iter().any(|instr| {
+                        participants[*instr]
+                            .choices
+                            .iter()
+                            .any(|choice| Some(choice.course_index) == *c)
+                    })
                 })
                 .collect();
             if relevant_courses.is_empty() {
@@ -749,7 +775,13 @@ fn check_feasibility(
     let mut course: Option<usize> = None;
     for (c, size) in course_size.iter().enumerate() {
         if !node.cancelled_courses.contains(&c) && *size < courses[c].num_min {
-            assert!(!node.enforced_courses.contains(&c), "Course {} has been enforced but still does not meet its minimum number: {} < {}", courses[c].index, *size, courses[c].num_min);
+            assert!(
+                !node.enforced_courses.contains(&c),
+                "Course {} has been enforced but still does not meet its minimum number: {} < {}",
+                courses[c].index,
+                *size,
+                courses[c].num_min
+            );
             let score = courses[c].num_min - *size;
             if score > max_score {
                 max_score = score;

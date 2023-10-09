@@ -40,7 +40,8 @@ pub fn format_assignment(
     let mut result = String::new();
     for c in courses.iter() {
         write!(result, "\n===== {} =====\n", c.name).unwrap();
-        let assigned: Vec<&Participant> = assignment.iter()
+        let assigned: Vec<&Participant> = assignment
+            .iter()
             .enumerate()
             .filter(|(_, course_index)| **course_index == Some(c.index))
             .map(|(participant_index, _)| &participants[participant_index])
@@ -64,7 +65,7 @@ pub fn format_assignment(
         if !c.hidden_participant_names.is_empty() {
             writeln!(result, "further attendees (not optimized):").unwrap();
             for name in c.hidden_participant_names.iter() {
-                writeln!(result,"- {}", name).unwrap();
+                writeln!(result, "- {}", name).unwrap();
             }
         }
     }
@@ -73,12 +74,12 @@ pub fn format_assignment(
 }
 
 pub fn debug_list_of_courses(courses: &[Course]) -> String {
-    courses.iter()
+    courses
+        .iter()
         .map(|c| format!("{:02} {}", c.index, c.name))
         .collect::<Vec<String>>()
         .join("\n")
 }
-
 
 /// Assert that a given courses/participants data structure is consistent (in terms of object's
 /// indexes and cross referencing indexes)

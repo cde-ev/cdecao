@@ -31,7 +31,7 @@ pub type Score = u32;
 /// With ten course choices per participant, quadratic weighting (x = 100) and 450 participants, edge weights should be
 /// in the range 45001 -- 45101, so u16 is still sufficient. With 50 courses and max 20 places in each, the matrix will
 /// be 2MB in size, which is easily cachable.
-/// 
+///
 /// For performance it seems to be better if EdgeWeight is the same type as Label, and even better when edge weights and
 /// labels are the same size -- but smaller is better for vectorized instructions. So we'll use i32 instead of u16.
 /// This doubles the size of the adjacency matrix in memory, which is still cachable in L3 cache by modern CPUs.
@@ -189,13 +189,16 @@ pub fn hungarian_algorithm(
 
                 // Update neighbourhood with equalitygraph-neighbours of z
                 let t_nor_s = !skip_y & !&t;
-                let t_nor_s_nor_mandatory = if dummy_x[z] {t_nor_s & !mandatory_y} else {t_nor_s};
+                let t_nor_s_nor_mandatory = if dummy_x[z] {
+                    t_nor_s & !mandatory_y
+                } else {
+                    t_nor_s
+                };
                 let label = labels_x[z];
-                let new_neighbours = t_nor_s_nor_mandatory & Zip::from(adjacency_matrix.index_axis(Axis(0), z))
-                    .and(&labels_y)
-                    .map_collect(|&a, &l| {
-                        a as Label == l + label
-                    });
+                let new_neighbours = t_nor_s_nor_mandatory
+                    & Zip::from(adjacency_matrix.index_axis(Axis(0), z))
+                        .and(&labels_y)
+                        .map_collect(|&a, &l| a as Label == l + label);
                 nlxt |= &new_neighbours;
                 Zip::from(&mut nlxt_neighbour_of)
                     .and(&new_neighbours)

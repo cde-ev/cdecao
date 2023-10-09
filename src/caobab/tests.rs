@@ -12,7 +12,7 @@
 use super::BABNode;
 use crate::bab::NodeResult;
 use crate::choices_from_list;
-use crate::{Assignment, Course, Participant, Choice};
+use crate::{Assignment, Choice, Course, Participant};
 use std::sync::Arc;
 
 fn create_simple_problem() -> (Vec<Participant>, Vec<Course>) {
@@ -206,7 +206,11 @@ fn test_precompute_problem() {
     // check adjacency matrix
     for (x, p) in participants.iter().enumerate() {
         for y in 0..m {
-            let choice = p.choices.iter().filter(|c| c.course_index == problem.course_map[y]).next();
+            let choice = p
+                .choices
+                .iter()
+                .filter(|c| c.course_index == problem.course_map[y])
+                .next();
             assert_eq!(
                 problem.adjacency_matrix[(x, y)],
                 match choice {
@@ -439,9 +443,12 @@ fn check_assignment(
         if course_size[c] != 0 {
             for i in course.instructors.iter() {
                 assert_eq!(
-                    assignment[*i], Some(c),
+                    assignment[*i],
+                    Some(c),
                     "Instructor {} of course {} is assigned to {:?}",
-                    *i, c, assignment[*i]
+                    *i,
+                    c,
+                    assignment[*i]
                 );
                 course_instructors[*i] = true;
             }
@@ -452,7 +459,10 @@ fn check_assignment(
     for (p, participant) in participants.iter().enumerate() {
         if !course_instructors[p] && !participant.is_instructor_only() {
             assert!(
-                participant.choices.iter().any(|c| Some(c.course_index) == assignment[p]),
+                participant
+                    .choices
+                    .iter()
+                    .any(|c| Some(c.course_index) == assignment[p]),
                 "Course {:?} of participant {} is none of their choices ({:?})",
                 assignment[p],
                 p,
@@ -559,7 +569,10 @@ fn test_bab_node_large() {
             choices: Vec::new(),
         };
         for i in 0..3 {
-            participant.choices.push(Choice {course_index: (p + i) % NUM_COURSES, penalty: i as u32});
+            participant.choices.push(Choice {
+                course_index: (p + i) % NUM_COURSES,
+                penalty: i as u32,
+            });
         }
         participants.push(participant);
         if p < NUM_COURSES {
@@ -824,8 +837,10 @@ fn test_caobab_instructor_only_participant_active() {
             assert!(score > (participants.len() as u32 - 1) * (super::WEIGHT_OFFSET as u32 - 2));
             assert!(score < (participants.len() as u32 - 1) * (super::WEIGHT_OFFSET as u32));
             assert!(score < super::theoretical_max_score(&participants, &courses));
-            assert!(super::theoretical_max_score(&participants, &courses)
-                <= (participants.len() as u32 - 1) * (super::WEIGHT_OFFSET as u32));
+            assert!(
+                super::theoretical_max_score(&participants, &courses)
+                    <= (participants.len() as u32 - 1) * (super::WEIGHT_OFFSET as u32)
+            );
 
             assert_eq!(assignment[6], Some(1))
         }

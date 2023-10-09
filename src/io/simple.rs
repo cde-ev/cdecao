@@ -83,11 +83,23 @@ mod tests {
         assert_eq!(participants.len(), 6);
         assert_eq!(courses.len(), 4);
         assert_eq!(participants[2].name, "Charly Clown");
-        assert_eq!(participants[2].choices, vec![
-            crate::Choice{course_index: 2, penalty: 0},
-            crate::Choice{course_index: 0, penalty: 1},
-            crate::Choice{course_index: 1, penalty: 42},
-        ]);
+        assert_eq!(
+            participants[2].choices,
+            vec![
+                crate::Choice {
+                    course_index: 2,
+                    penalty: 0
+                },
+                crate::Choice {
+                    course_index: 0,
+                    penalty: 1
+                },
+                crate::Choice {
+                    course_index: 1,
+                    penalty: 42
+                },
+            ]
+        );
         assert_eq!(courses[2].name, "3. The Third Course");
         assert_eq!(courses[2].num_min, 3);
         assert_eq!(courses[2].num_max, 20);
