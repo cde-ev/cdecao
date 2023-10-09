@@ -114,6 +114,10 @@ fn main() {
             "(Higher is better. Perfect fit would be {}.)",
             cdecao::caobab::solution_score::theoretical_max_score(&participants, &courses)
         );
+        info!(
+            "Solution quality (lower is better, 0.0 is perfect): {}.",
+            cdecao::caobab::solution_score::solution_quality(score, &participants)
+        );
         if let Some(outpath) = args.get_one::<String>("OUTPUT") {
             debug!("Opening output file {} ...", outpath);
             match File::create(outpath) {
