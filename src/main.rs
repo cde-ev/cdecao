@@ -112,7 +112,7 @@ fn main() {
         info!("Solution found with score {}.", score);
         info!(
             "(Higher is better. Perfect fit would be {}.)",
-            cdecao::caobab::theoretical_max_score(&participants, &courses)
+            cdecao::caobab::solution_score::theoretical_max_score(&participants, &courses)
         );
         if let Some(outpath) = args.get_one::<String>("OUTPUT") {
             debug!("Opening output file {} ...", outpath);
