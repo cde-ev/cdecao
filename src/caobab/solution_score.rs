@@ -53,6 +53,26 @@ pub fn generic_quality(
         / (assigned_course_choice_penalties.len() + number_instructors) as f32
 }
 
+/// Calculate a comparable solution quality score for a combined assignment from a cdecao solution
+/// and external assignment data
+pub fn combined_quality(
+    score: Score,
+    participants: &Vec<Participant>,
+    number_external_instructors: usize,
+    external_course_choice_penalties: &Vec<u32>,
+) -> f32 {
+    let num_real_participants = participants
+        .iter()
+        .filter(|p| !p.is_instructor_only())
+        .count();
+    (num_real_participants * WEIGHT_OFFSET as usize - score as usize
+        + number_external_instructors * (WEIGHT_OFFSET as u32 - INSTRUCTOR_SCORE) as usize
+        + external_course_choice_penalties.iter().sum::<u32>() as usize) as f32
+        / (num_real_participants
+            + external_course_choice_penalties.len()
+            + number_external_instructors) as f32
+}
+
 /// Calculate a solution quality score from a given course assignment (not necessarily created as a
 /// caobab solution)
 pub fn assignment_quality(
