@@ -599,7 +599,7 @@ fn test_caobab_simple() {
     let (participants, courses) = create_simple_problem();
     let courses = Arc::new(courses);
     let participants = Arc::new(participants);
-    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), None, false);
+    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), None, false, 1);
 
     match result {
         Some((assignment, score)) => {
@@ -629,8 +629,13 @@ fn test_caobab_rooms() {
     let rooms = vec![10, 5, 8];
 
     // Run caobab
-    let (result, statistics) =
-        super::solve(courses.clone(), participants.clone(), Some(&rooms), false);
+    let (result, statistics) = super::solve(
+        courses.clone(),
+        participants.clone(),
+        Some(&rooms),
+        false,
+        1,
+    );
 
     match result {
         None => panic!("Expected to get a result."),
@@ -676,8 +681,13 @@ fn test_caobab_rooms_fixed_course() {
     let rooms = vec![10, 5, 8];
 
     // Run caobab
-    let (result, _statistics) =
-        super::solve(courses.clone(), participants.clone(), Some(&rooms), false);
+    let (result, _statistics) = super::solve(
+        courses.clone(),
+        participants.clone(),
+        Some(&rooms),
+        false,
+        1,
+    );
 
     match result {
         None => panic!("Expected to get a result."),
@@ -719,7 +729,7 @@ fn test_caobab_fixed_course() {
     crate::io::assert_data_consitency(&participants, &courses);
 
     // Run caobab
-    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), None, false);
+    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), None, false, 1);
 
     match result {
         None => panic!("Expected to get a result."),
@@ -766,7 +776,7 @@ fn test_caobab_instructor_only_participant_cancelled() {
     crate::io::assert_data_consitency(&participants, &courses);
 
     // Run caobab
-    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), None, false);
+    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), None, false, 1);
 
     match result {
         None => panic!("Expected to get a result."),
@@ -799,7 +809,7 @@ fn test_caobab_instructor_only_participant_active() {
     crate::io::assert_data_consitency(&participants, &courses);
 
     // Run caobab
-    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), None, false);
+    let (result, _statistics) = super::solve(courses.clone(), participants.clone(), None, false, 1);
 
     match result {
         None => panic!("Expected to get a result."),
@@ -834,8 +844,13 @@ fn test_caobab_rooms_scaling() {
         (vec![15, 7], [false, false, true]),
         (vec![10, 5], [true, false, false]),
     ] {
-        let (result, _statistics) =
-            super::solve(courses.clone(), participants.clone(), Some(&rooms), false);
+        let (result, _statistics) = super::solve(
+            courses.clone(),
+            participants.clone(),
+            Some(&rooms),
+            false,
+            1,
+        );
 
         match result {
             None => panic!("Expected to get a result for rooms={:?}", rooms),
@@ -886,8 +901,13 @@ fn test_caobab_rooms_scaling() {
     }
 
     for rooms in [vec![5, 5], vec![5]] {
-        let (result, _statistics) =
-            super::solve(courses.clone(), participants.clone(), Some(&rooms), false);
+        let (result, _statistics) = super::solve(
+            courses.clone(),
+            participants.clone(),
+            Some(&rooms),
+            false,
+            1,
+        );
         assert!(
             result.is_none(),
             "No result expected for rooms={:?}. Assignment is {:?}",

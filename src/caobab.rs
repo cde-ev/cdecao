@@ -35,6 +35,7 @@ pub fn solve(
     participants: Arc<Vec<Participant>>,
     rooms: Option<&Vec<usize>>,
     report_no_solution: bool,
+    num_threads: u32,
 ) -> (Option<(Assignment, u32)>, bab::Statistics) {
     let pre_computed_problem = Arc::new(precompute_problem(&courses, &participants, rooms));
 
@@ -53,7 +54,7 @@ pub fn solve(
             enforced_courses: Vec::new(),
             shrinked_courses: Vec::new(),
         },
-        num_cpus::get() as u32,
+        num_threads,
     )
 }
 

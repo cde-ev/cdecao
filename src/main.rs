@@ -102,6 +102,9 @@ fn main() {
         participants.clone(),
         rooms.as_ref(),
         args.get_flag("report_no_solution"),
+        *args
+            .get_one("num_threads")
+            .unwrap_or(&(num_cpus::get() as u32)),
     );
     info!("Finished solving course assignment. {}", statistics);
 
@@ -229,6 +232,15 @@ fn parse_cli_args() -> clap::ArgMatches {
                 .long("rooms")
                 .help("Comma-separated list of available course room sizes, e.g. 15,10,10,8")
                 .value_name("ROOMS"),
+        )
+        .arg(
+            clap::Arg::new("num_threads")
+                .long("num-threads")
+                .help(
+                    "Number of worker threads to spawn. Defaults to number of detected CPU cores.",
+                )
+                .value_name("THREADS")
+                .value_parser(clap::value_parser!(u32)),
         )
         .arg(
             clap::Arg::new("print")
