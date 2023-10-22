@@ -11,7 +11,10 @@
 
 //! IO functionality for use of this program with the CdE Datenbank export and import file formats.
 
-use crate::{Assignment, Choice, Course, Participant};
+use crate::{
+    caobab::{self, solution_score::AssignmentQualityInfo},
+    Assignment, Choice, Course, Participant,
+};
 use std::collections::HashMap;
 
 use chrono::{SecondsFormat, Utc};
@@ -27,6 +30,9 @@ const OUTPUT_EXPORT_VERSION: (u64, u64) = (16, 0);
 pub struct ImportAmbienceData {
     event_id: u64,
     track_id: u64,
+    /// If some participants are omitted during import (e.g. through the `ignore_assigned` option),
+    /// this field contains the relevant information to calculate the overall assignment quality
+    pub external_assignment_quality_info: Option<caobab::solution_score::AssignmentQualityInfo>,
 }
 
 /// Read course and participant data from an JSON event export of the CdE Datenbank
@@ -87,7 +93,7 @@ pub fn read<R: std::io::Read>(
         .get("parts")
         .and_then(|v| v.as_object())
         .ok_or("No 'parts' object found in event.")?;
-    let (part_id, track_id) = find_track(parts_data, track)?;
+    let (part_id, track_id, track_data) = find_track(parts_data, track)?;
 
     // Parse courses
     let mut courses = Vec::new();
@@ -159,6 +165,7 @@ pub fn read<R: std::io::Read>(
 
     // Parse Registrations
     let mut registrations = Vec::new();
+    let mut external_assignment_quality_info = AssignmentQualityInfo::new(0, vec![]);
     let registrations_data = data
         .get("registrations")
         .and_then(|v| v.as_object())
@@ -189,10 +196,14 @@ pub fn read<R: std::io::Read>(
                     // In case, they are (invisible) instructor of the course ...
                     Some(c) if c == course_index => {
                         invisible_course_participants[course_index].0 += 1;
+                        external_assignment_quality_info.add_instructor();
                     }
                     // In case, they are (invisible) attendee of the course ...
                     _ => {
                         invisible_course_participants[course_index].1 += 1;
+                        external_assignment_quality_info.add_assigned_choice_penalty(
+                            penalty_for_assigned_course_choice(course_index, &choices, track_data),
+                        );
                     }
                 };
                 courses[course_index]
@@ -242,6 +253,11 @@ pub fn read<R: std::io::Read>(
                 .and_then(|v| v.as_u64())
                 .ok_or("No event 'id' found in data")?,
             track_id,
+            external_assignment_quality_info: if ignore_assigned {
+                Some(external_assignment_quality_info)
+            } else {
+                None
+            },
         },
     ))
 }
@@ -618,7 +634,7 @@ fn parse_participant_course_data(
         if let Some(c) = course_index {
             choices.push(Choice {
                 course_index: *c,
-                penalty: i as u32,
+                penalty: penalty_for_choice(i),
             });
         }
     }
@@ -631,6 +647,32 @@ fn parse_participant_course_data(
     }
 
     Ok((assigned_course_index, instructed_course_index, choices))
+}
+
+fn penalty_for_assigned_course_choice(
+    assigned_course: usize,
+    course_choices: &Vec<Choice>,
+    track_data: &serde_json::Map<String, serde_json::Value>,
+) -> u32 {
+    course_choices
+        .iter()
+        .position(|c| c.course_index == assigned_course)
+        .map(|i| penalty_for_choice(i))
+        .unwrap_or(penalty_for_unchosen_course(track_data))
+}
+
+/// Calculate penalty (edge weight offset) for a course choice based on its index in the list of
+/// choices
+fn penalty_for_choice(choice_index: usize) -> u32 {
+    choice_index as u32
+}
+
+fn penalty_for_unchosen_course(track_data: &serde_json::Map<String, serde_json::Value>) -> u32 {
+    track_data
+        .get("num_choices")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0) as u32
+        + 1
 }
 
 /// Adjust a Course to incorporate the "invisible" (ignored) participants in its size and offsets
@@ -733,11 +775,11 @@ pub fn write<W: std::io::Write>(
 /// * track: The course track selected by the user (if any)
 ///
 /// # Returns
-/// part_id and track_id of the chosen course track or a user readable error string
+/// part_id and track_id and track data of the chosen course track or a user readable error string
 fn find_track(
     parts_data: &serde_json::Map<String, serde_json::Value>,
     track: Option<u64>,
-) -> Result<(u64, u64), String> {
+) -> Result<(u64, u64, &serde_json::Map<String, serde_json::Value>), String> {
     match track {
         // If a specific course track id is given, search for that id
         Some(t) => {
@@ -746,7 +788,7 @@ fn find_track(
                     .get("tracks")
                     .and_then(|v| v.as_object())
                     .ok_or("Missing 'tracks' in event part.")?;
-                for (track_id, _track) in tracks_data {
+                for (track_id, track) in tracks_data {
                     if track_id
                         .parse::<u64>()
                         .map_err(|e: std::num::ParseIntError| e.to_string())?
@@ -759,6 +801,7 @@ fn find_track(
                             track_id
                                 .parse()
                                 .map_err(|e: std::num::ParseIntError| e.to_string())?,
+                            track.as_object().ok_or("Track data is not an object")?,
                         ));
                     }
                 }
@@ -769,13 +812,13 @@ fn find_track(
 
         // Otherwise, check if there is only a single course track
         None => {
-            let mut result: Option<(u64, u64)> = None;
+            let mut result = None;
             for (part_id, part) in parts_data {
                 let tracks_data = part
                     .get("tracks")
                     .and_then(|v| v.as_object())
                     .ok_or("Missing 'tracks' in event part.")?;
-                for (track_id, _track) in tracks_data {
+                for (track_id, track) in tracks_data {
                     if result.is_some() {
                         return Err(format!(
                             "Event has more than one course track. Please select one of the \
@@ -790,6 +833,7 @@ fn find_track(
                         track_id
                             .parse()
                             .map_err(|e: std::num::ParseIntError| e.to_string())?,
+                        track.as_object().ok_or("Track data is not an object")?,
                     ));
                 }
             }

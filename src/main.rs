@@ -118,6 +118,19 @@ fn main() {
             "Solution quality (lower is better, 0.0 is perfect): {}.",
             cdecao::caobab::solution_score::solution_quality(score, &participants)
         );
+        if let Some(external_assignment_quality_data) = import_ambience
+            .as_ref()
+            .and_then(|a| a.external_assignment_quality_info.as_ref())
+        {
+            info!(
+                "Overall Solution quality (including already assigned): {}.",
+                cdecao::caobab::solution_score::combined_quality(
+                    score,
+                    &participants,
+                    external_assignment_quality_data
+                )
+            );
+        }
         if let Some(outpath) = args.get_one::<String>("OUTPUT") {
             debug!("Opening output file {} ...", outpath);
             match File::create(outpath) {

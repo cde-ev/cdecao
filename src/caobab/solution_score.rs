@@ -41,7 +41,7 @@ pub fn solution_quality(score: Score, participants: &Vec<Participant>) -> f32 {
 pub fn combined_quality(
     score: Score,
     participants: &Vec<Participant>,
-    external_assignment_data: AssignmentQualityInfo,
+    external_assignment_data: &AssignmentQualityInfo,
 ) -> f32 {
     let num_real_participants = participants
         .iter()
