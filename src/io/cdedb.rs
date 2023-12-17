@@ -1009,9 +1009,33 @@ mod tests {
 
     #[test]
     fn test_ignore_assigned() {
+        use assert_float_eq::*;
         let data = include_bytes!("test_ressources/TestAka_partial_export_event.json");
-        let (participants, courses, _import_ambience) =
-            super::read(&data[..], Some(3), false, true, None, None).unwrap();
+
+        // change JSON to modify choice to make external quality more interesting: Inga chose
+        // 1. Heldentum as second choice.
+        let mut json_data = serde_json::from_reader::<&[u8], serde_json::Value>(&data[..]).unwrap();
+        let p4_choices = json_data
+            .as_object_mut()
+            .unwrap()
+            .get_mut("registrations")
+            .unwrap()
+            .get_mut("4")
+            .unwrap()
+            .get_mut("tracks")
+            .unwrap()
+            .get_mut("3")
+            .unwrap()
+            .get_mut("choices")
+            .unwrap()
+            .as_array_mut()
+            .unwrap();
+        p4_choices.clear();
+        p4_choices.extend_from_slice(&[2.into(), 1.into()]);
+        let modified_data = serde_json::to_vec(&json_data).unwrap();
+
+        let (participants, courses, import_ambience) =
+            super::read(&modified_data[..], Some(3), false, true, None, None).unwrap();
         super::super::assert_data_consitency(&participants, &courses);
 
         assert_eq!(courses.len(), 5);
@@ -1024,6 +1048,16 @@ mod tests {
         assert_eq!(participants.len(), 2);
         assert!(find_participant_by_id(&participants, 2).is_none());
         assert!(find_participant_by_id(&participants, 4).is_none());
+
+        // Akira: in 1st choice, Emilia: instructor, Inga: 2st choice (due to modification)
+        // => (0 + 0 + 1) / 3 = 0.33
+        assert_f32_near!(
+            import_ambience
+                .external_assignment_quality_info
+                .unwrap()
+                .get_quality(),
+            0.33333333
+        );
     }
 
     #[test]
@@ -1199,6 +1233,7 @@ mod tests {
         let ambience_data = super::ImportAmbienceData {
             event_id: 1,
             track_id: 3,
+            external_assignment_quality_info: None,
         };
         let assignment: Assignment = vec![Some(0), Some(0), Some(2), Some(0), None];
 
