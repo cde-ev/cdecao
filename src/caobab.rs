@@ -496,7 +496,7 @@ fn check_room_feasibility(
         }
     }
     for (c, ref mut s) in course_size.iter_mut() {
-        *s = if *s == 0 {
+        *s = if *s == 0 && !c.fixed_course {
             0
         } else {
             (c.room_offset + c.room_factor * (*s as f32)).ceil() as usize

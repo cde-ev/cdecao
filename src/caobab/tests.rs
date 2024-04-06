@@ -1002,3 +1002,82 @@ fn test_caobab_rooms_scaling() {
         );
     }
 }
+
+// When a course is fixed its room offset needs to be considered, even if there are no further choices for this course.
+// This is important for considering existing course assignments (using --ignore-assigned).
+#[test]
+fn test_caobab_rooms_scaling_preassigned_course() {
+    let (participants, mut courses) = create_simple_problem();
+    // Add course
+    courses.push(Course {
+        index: 3,
+        dbid: 3,
+        name: String::from("Pre-assigned Course 3"),
+        num_max: 0,
+        num_min: 0,
+        instructors: vec![],
+        room_factor: 2.0,
+        room_offset: 12.0,
+        fixed_course: true,
+        hidden_participant_names: vec![
+            "Mister X".to_owned(),
+            "Mister Y".to_owned(),
+            "Mister Z".to_owned(),
+            "Mister A".to_owned(),
+        ],
+    });
+
+    let courses = Arc::new(courses);
+    let participants = Arc::new(participants);
+    crate::io::assert_data_consitency(&participants, &courses);
+
+    // Idea: the fixed course requires the 15-places room, so course 0 has to be cancelled.
+    let rooms = vec![15, 7, 5];
+
+    let (result, _statistics) = super::solve(
+        courses.clone(),
+        participants.clone(),
+        Some(&rooms),
+        false,
+        1,
+    );
+
+    match result {
+        None => panic!("Expected to get a result"),
+
+        Some((assignment, score)) => {
+            print!(
+                "test_caobab_rooms_scaling_preassigned_course (assignment: {:?}\n",
+                assignment
+            );
+
+            // Check general feasibility of assignment
+            check_assignment(&*courses, &*participants, &assignment, None);
+
+            // Check score
+            assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 2));
+            assert!(score < participants.len() as u32 * (super::WEIGHT_OFFSET as u32));
+            assert_eq!(
+                super::solution_score::solution_quality(score, &participants),
+                super::solution_score::assignment_quality(
+                    &participants,
+                    &courses,
+                    &assignment,
+                    0,
+                    5000
+                )
+            );
+
+            // Calculate course sizes
+            let mut course_size = vec![0usize; courses.len()];
+            for course in assignment.iter() {
+                if let Some(c) = course {
+                    course_size[*c] += 1;
+                }
+            }
+
+            // Check that course 0 is cancelled
+            assert_eq!(course_size[0], 0, "Course 0 should be cancelled");
+        }
+    };
+}
