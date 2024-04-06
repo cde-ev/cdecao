@@ -25,6 +25,8 @@ use std::cmp::min;
 use std::fmt::Debug;
 use std::sync::Arc;
 
+pub mod solution_score;
+
 /// Main method of the module to solve a course assignement problem using the branch and bound method together with the
 /// hungarian method.
 ///
@@ -66,31 +68,6 @@ fn edge_weight(choice: &Choice) -> EdgeWeight {
     WEIGHT_OFFSET - choice.penalty as EdgeWeight
 }
 const INSTRUCTOR_SCORE: Score = WEIGHT_OFFSET as u32;
-
-/// Calculate a simple upper bound for the solution score of the given problem, assuming all course
-/// instructors can instruct their course and all participants can get their best choice.
-pub fn theoretical_max_score(participants: &[Participant], courses: &[Course]) -> Score {
-    let mut participant_scores: Vec<Score> = participants
-        .iter()
-        .map(|p| {
-            p.choices
-                .iter()
-                .map(|choice| edge_weight(choice) as Score)
-                .max()
-                .unwrap_or(0)
-        })
-        .collect();
-
-    for course in courses {
-        for instructor in course.instructors.iter() {
-            // instructor_only participants are not considered in the score. See run_bab_node().
-            if !participants[*instructor].is_instructor_only() {
-                participant_scores[*instructor] = INSTRUCTOR_SCORE;
-            }
-        }
-    }
-    participant_scores.into_iter().sum()
-}
 
 /// Precomputed problem definition for the hungarian method, that can be reused for every Branch and Bound node
 struct PreComputedProblem {

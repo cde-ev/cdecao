@@ -598,6 +598,16 @@ fn test_bab_node_large() {
             print!("test_bab_node_large: assignment: {:?}\n", assignment);
             check_assignment(&courses, &participants, &assignment, Some(&node));
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
+            assert_eq!(
+                super::solution_score::solution_quality(score, &participants),
+                super::solution_score::assignment_quality(
+                    &participants,
+                    &courses,
+                    &assignment,
+                    0,
+                    5000
+                )
+            );
         }
         x => panic!("Expected feasible result, got {:?}", x),
     }
@@ -620,6 +630,16 @@ fn test_caobab_simple() {
             check_assignment(&*courses, &*participants, &assignment, None);
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
             assert!(score < participants.len() as u32 * (super::WEIGHT_OFFSET as u32));
+            assert_eq!(
+                super::solution_score::solution_quality(score, &participants),
+                super::solution_score::assignment_quality(
+                    &participants,
+                    &courses,
+                    &assignment,
+                    0,
+                    5000
+                )
+            );
             assert!(
                 assignment == vec![Some(0), Some(1), Some(0), Some(1), Some(0), Some(1)]
                     || assignment == vec![Some(0), Some(1), Some(1), Some(0), Some(0), Some(1)],
@@ -662,6 +682,16 @@ fn test_caobab_rooms() {
             // Check score
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 2));
             assert!(score < participants.len() as u32 * (super::WEIGHT_OFFSET as u32));
+            assert_eq!(
+                super::solution_score::solution_quality(score, &participants),
+                super::solution_score::assignment_quality(
+                    &participants,
+                    &courses,
+                    &assignment,
+                    0,
+                    5000
+                )
+            );
 
             // Calculate course sizes
             let mut course_size = vec![0usize; courses.len()];
@@ -717,6 +747,16 @@ fn test_caobab_rooms_fixed_course() {
             // Check score
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 2));
             assert!(score < participants.len() as u32 * (super::WEIGHT_OFFSET as u32));
+            assert_eq!(
+                super::solution_score::solution_quality(score, &participants),
+                super::solution_score::assignment_quality(
+                    &participants,
+                    &courses,
+                    &assignment,
+                    0,
+                    5000
+                )
+            );
 
             // Calculate course sizes
             let mut course_size = vec![0usize; courses.len()];
@@ -759,6 +799,16 @@ fn test_caobab_fixed_course() {
             // Check score
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 2));
             assert!(score < participants.len() as u32 * (super::WEIGHT_OFFSET as u32));
+            assert_eq!(
+                super::solution_score::solution_quality(score, &participants),
+                super::solution_score::assignment_quality(
+                    &participants,
+                    &courses,
+                    &assignment,
+                    0,
+                    5000
+                )
+            );
 
             // Calculate course sizes
             let mut course_size = vec![0usize; courses.len()];
@@ -829,17 +879,28 @@ fn test_caobab_instructor_only_participant_active() {
 
         Some((assignment, score)) => {
             print!(
-                "test_caobab_instructor_only_participant_cancelled: assignment: {:?}\n",
+                "test_caobab_instructor_only_participant_active: assignment: {:?}\n",
                 assignment
             );
+            println!("score: {}", score);
 
             check_assignment(&*courses, &*participants, &assignment, None);
             assert!(score > (participants.len() as u32 - 1) * (super::WEIGHT_OFFSET as u32 - 2));
             assert!(score < (participants.len() as u32 - 1) * (super::WEIGHT_OFFSET as u32));
-            assert!(score < super::theoretical_max_score(&participants, &courses));
+            assert!(score < super::solution_score::theoretical_max_score(&participants, &courses));
             assert!(
-                super::theoretical_max_score(&participants, &courses)
+                super::solution_score::theoretical_max_score(&participants, &courses)
                     <= (participants.len() as u32 - 1) * (super::WEIGHT_OFFSET as u32)
+            );
+            assert_eq!(
+                super::solution_score::solution_quality(score, &participants),
+                super::solution_score::assignment_quality(
+                    &participants,
+                    &courses,
+                    &assignment,
+                    0,
+                    5000
+                )
             );
 
             assert_eq!(assignment[6], Some(1))
@@ -882,6 +943,16 @@ fn test_caobab_rooms_scaling() {
                 // Check score
                 assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 2));
                 assert!(score < participants.len() as u32 * (super::WEIGHT_OFFSET as u32));
+                assert_eq!(
+                    super::solution_score::solution_quality(score, &participants),
+                    super::solution_score::assignment_quality(
+                        &participants,
+                        &courses,
+                        &assignment,
+                        0,
+                        5000
+                    )
+                );
 
                 // Calculate course sizes
                 let mut course_size = vec![0usize; courses.len()];
