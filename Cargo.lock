@@ -100,7 +100,7 @@ checksum = "1fd97381a8cc6493395a5afc4c691c1084b3768db713b73aa215217aa245d153"
 
 [[package]]
 name = "cdecao"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "assert_float_eq",
  "chrono",
