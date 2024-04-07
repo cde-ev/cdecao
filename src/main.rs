@@ -109,28 +109,17 @@ fn main() {
     info!("Finished solving course assignment. {}", statistics);
 
     if let Some((assignment, score)) = result {
-        info!("Solution found with score {}.", score);
-        info!(
-            "(Higher is better. Perfect fit would be {}.)",
-            cdecao::caobab::solution_score::theoretical_max_score(&participants, &courses)
+        info!("Solution found.");
+        let quality_info = caobab::solution_score::QualityInfo::calculate(
+            score,
+            &participants,
+            &courses,
+            import_ambience
+                .as_ref()
+                .and_then(|a| a.external_assignment_quality_info.as_ref()),
         );
-        info!(
-            "Solution quality (lower is better, 0.0 is perfect): {}.",
-            cdecao::caobab::solution_score::solution_quality(score, &participants)
-        );
-        if let Some(external_assignment_quality_data) = import_ambience
-            .as_ref()
-            .and_then(|a| a.external_assignment_quality_info.as_ref())
-        {
-            info!(
-                "Overall Solution quality (including already assigned): {}.",
-                cdecao::caobab::solution_score::combined_quality(
-                    score,
-                    &participants,
-                    external_assignment_quality_data
-                )
-            );
-        }
+        info!("Solution quality info:\n{}", quality_info);
+
         if let Some(outpath) = args.get_one::<String>("OUTPUT") {
             debug!("Opening output file {} ...", outpath);
             match File::create(outpath) {

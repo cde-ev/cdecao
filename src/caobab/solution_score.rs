@@ -1,3 +1,7 @@
+use std::fmt::Display;
+
+use serde::Serialize;
+
 use super::{edge_weight, Score, INSTRUCTOR_SCORE, WEIGHT_OFFSET};
 use crate::{Assignment, Course, Participant};
 
@@ -27,7 +31,7 @@ pub fn theoretical_max_score(participants: &[Participant], courses: &[Course]) -
 }
 
 /// Calculate a comparable solution quality score (invariant to participant changes and available course choices)
-pub fn solution_quality(score: Score, participants: &Vec<Participant>) -> f32 {
+pub fn solution_quality(score: Score, participants: &[Participant]) -> f32 {
     let num_real_participants = participants
         .iter()
         .filter(|p| !p.is_instructor_only())
@@ -40,7 +44,7 @@ pub fn solution_quality(score: Score, participants: &Vec<Participant>) -> f32 {
 /// and external assignment quality data
 pub fn combined_quality(
     score: Score,
-    participants: &Vec<Participant>,
+    participants: &[Participant],
     external_assignment_data: &AssignmentQualityInfo,
 ) -> f32 {
     let num_real_participants = participants
@@ -146,4 +150,55 @@ pub fn assignment_quality(
         unfulfilled_choices_penalty,
     )
     .get_quality()
+}
+
+/// Combined struct of all the quality info that a user (human or wrapper program) might be
+/// interested in
+pub struct QualityInfo {
+    solution_score: Score,
+    theoretical_max_score: Score,
+    solution_quality: f32,
+    theoretical_max_quality: f32,
+    overall_quality: Option<f32>,
+}
+
+impl QualityInfo {
+    pub fn calculate(
+        solution_score: Score,
+        participants: &[Participant],
+        courses: &[Course],
+        external_assignment_data: Option<&AssignmentQualityInfo>,
+    ) -> Self {
+        let theoretical_max_score = theoretical_max_score(participants, courses);
+        Self {
+            solution_score,
+            theoretical_max_score,
+            solution_quality: solution_quality(solution_score, participants),
+            theoretical_max_quality: solution_quality(theoretical_max_score, participants),
+            overall_quality: external_assignment_data
+                .map(|external| combined_quality(solution_score, participants, external)),
+        }
+    }
+}
+
+impl Display for QualityInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Solution score:                     {: >9}
+(Perfect matching would have been:  {: >9})
+----------------------------------------------
+Solution quality lack:               {: >8.6}
+(Perfect matching would have been:   {: >8.6})
+{}\n",
+            self.solution_score,
+            self.theoretical_max_score,
+            self.solution_quality,
+            self.theoretical_max_quality,
+            match self.overall_quality {
+                Some(q) => format!("New overall assignment quality lack: {: >8.6}", q),
+                None => "".to_owned(),
+            },
+        )
+    }
 }
