@@ -24,8 +24,8 @@ use std::cmp::max;
 use log::{info, warn};
 
 const MINIMUM_EXPORT_VERSION: (u64, u64) = (7, 0);
-const MAXIMUM_EXPORT_VERSION: (u64, u64) = (16, std::u64::MAX);
-const OUTPUT_EXPORT_VERSION: (u64, u64) = (16, 0);
+const MAXIMUM_EXPORT_VERSION: (u64, u64) = (17, std::u64::MAX);
+const OUTPUT_EXPORT_VERSION: (u64, u64) = (17, 1);
 
 pub struct ImportAmbienceData {
     event_id: u64,
