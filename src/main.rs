@@ -163,6 +163,7 @@ fn main() {
         }
     } else {
         warn!("No feasible solution found.");
+        std::process::exit(1);
     }
 }
 
