@@ -156,6 +156,8 @@ participant in the order of the participants' appearance in the input file:
 
 ```
 {
+    "format": "X-courseassignment-simple",
+    "version": "1.0",
     "assignment": [
         0,
         0,
