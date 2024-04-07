@@ -132,6 +132,7 @@ fn main() {
                             &participants,
                             &courses,
                             import_ambience.unwrap(),
+                            &quality_info,
                         )
                     } else {
                         cdecao::io::simple::write(file, &assignment, &quality_info)

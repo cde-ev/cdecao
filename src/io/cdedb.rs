@@ -33,6 +33,17 @@ pub struct ImportAmbienceData {
     /// If some participants are omitted during import (e.g. through the `ignore_assigned` option),
     /// this field contains the relevant information to calculate the overall assignment quality
     pub external_assignment_quality_info: Option<caobab::solution_score::AssignmentQualityInfo>,
+    /// Generation timestamp of the used CdE Datenbank export file (used for summary comment)
+    export_timestamp: chrono::DateTime<chrono::Utc>,
+    /// If it is an event with multiple course tracks, the shortname of the selected track (used for
+    /// summary comment)
+    track_name: Option<String>,
+    /// If ignore_inactive_courses was used for reading the input file, the number of ignored
+    /// courses (used for summary comment)
+    ignored_inactive_courses: Option<usize>,
+    /// If ignore_assigned was used for reading the input file, the number of ignored participants
+    /// (used for summary comment)
+    ignored_assigned_participants: Option<usize>,
 }
 
 /// Read course and participant data from an JSON event export of the CdE Datenbank
@@ -84,6 +95,11 @@ pub fn read<R: std::io::Read>(
 ) -> Result<(Vec<Participant>, Vec<Course>, ImportAmbienceData), String> {
     let data: serde_json::Value = serde_json::from_reader(reader).map_err(|err| err.to_string())?;
     check_export_type_and_version(&data)?;
+    let export_timestamp: chrono::DateTime<chrono::Utc> = data["timestamp"]
+        .as_str()
+        .ok_or("No 'timestamp' string found in data.".to_owned())?
+        .parse()
+        .map_err(|e: chrono::ParseError| format!("Could not parse export timestamp: {}", e))?;
 
     // Find part and track ids
     let parts_data = data
@@ -98,6 +114,7 @@ pub fn read<R: std::io::Read>(
     // Parse courses
     let mut courses = Vec::new();
     let mut skipped_course_ids = Vec::new(); // Used to ignore KeyErrors for those later
+    let mut num_ignored_inactive_courses = 0usize;
     let courses_data = data
         .get("courses")
         .and_then(|v| v.as_object())
@@ -116,6 +133,7 @@ pub fn read<R: std::io::Read>(
         }
         if matches!(course_status, CourseStatus::Cancelled) && ignore_inactive_courses {
             skipped_course_ids.push(course_id);
+            num_ignored_inactive_courses += 1;
             continue;
         }
 
@@ -166,6 +184,7 @@ pub fn read<R: std::io::Read>(
     // Parse Registrations
     let mut registrations = Vec::new();
     let mut external_assignment_quality_info = AssignmentQualityInfo::new(0, vec![]);
+    let mut num_ignored_assigned_registrations = 0usize;
     let registrations_data = data
         .get("registrations")
         .and_then(|v| v.as_object())
@@ -209,6 +228,7 @@ pub fn read<R: std::io::Read>(
                 courses[course_index]
                     .hidden_participant_names
                     .push(reg_name);
+                num_ignored_assigned_registrations += 1;
                 continue;
             }
         }
@@ -258,6 +278,18 @@ pub fn read<R: std::io::Read>(
             } else {
                 None
             },
+            track_name: track.is_some().then_some(
+                track_data
+                    .get("shortname")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_owned())
+                    .ok_or("Missing 'shortname' in event track.")?,
+            ),
+            export_timestamp,
+            ignored_inactive_courses: ignore_inactive_courses
+                .then_some(num_ignored_inactive_courses),
+            ignored_assigned_participants: ignore_assigned
+                .then_some(num_ignored_assigned_registrations),
         },
     ))
 }
@@ -714,6 +746,7 @@ pub fn write<W: std::io::Write>(
     participants: &[Participant],
     courses: &Vec<Course>,
     ambience_data: ImportAmbienceData,
+    quality_info: &caobab::solution_score::QualityInfo,
 ) -> Result<(), String> {
     // Calculate course sizes
     let mut course_size = vec![0usize; courses.len()];
@@ -759,12 +792,52 @@ pub fn write<W: std::io::Write>(
         "kind": "partial",
         "id": ambience_data.event_id,
         "timestamp": Utc::now().to_rfc3339_opts(SecondsFormat::Millis, false),
+        "summary": generate_summery_comment(&ambience_data, quality_info),
         "courses": courses_json,
         "registrations": registrations_json
     });
     serde_json::to_writer(writer, &data).map_err(|e| format!("{}", e))?;
 
     Ok(())
+}
+
+/// Helper function to generate the 'summary' comment for the output file that will be used by the
+/// CdEDB for the log entry upon import.
+fn generate_summery_comment(
+    ambience_data: &ImportAmbienceData,
+    quality_info: &caobab::solution_score::QualityInfo,
+) -> String {
+    let mut ignore_options_info = Vec::new();
+    if let Some(num) = ambience_data.ignored_inactive_courses {
+        ignore_options_info.push(format!(" ignoring {} already cancelled courses", num));
+    }
+    if let Some(num) = ambience_data.ignored_assigned_participants {
+        ignore_options_info.push(format!(" ignoring {} already assigned participants", num));
+    }
+    let ignore_options_info = ignore_options_info.join(" and");
+    let track_info = match ambience_data.track_name.as_ref() {
+        Some(t) => format!(" for course track {}", t),
+        None => "".to_owned(),
+    };
+    format!(
+        "Automatically optimized course assignment{} by cdecao{}, \
+             optimization finished at {} \
+             with solution quality {} / overall assignment quality {}. \
+             Based on CdEDB export from {}",
+        track_info,
+        ignore_options_info,
+        Utc::now()
+            .to_rfc3339_opts(SecondsFormat::Secs, false)
+            .replace("T", " "),
+        quality_info.solution_quality,
+        quality_info
+            .overall_quality
+            .unwrap_or(quality_info.solution_quality),
+        ambience_data
+            .export_timestamp
+            .to_rfc3339_opts(SecondsFormat::Secs, false)
+            .replace("T", " "),
+    )
 }
 
 /// Helper function to find the specified course track or the single course track, if the event has
@@ -1234,8 +1307,25 @@ mod tests {
             event_id: 1,
             track_id: 3,
             external_assignment_quality_info: None,
+            export_timestamp: chrono::DateTime::from_naive_utc_and_offset(
+                chrono::NaiveDateTime::new(
+                    chrono::NaiveDate::from_ymd_opt(2024, 1, 15).unwrap(),
+                    chrono::NaiveTime::from_hms_opt(1, 23, 45).unwrap(),
+                ),
+                chrono::Utc,
+            ),
+            track_name: Some("Sitzung".into()),
+            ignored_inactive_courses: Some(42),
+            ignored_assigned_participants: None,
         };
         let assignment: Assignment = vec![Some(0), Some(0), Some(2), Some(0), None];
+        let quality_info = crate::caobab::solution_score::QualityInfo {
+            solution_score: 299_999,
+            theoretical_max_score: 300_000,
+            solution_quality: 0.25,
+            theoretical_max_quality: 0.0,
+            overall_quality: None,
+        };
 
         let mut buffer = Vec::<u8>::new();
         let result = super::write(
@@ -1244,6 +1334,7 @@ mod tests {
             &participants,
             &courses,
             ambience_data,
+            &quality_info,
         );
         assert!(result.is_ok());
 
@@ -1261,6 +1352,38 @@ mod tests {
         assert_eq!(registrations_data.len(), 4);
         check_output_registration(registrations_data, "1", "3", 1);
         check_output_registration(registrations_data, "3", "3", 4);
+
+        let summary_comment = data["summary"]
+            .as_str()
+            .expect("Serialized output data should contain summary comment");
+        assert!(
+            summary_comment.contains("ignoring 42 already cancelled courses"),
+            "not found in {}",
+            summary_comment
+        );
+        assert!(
+            summary_comment.contains(&format!(
+                "optimization finished at {}",
+                chrono::Utc::now().format("%Y-%m-%d")
+            )),
+            "not found in {}",
+            summary_comment
+        );
+        assert!(
+            summary_comment.contains("solution quality 0.25"),
+            "not found in {}",
+            summary_comment
+        );
+        assert!(
+            summary_comment.contains("overall assignment quality 0.25"),
+            "not found in {}",
+            summary_comment
+        );
+        assert!(
+            summary_comment.contains("CdEDB export from 2024-01-15"),
+            "not found in {}",
+            summary_comment
+        );
     }
 
     fn find_course_by_id(courses: &Vec<Course>, dbid: usize) -> Option<&Course> {

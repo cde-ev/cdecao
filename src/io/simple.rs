@@ -120,8 +120,13 @@ mod tests {
         let assignment: crate::Assignment =
             vec![Some(0), Some(0), Some(2), Some(2), Some(2), Some(0)];
         // This quality info does not match the assignment data, it's just for demonstration purposes
-        let quality_info =
-            crate::caobab::solution_score::QualityInfo::new(299_999, 300_000, 0.25, 0.0, None);
+        let quality_info = crate::caobab::solution_score::QualityInfo {
+            solution_score: 299_999,
+            theoretical_max_score: 300_000,
+            solution_quality: 0.25,
+            theoretical_max_quality: 0.0,
+            overall_quality: None,
+        };
         let mut buffer = Vec::<u8>::new();
         let result = super::write(&mut buffer, &assignment, &quality_info);
         assert!(result.is_ok());
