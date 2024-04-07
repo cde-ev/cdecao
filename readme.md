@@ -157,14 +157,20 @@ participant in the order of the participants' appearance in the input file:
 ```
 {
     "format": "X-courseassignment-simple",
-    "version": "1.0",
+    "version": "1.1",
     "assignment": [
         0,
         0,
         1,
         0,
         ...
-    ]
+    ],
+    "quality": {
+        "solution_quality": 0.11825192719697952,
+        "solution_score": 19449954,
+        "theoretical_max_quality": 0.0,
+        "theoretical_max_score": 19450000
+    }
 }
 ```
 In this example, Anton and Bertalottå are assigned to their own course "Example Course", the third participant (not

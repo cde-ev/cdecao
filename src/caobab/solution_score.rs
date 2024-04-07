@@ -154,11 +154,13 @@ pub fn assignment_quality(
 
 /// Combined struct of all the quality info that a user (human or wrapper program) might be
 /// interested in
+#[derive(Serialize)]
 pub struct QualityInfo {
     solution_score: Score,
     theoretical_max_score: Score,
     solution_quality: f32,
     theoretical_max_quality: f32,
+    #[serde(skip_serializing_if = "Option::is_none")]
     overall_quality: Option<f32>,
 }
 
@@ -177,6 +179,22 @@ impl QualityInfo {
             theoretical_max_quality: solution_quality(theoretical_max_score, participants),
             overall_quality: external_assignment_data
                 .map(|external| combined_quality(solution_score, participants, external)),
+        }
+    }
+
+    pub fn new(
+        solution_score: Score,
+        theoretical_max_score: Score,
+        solution_quality: f32,
+        theoretical_max_quality: f32,
+        overall_quality: Option<f32>,
+    ) -> Self {
+        Self {
+            solution_score,
+            theoretical_max_score,
+            solution_quality,
+            theoretical_max_quality,
+            overall_quality,
         }
     }
 }

@@ -9,7 +9,7 @@
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-use crate::{Assignment, Course, Participant};
+use crate::{caobab::solution_score::QualityInfo, Assignment, Course, Participant};
 use serde_json::json;
 
 /// Read the list of participants and courses from the simple JSON representation (canonical
@@ -40,12 +40,17 @@ pub fn read<R: std::io::Read>(reader: R) -> Result<(Vec<Participant>, Vec<Course
 
 /// Write the calculated course assignment as simple JSON representation (canonical
 /// serde_json serialization of `Assignmet` objects) to a Writer (e.g. an output file).
-pub fn write<W: std::io::Write>(writer: W, assignment: &Assignment) -> Result<(), String> {
+pub fn write<W: std::io::Write>(
+    writer: W,
+    assignment: &Assignment,
+    quality_info: &QualityInfo,
+) -> Result<(), String> {
     let a: serde_json::Value = serde_json::to_value(assignment).map_err(|e| format!("{}", e))?;
     let data = json!({
         "format": "X-courseassignment-simple",
-        "version": "1.0",
-        "assignment": a
+        "version": "1.1",
+        "assignment": a,
+        "quality": quality_info,
     });
     serde_json::to_writer(writer, &data).map_err(|e| format!("{}", e))?;
 
@@ -114,8 +119,11 @@ mod tests {
     fn write_simple_file() {
         let assignment: crate::Assignment =
             vec![Some(0), Some(0), Some(2), Some(2), Some(2), Some(0)];
+        // This quality info does not match the assignment data, it's just for demonstration purposes
+        let quality_info =
+            crate::caobab::solution_score::QualityInfo::new(299_999, 300_000, 0.25, 0.0, None);
         let mut buffer = Vec::<u8>::new();
-        let result = super::write(&mut buffer, &assignment);
+        let result = super::write(&mut buffer, &assignment, &quality_info);
         assert!(result.is_ok());
 
         // Parse buffer as JSON file
@@ -123,5 +131,20 @@ mod tests {
         let parsed_assignment =
             serde_json::from_value::<Vec<Option<usize>>>(data["assignment"].take()).unwrap();
         assert_eq!(assignment, parsed_assignment);
+        let parsed_quality_data = data["quality"]
+            .as_object()
+            .expect("There should be a JSON object 'quality' in the serialized output data.");
+        assert_eq!(
+            299_999,
+            parsed_quality_data["solution_score"].as_u64().expect(
+                "There sould be an integer 'solution_score' in the serialized quality data."
+            )
+        );
+        assert_eq!(
+            0.25,
+            parsed_quality_data["solution_quality"].as_f64().expect(
+                "There sould be a float 'solution_quality' in the serialized quality data."
+            )
+        );
     }
 }
