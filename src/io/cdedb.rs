@@ -201,7 +201,7 @@ pub fn read<R: std::io::Read>(
             continue;
         }
 
-        let (assigned_course, instructed_course, choices) = parse_participant_course_data(
+        let participant_course_data = parse_participant_course_data(
             &format!("{} (id={})", reg_name, reg_id),
             reg_data,
             track_id,
@@ -210,8 +210,8 @@ pub fn read<R: std::io::Read>(
 
         // Skip already assigned participants (if wanted)
         if ignore_assigned {
-            if let Some(course_index) = assigned_course {
-                match instructed_course {
+            if let Some(course_index) = participant_course_data.assigned_course_index {
+                match participant_course_data.instructed_course_index {
                     // In case, they are (invisible) instructor of the course ...
                     Some(c) if c == course_index => {
                         invisible_course_participants[course_index].0 += 1;
@@ -221,7 +221,11 @@ pub fn read<R: std::io::Read>(
                     _ => {
                         invisible_course_participants[course_index].1 += 1;
                         external_assignment_quality_info.add_assigned_choice_penalty(
-                            penalty_for_assigned_course_choice(course_index, &choices, track_data),
+                            penalty_for_assigned_course_choice(
+                                course_index,
+                                &participant_course_data.choices,
+                                track_data,
+                            ),
                         );
                     }
                 };
@@ -234,7 +238,7 @@ pub fn read<R: std::io::Read>(
         }
 
         // Filter out registrations without choices
-        if choices.is_empty() && instructed_course.is_none() {
+        if participant_course_data.choices.is_empty() && participant_course_data.instructed_course_index.is_none() {
             warn!(
                 "Ignoring participant '{}', who has no (valid) course choices.",
                 reg_name
@@ -243,7 +247,7 @@ pub fn read<R: std::io::Read>(
         }
 
         // Add course instructors to courses
-        if let Some(instructed_course_index) = instructed_course {
+        if let Some(instructed_course_index) = participant_course_data.instructed_course_index {
             courses[instructed_course_index].instructors.push(i);
         }
 
@@ -251,7 +255,7 @@ pub fn read<R: std::io::Read>(
             index: i,
             dbid: reg_id as usize,
             name: reg_name,
-            choices,
+            choices: participant_course_data.choices,
         });
         i += 1;
     }
@@ -567,6 +571,13 @@ fn extract_participant_base_data(
     Ok((participation_state, reg_name))
 }
 
+/// Helper struct for the result of `parse_participant_course_data()`
+struct ParticipantCourseData {
+    assigned_course_index: Option<usize>,
+    instructed_course_index: Option<usize>,
+    choices: Vec<Choice>,
+}
+
 /**
  * Extract course choice and assignment information from a registration object of the JSON data
  *
@@ -577,9 +588,6 @@ fn extract_participant_base_data(
  * - `courses_by_id` -- A Map (CdEDB course id) -> (course index or None). Iff a course exists but
  *   ignored by the assignment algorithm, the map shall contain a None value for this course id.
  *
- * # Return value
- * Returns a tuple (assigned_course, instructed_course, [choices]).
- *
  * All courses are referenced by index according to `courses_by_id`.
  * assigned_course and instructed_course are None, iff no course is assigned/instructed or the
  * course is marked to be ignored.
@@ -589,7 +597,7 @@ fn parse_participant_course_data(
     reg_data: &serde_json::Value,
     track_id: u64,
     courses_by_id: &HashMap<u64, Option<usize>>,
-) -> Result<(Option<usize>, Option<usize>, Vec<Choice>), String> {
+) -> Result<ParticipantCourseData, String> {
     let registration_track_data = reg_data
         .get("tracks")
         .and_then(|v| v.as_object())
@@ -678,18 +686,22 @@ fn parse_participant_course_data(
         );
     }
 
-    Ok((assigned_course_index, instructed_course_index, choices))
+    Ok(ParticipantCourseData {
+        assigned_course_index,
+        instructed_course_index,
+        choices,
+    })
 }
 
 fn penalty_for_assigned_course_choice(
     assigned_course: usize,
-    course_choices: &Vec<Choice>,
+    course_choices: &[Choice],
     track_data: &serde_json::Map<String, serde_json::Value>,
 ) -> u32 {
     course_choices
         .iter()
         .position(|c| c.course_index == assigned_course)
-        .map(|i| penalty_for_choice(i))
+        .map(penalty_for_choice)
         .unwrap_or(penalty_for_unchosen_course(track_data))
 }
 
@@ -744,16 +756,14 @@ pub fn write<W: std::io::Write>(
     writer: W,
     assignment: &Assignment,
     participants: &[Participant],
-    courses: &Vec<Course>,
+    courses: &[Course],
     ambience_data: ImportAmbienceData,
     quality_info: &caobab::solution_score::QualityInfo,
 ) -> Result<(), String> {
     // Calculate course sizes
     let mut course_size = vec![0usize; courses.len()];
-    for (_p, course) in assignment.iter().enumerate() {
-        if let Some(c) = course {
-            course_size[*c] += 1;
-        }
+    for course in assignment.iter().flatten() {
+        course_size[*course] += 1;
     }
 
     let registrations_json = assignment
@@ -828,7 +838,7 @@ fn generate_summery_comment(
         ignore_options_info,
         Utc::now()
             .to_rfc3339_opts(SecondsFormat::Secs, false)
-            .replace("T", " "),
+            .replace('T', " "),
         quality_info.solution_quality,
         quality_info
             .overall_quality
@@ -836,7 +846,7 @@ fn generate_summery_comment(
         ambience_data
             .export_timestamp
             .to_rfc3339_opts(SecondsFormat::Secs, false)
-            .replace("T", " "),
+            .replace('T', " "),
     )
 }
 
@@ -994,8 +1004,8 @@ mod tests {
                 "room_offset of course {} (dbid {}) is not 0.0",
                 c.index, c.dbid
             );
-            assert_eq!(
-                c.fixed_course, false,
+            assert!(
+                !c.fixed_course,
                 "course {} (dbid {}) is fixed",
                 c.index, c.dbid
             );
@@ -1058,7 +1068,7 @@ mod tests {
         // Morgenkreis
         let result = super::read(&data[..], None, false, false, None, None);
         assert!(result.is_err());
-        assert!(result.err().unwrap().find("Kaffeekränzchen").is_some());
+        assert!(result.err().unwrap().contains("Kaffeekränzchen"));
     }
 
     #[test]
@@ -1113,9 +1123,9 @@ mod tests {
 
         assert_eq!(courses.len(), 5);
         // Akira, Emilia and Inga are assigned to course 'α. Heldentum' (id=1), so it shall be fixed
-        assert_eq!(find_course_by_id(&courses, 1).unwrap().fixed_course, true);
+        assert!(find_course_by_id(&courses, 1).unwrap().fixed_course);
         assert_eq!(find_course_by_id(&courses, 1).unwrap().room_offset, 3.0);
-        assert_eq!(find_course_by_id(&courses, 4).unwrap().fixed_course, false);
+        assert!(!find_course_by_id(&courses, 4).unwrap().fixed_course);
         assert_eq!(find_course_by_id(&courses, 4).unwrap().room_offset, 0.0);
 
         assert_eq!(participants.len(), 2);
@@ -1386,15 +1396,12 @@ mod tests {
         );
     }
 
-    fn find_course_by_id(courses: &Vec<Course>, dbid: usize) -> Option<&Course> {
-        courses.iter().filter(|c| c.dbid == dbid).next()
+    fn find_course_by_id(courses: &[Course], dbid: usize) -> Option<&Course> {
+        courses.iter().find(|c| c.dbid == dbid)
     }
 
-    fn find_participant_by_id(
-        participants: &Vec<Participant>,
-        dbid: usize,
-    ) -> Option<&Participant> {
-        participants.iter().filter(|c| c.dbid == dbid).next()
+    fn find_participant_by_id(participants: &[Participant], dbid: usize) -> Option<&Participant> {
+        participants.iter().find(|c| c.dbid == dbid)
     }
 
     /// Helper function for test_write_result() to check a course entry in the resulting json data

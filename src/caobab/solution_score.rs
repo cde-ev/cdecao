@@ -97,16 +97,14 @@ impl AssignmentQualityInfo {
                     if !p.is_instructor_only() {
                         number_instructors += 1;
                     }
+                } else if let Some(choice) = p
+                    .choices
+                    .iter()
+                    .find(|choice| choice.course_index == *c_index)
+                {
+                    assigned_course_choice_penalties.push(choice.penalty);
                 } else {
-                    if let Some(choice) = p
-                        .choices
-                        .iter()
-                        .find(|choice| choice.course_index == *c_index)
-                    {
-                        assigned_course_choice_penalties.push(choice.penalty);
-                    } else {
-                        assigned_course_choice_penalties.push(unfulfilled_choices_penalty);
-                    }
+                    assigned_course_choice_penalties.push(unfulfilled_choices_penalty);
                 }
             } else if !p.is_instructor_only() {
                 assigned_course_choice_penalties.push(unassigned_penalty);

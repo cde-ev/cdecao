@@ -48,6 +48,7 @@ impl<'a, T> Iterator for KSelectionIterator<'a, T> {
                 }
                 j += 1;
             }
+            #[allow(clippy::needless_range_loop)]
             for k in 0..j {
                 index[k] = k;
             }
@@ -122,12 +123,10 @@ mod test {
 
     #[test]
     fn simple_test_owned_data() {
-        let data = vec![
-            String::from("a"),
+        let data = [String::from("a"),
             String::from("b"),
             String::from("c"),
-            String::from("d"),
-        ];
+            String::from("d")];
         let selections: Vec<Vec<&String>> = data[..].iter_selections(2).collect();
         assert_eq!(
             selections,

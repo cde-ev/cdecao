@@ -121,7 +121,7 @@ fn create_other_problem() -> (Vec<Course>, Vec<Participant>) {
             hidden_participant_names: vec![],
         };
         next_corse_id += 1;
-        return c;
+        c
     };
     let mut next_part_id = 0;
     let mut make_parts = |num, choices: Vec<usize>| -> Vec<Participant> {
@@ -135,7 +135,7 @@ fn create_other_problem() -> (Vec<Course>, Vec<Participant>) {
             });
             next_part_id += 1;
         }
-        return res;
+        res
     };
     // Build the problem
     let courses = vec![
@@ -168,7 +168,7 @@ fn create_other_problem() -> (Vec<Course>, Vec<Participant>) {
     // be cancelled
     // With course 2 enforced, course 3 must be cancelled
 
-    return (courses, participants);
+    (courses, participants)
 }
 
 #[test]
@@ -208,9 +208,7 @@ fn test_precompute_problem() {
         for y in 0..m {
             let choice = p
                 .choices
-                .iter()
-                .filter(|c| c.course_index == problem.course_map[y])
-                .next();
+                .iter().find(|c| c.course_index == problem.course_map[y]);
             assert_eq!(
                 problem.adjacency_matrix[(x, y)],
                 match choice {
@@ -373,17 +371,15 @@ fn test_check_feasibility() {
 /// single subproblem. To test a subproblem, simply pass the BABNode. In this case we will check, that exactly the
 /// `cancelled_courses` have no assigned participants.
 fn check_assignment(
-    courses: &Vec<Course>,
-    participants: &Vec<Participant>,
+    courses: &[Course],
+    participants: &[Participant],
     assignment: &Assignment,
     node: Option<&BABNode>,
 ) {
     // Calculate course sizes
     let mut course_size = vec![0usize; courses.len()];
-    for course in assignment.iter() {
-        if let Some(c) = course {
-            course_size[*c] += 1;
-        }
+    for course in assignment.iter().flatten() {
+        course_size[*course] += 1;
     }
 
     // Check course sizes
@@ -489,7 +485,7 @@ fn test_bab_node_simple() {
     let result = super::run_bab_node(&courses, &participants, &problem, node.clone(), false);
     match result {
         NodeResult::Feasible(assignment, score) => {
-            print!("test_bab_node_simple: 1. assignment: {:?}\n", assignment);
+            println!("test_bab_node_simple: 1. assignment: {:?}", assignment);
             check_assignment(&courses, &participants, &assignment, Some(&node));
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
         }
@@ -505,7 +501,7 @@ fn test_bab_node_simple() {
     let result = super::run_bab_node(&courses, &participants, &problem, node.clone(), false);
     match result {
         NodeResult::Feasible(assignment, score) => {
-            print!("test_bab_node_simple 2. assignment: {:?}\n", assignment);
+            println!("test_bab_node_simple 2. assignment: {:?}", assignment);
             check_assignment(&courses, &participants, &assignment, Some(&node));
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
         }
@@ -595,7 +591,7 @@ fn test_bab_node_large() {
 
     match result {
         NodeResult::Feasible(assignment, score) => {
-            print!("test_bab_node_large: assignment: {:?}\n", assignment);
+            println!("test_bab_node_large: assignment: {:?}", assignment);
             check_assignment(&courses, &participants, &assignment, Some(&node));
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
             assert_eq!(
@@ -626,8 +622,8 @@ fn test_caobab_simple() {
 
     match result {
         Some((assignment, score)) => {
-            print!("test_caobab_simple: assignment: {:?}\n", assignment);
-            check_assignment(&*courses, &*participants, &assignment, None);
+            println!("test_caobab_simple: assignment: {:?}", assignment);
+            check_assignment(&courses, &participants, &assignment, None);
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 1));
             assert!(score < participants.len() as u32 * (super::WEIGHT_OFFSET as u32));
             assert_eq!(
@@ -674,10 +670,10 @@ fn test_caobab_rooms() {
         None => panic!("Expected to get a result."),
 
         Some((assignment, score)) => {
-            print!("test_caobab_rooms: assignment: {:?}\n", assignment);
+            println!("test_caobab_rooms: assignment: {:?}", assignment);
 
             // Check general feasibility of assignment
-            check_assignment(&*courses, &*participants, &assignment, None);
+            check_assignment(&courses, &participants, &assignment, None);
 
             // Check score
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 2));
@@ -695,10 +691,8 @@ fn test_caobab_rooms() {
 
             // Calculate course sizes
             let mut course_size = vec![0usize; courses.len()];
-            for course in assignment.iter() {
-                if let Some(c) = course {
-                    course_size[*c] += 1;
-                }
+            for course in assignment.iter().flatten() {
+                course_size[*course] += 1;
             }
 
             // We expect
@@ -736,13 +730,13 @@ fn test_caobab_rooms_fixed_course() {
         None => panic!("Expected to get a result."),
 
         Some((assignment, score)) => {
-            print!(
-                "test_caobab_rooms_fixed_course: assignment: {:?}\n",
+            println!(
+                "test_caobab_rooms_fixed_course: assignment: {:?}",
                 assignment
             );
 
             // Check general feasibility of assignment
-            check_assignment(&*courses, &*participants, &assignment, None);
+            check_assignment(&courses, &participants, &assignment, None);
 
             // Check score
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 2));
@@ -760,10 +754,8 @@ fn test_caobab_rooms_fixed_course() {
 
             // Calculate course sizes
             let mut course_size = vec![0usize; courses.len()];
-            for course in assignment.iter() {
-                if let Some(c) = course {
-                    course_size[*c] += 1;
-                }
+            for course in assignment.iter().flatten() {
+                course_size[*course] += 1;
             }
 
             assert_eq!(course_size[3], 0);
@@ -788,13 +780,13 @@ fn test_caobab_fixed_course() {
         None => panic!("Expected to get a result."),
 
         Some((assignment, score)) => {
-            print!(
-                "test_caobab_rooms_fixed_course: assignment: {:?}\n",
+            println!(
+                "test_caobab_rooms_fixed_course: assignment: {:?}",
                 assignment
             );
 
             // Check general feasibility of assignment
-            check_assignment(&*courses, &*participants, &assignment, None);
+            check_assignment(&courses, &participants, &assignment, None);
 
             // Check score
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 2));
@@ -812,10 +804,8 @@ fn test_caobab_fixed_course() {
 
             // Calculate course sizes
             let mut course_size = vec![0usize; courses.len()];
-            for course in assignment.iter() {
-                if let Some(c) = course {
-                    course_size[*c] += 1;
-                }
+            for course in assignment.iter().flatten() {
+                course_size[*course] += 1;
             }
 
             assert_eq!(course_size[3], 0);
@@ -845,12 +835,12 @@ fn test_caobab_instructor_only_participant_cancelled() {
         None => panic!("Expected to get a result."),
 
         Some((assignment, _score)) => {
-            print!(
-                "test_caobab_instructor_only_participant_cancelled: assignment: {:?}\n",
+            println!(
+                "test_caobab_instructor_only_participant_cancelled: assignment: {:?}",
                 assignment
             );
 
-            check_assignment(&*courses, &*participants, &assignment, None);
+            check_assignment(&courses, &participants, &assignment, None);
 
             assert_eq!(assignment[6], None)
         }
@@ -878,13 +868,13 @@ fn test_caobab_instructor_only_participant_active() {
         None => panic!("Expected to get a result."),
 
         Some((assignment, score)) => {
-            print!(
-                "test_caobab_instructor_only_participant_active: assignment: {:?}\n",
+            println!(
+                "test_caobab_instructor_only_participant_active: assignment: {:?}",
                 assignment
             );
             println!("score: {}", score);
 
-            check_assignment(&*courses, &*participants, &assignment, None);
+            check_assignment(&courses, &participants, &assignment, None);
             assert!(score > (participants.len() as u32 - 1) * (super::WEIGHT_OFFSET as u32 - 2));
             assert!(score < (participants.len() as u32 - 1) * (super::WEIGHT_OFFSET as u32));
             assert!(score < super::solution_score::theoretical_max_score(&participants, &courses));
@@ -932,13 +922,13 @@ fn test_caobab_rooms_scaling() {
             None => panic!("Expected to get a result for rooms={:?}", rooms),
 
             Some((assignment, score)) => {
-                print!(
-                    "test_caobab_rooms_scaling (rooms={:?}): assignment: {:?}\n",
+                println!(
+                    "test_caobab_rooms_scaling (rooms={:?}): assignment: {:?}",
                     rooms, assignment
                 );
 
                 // Check general feasibility of assignment
-                check_assignment(&*courses, &*participants, &assignment, None);
+                check_assignment(&courses, &participants, &assignment, None);
 
                 // Check score
                 assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 2));
@@ -956,10 +946,8 @@ fn test_caobab_rooms_scaling() {
 
                 // Calculate course sizes
                 let mut course_size = vec![0usize; courses.len()];
-                for course in assignment.iter() {
-                    if let Some(c) = course {
-                        course_size[*c] += 1;
-                    }
+                for course in assignment.iter().flatten() {
+                    course_size[*course] += 1;
                 }
 
                 for (i, (size, expected_cancel)) in course_size
@@ -1046,13 +1034,13 @@ fn test_caobab_rooms_scaling_preassigned_course() {
         None => panic!("Expected to get a result"),
 
         Some((assignment, score)) => {
-            print!(
-                "test_caobab_rooms_scaling_preassigned_course (assignment: {:?}\n",
+            println!(
+                "test_caobab_rooms_scaling_preassigned_course (assignment: {:?}",
                 assignment
             );
 
             // Check general feasibility of assignment
-            check_assignment(&*courses, &*participants, &assignment, None);
+            check_assignment(&courses, &participants, &assignment, None);
 
             // Check score
             assert!(score > participants.len() as u32 * (super::WEIGHT_OFFSET as u32 - 2));
@@ -1070,10 +1058,8 @@ fn test_caobab_rooms_scaling_preassigned_course() {
 
             // Calculate course sizes
             let mut course_size = vec![0usize; courses.len()];
-            for course in assignment.iter() {
-                if let Some(c) = course {
-                    course_size[*c] += 1;
-                }
+            for course in assignment.iter().flatten() {
+                course_size[*course] += 1;
             }
 
             // Check that course 0 is cancelled

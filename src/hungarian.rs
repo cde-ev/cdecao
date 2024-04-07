@@ -151,8 +151,10 @@ pub fn hungarian_algorithm(
                     if *s_x {
                         for (y, weight) in adjacency_matrix.index_axis(Axis(0), x).indexed_iter() {
                             // TODO speed up, use ndarray::Zip?
+                            #[allow(clippy::nonminimal_bool)]
                             if !t[y] && !skip_y[y] && !(dummy_x[x] && mandatory_y[y]) {
                                 let delta = labels_x[x] + labels_y[y] - *weight as Label;
+                                #[allow(clippy::comparison_chain)]
                                 if delta == delta_min {
                                     // Y-Node with edge with same delta found. Add it to the new neighbourhood.
                                     nlxt[y] = true;

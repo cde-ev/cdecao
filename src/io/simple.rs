@@ -110,9 +110,9 @@ mod tests {
         assert_eq!(courses[2].num_max, 20);
         assert_eq!(courses[2].instructors, vec![4]);
         assert_eq!(courses[2].room_offset, 12.0);
-        assert_eq!(courses[2].fixed_course, false);
+        assert!(!courses[2].fixed_course);
         assert_eq!(courses[0].room_offset, 0.0);
-        assert_eq!(courses[1].fixed_course, true);
+        assert!(courses[1].fixed_course);
     }
 
     #[test]

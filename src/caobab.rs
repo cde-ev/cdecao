@@ -95,8 +95,8 @@ struct PreComputedProblem {
 /// Generate the general precomputed problem defintion (esp. the adjacency matrix) based on the Course and Participant
 /// objects
 fn precompute_problem(
-    courses: &Vec<Course>,
-    participants: &Vec<Participant>,
+    courses: &[Course],
+    participants: &[Participant],
     rooms: Option<&Vec<usize>>,
 ) -> PreComputedProblem {
     // To determine the required number of extra participant rows (which are filled with dummy
@@ -490,10 +490,8 @@ fn check_room_feasibility(
 ) -> (bool, Option<Vec<RoomConstraintSet>>) {
     // Calculate course sizes (incl. instructors and room_offset)
     let mut course_size: Vec<(&Course, usize)> = courses.iter().map(|c| (c, 0)).collect();
-    for course in assignment.iter() {
-        if let Some(c) = course {
-            course_size[*c].1 += 1;
-        }
+    for course in assignment.iter().flatten() {
+        course_size[*course].1 += 1;
     }
     for (c, ref mut s) in course_size.iter_mut() {
         *s = if *s == 0 && !c.fixed_course {
