@@ -10,6 +10,7 @@
 // specific language governing permissions and limitations under the License.
 
 pub mod cdedb;
+pub mod rooms;
 pub mod simple;
 
 use super::{Assignment, Course, Participant};
