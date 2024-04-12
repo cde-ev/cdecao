@@ -9,9 +9,10 @@
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-use cdecao::caobab;
-use std::fs::File;
+use cdecao::io::rooms::{get_course_room_kind_names, get_course_room_size_list};
+use cdecao::{caobab, io::rooms::CourseRoomKind};
 use std::sync::Arc;
+use std::{fs::File, ops::Deref};
 
 use log::{debug, error, info, warn};
 
@@ -31,16 +32,10 @@ fn main() {
     }
 
     // Parse rooms list
-    let rooms = args.get_one("rooms").map(|rooms_raw: &String| {
-        rooms_raw
-            .split(',')
-            .map(|r| r.parse::<usize>())
-            .collect::<Result<Vec<usize>, std::num::ParseIntError>>()
-            .unwrap_or_else(|e| {
-                error!("Could not parse room sizes: {}", e);
-                std::process::exit(exitcode::DATAERR)
-            })
-    });
+    let (rooms, room_kinds) = parse_rooms(
+        args.get_one::<String>("rooms").map(|x| x.deref()),
+        args.get_one::<String>("rooms_file").map(|x| x.deref()),
+    );
 
     // Open input file
     let inpath: &String = args.get_one("INPUT").unwrap();
@@ -120,6 +115,22 @@ fn main() {
         );
         info!("Solution quality info:\n{}", quality_info);
 
+        let possible_rooms = if room_kinds.is_some() {
+            Some(get_course_room_kind_names(
+                &assignment,
+                &courses,
+                &room_kinds.unwrap(),
+            ))
+        } else if rooms.is_some() {
+            Some(get_course_room_size_list(
+                &assignment,
+                &courses,
+                &rooms.unwrap(),
+            ))
+        } else {
+            None
+        };
+
         if let Some(outpath) = args.get_one::<String>("OUTPUT") {
             debug!("Opening output file {} ...", outpath);
             match File::create(outpath) {
@@ -133,6 +144,9 @@ fn main() {
                             &courses,
                             import_ambience.unwrap(),
                             &quality_info,
+                            args.get_one::<String>("possible_rooms_field")
+                                .map(|x| x.deref()),
+                            possible_rooms.as_deref(),
                         )
                     } else {
                         cdecao::io::simple::write(file, &assignment, &quality_info)
@@ -148,7 +162,12 @@ fn main() {
         if args.get_flag("print") {
             print!(
                 "The assignment is:\n{}",
-                cdecao::io::format_assignment(&assignment, &courses, &participants)
+                cdecao::io::format_assignment(
+                    &assignment,
+                    &courses,
+                    &participants,
+                    possible_rooms.as_deref(),
+                )
             );
         }
     } else {
@@ -209,8 +228,8 @@ fn parse_cli_args() -> clap::ArgMatches {
                     "The name of a course-associated data field from the CdE Datenbank, which \
                      stores a fixed offset to be added to the course size when comparing the \
                      course size with the awailable rooms. Only useful for the --cde data format \
-                     and with --rooms given. If not present, the default offset of 0 is used for \
-                     all courses.",
+                     and with --rooms or --rooms-file given. If not present, the default offset of \
+                     0 is used for all courses.",
                 ),
         )
         .arg(
@@ -221,8 +240,21 @@ fn parse_cli_args() -> clap::ArgMatches {
                     "The name of a course-associated data field from the CdE Datenbank, which \
                      stores a scaling factor to be multiplied with the course size (before adding \
                      the offset) when comparing the course size with the awailable rooms. Only \
-                     useful for the --cde data format and with --rooms given. If not present, the \
-                     default factor of 1.0 is used for all courses.",
+                     useful for the --cde data format and with --rooms or --rooms-file given. If \
+                     not present, the default factor of 1.0 is used for all courses.",
+                ),
+        )
+        .arg(
+            clap::Arg::new("possible_rooms_field")
+                .long("possible-rooms-field")
+                .value_name("FIELD_NAME")
+                .help(
+                    "The name of a course-associated data field in the CdE Datenbank, which \
+                     will be used to provide the possible rooms for the course in the output file.
+                     Only useful for the --cde data format and with --rooms or --rooms-file given.
+                     If present, the generated CdEDB import file will set this field to a \
+                     comma-separated list of possible course room kinds (from --room-file) resp. \
+                     room sizes (from --rooms) for the respective course.",
                 ),
         )
         .arg(
@@ -238,8 +270,20 @@ fn parse_cli_args() -> clap::ArgMatches {
             clap::Arg::new("rooms")
                 .short('r')
                 .long("rooms")
-                .help("Comma-separated list of available course room sizes, e.g. 15,10,10,8")
+                .help(
+                    "Comma-separated list of available course room sizes, e.g. 15,10,10,8. \
+                       Cannot be used together with --rooms-file.",
+                )
                 .value_name("ROOMS"),
+        )
+        .arg(
+            clap::Arg::new("rooms_file")
+                .long("rooms-file")
+                .help(
+                    "Path of a JSON file, specifying the available course rooms. Cannot be used \
+                       together with --rooms.",
+                )
+                .value_name("ROOM_FILE"),
         )
         .arg(
             clap::Arg::new("num_threads")
@@ -269,4 +313,40 @@ fn parse_cli_args() -> clap::ArgMatches {
                 .index(2),
         )
         .get_matches()
+}
+
+fn parse_rooms(
+    rooms_list: Option<&str>,
+    rooms_file_path: Option<&str>,
+) -> (Option<Vec<usize>>, Option<Vec<CourseRoomKind>>) {
+    match (rooms_list, rooms_file_path) {
+        (Some(rooms_raw), None) => {
+            let rooms = rooms_raw
+                .split(',')
+                .map(|r| r.parse::<usize>())
+                .collect::<Result<Vec<usize>, std::num::ParseIntError>>()
+                .unwrap_or_else(|e| {
+                    error!("Could not parse room sizes: {}", e);
+                    std::process::exit(exitcode::DATAERR);
+                });
+            (Some(rooms), None)
+        }
+        (None, Some(file_path)) => {
+            debug!("Opening rooms file {} ...", file_path);
+            let file = std::fs::File::open(file_path).unwrap_or_else(|e| {
+                error!("Could not open rooms file {}: {}", file_path, e);
+                std::process::exit(exitcode::NOINPUT)
+            });
+            let (rooms, room_kinds) = cdecao::io::rooms::read(file).unwrap_or_else(|e| {
+                error!("Could not read rooms file: {}", e);
+                std::process::exit(exitcode::DATAERR);
+            });
+            (Some(rooms), Some(room_kinds))
+        }
+        (Some(_), Some(_)) => {
+            error!("Either --rooms or --rooms-file can be used, not both.");
+            std::process::exit(exitcode::USAGE);
+        }
+        (None, None) => (None, None),
+    }
 }

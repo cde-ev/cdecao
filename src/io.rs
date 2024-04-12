@@ -23,6 +23,7 @@ use std::fmt::Write;
 /// ```text
 /// ===== Course name =====
 /// (3 participants incl. instructors)
+/// (possible course rooms: Seminar Room, Meeting Room)
 /// - Anton Administrator
 /// - Bertalotta Beispiel (instr)
 /// further attendees (not optimized):
@@ -37,6 +38,7 @@ pub fn format_assignment(
     assignment: &Assignment,
     courses: &[Course],
     participants: &[Participant],
+    possible_rooms: Option<&[String]>,
 ) -> String {
     let mut result = String::new();
     for c in courses.iter() {
@@ -49,6 +51,9 @@ pub fn format_assignment(
             .collect();
         let num = assigned.len() + c.hidden_participant_names.len();
         writeln!(result, "({} participants incl. instructors)", num).unwrap();
+        if let Some(rooms) = possible_rooms {
+            writeln!(result, "(possible course rooms: {})", rooms[c.index]).unwrap();
+        }
 
         for participant in assigned {
             writeln!(
