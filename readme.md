@@ -160,14 +160,34 @@ shown above) is assigned to "Another Course", the fourth will participate in "Ex
 ### Course Room Fitting
 
 The implemented course assignment algorithm includes an (experimental) extension for considering constraints on
-**available course rooms**. To use this functionality, simple give a list of available course room sizes (incl. course
+**available course rooms**.
+
+To use this functionality, simple give a list of available course room sizes (incl. course
 instructors):
 ```sh
 cdecao --rooms "20,20,20,10,10,10,10,10,10,8,8" --print data.json
 ```
-This works with both data file formats. For more control about course room matching, the "effective size" of each course
-can be defined as an affine function of the course's actual number of participants. For this purpose, each course has
-two attributes `room_factor` and `room_offset`, where
+As an alternative to `--rooms`, the `--rooms-file` option can be used to specify the path of a JSON file for specifying
+the available course rooms in the following format:
+```json
+[
+    {
+        "name": "Seminar Room",
+        "capacity": 15,
+        "quantity": 1
+    },
+    {
+        "name": "Meeting Room",
+        "capacity": 6,
+        "quantity": 2
+    },
+    ...
+]
+```
+
+Both of the options work with both data file formats. For more control about course room matching, the "effective size"
+of each course can be defined as an affine function of the course's actual number of participants. For this purpose,
+each course has two attributes `room_factor` and `room_offset`, where
 
 *effective_size = room_offset + room_factor * (num_participants + num_instructors)*.
 
@@ -175,6 +195,11 @@ The algorithm will automatically reduce the number of participants of some cours
 that all courses can find room with at least their effective size. Different combinations (not all possible – for
 complexity reasons) of "shrunk" and cancelled courses are computed to find the one which allows the best course
 assignment.
+
+The designated/possible course rooms for each course are shown in the results listing (when using `--print`).
+With the `--cde` data file format, the additional option `--possible-rooms-field` can be used to specify a custom
+course-associated data field, into which the names (or sizes) of the possible course rooms will be written by the
+generated output file.
 
 
 ## Building from source
