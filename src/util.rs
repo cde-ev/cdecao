@@ -123,10 +123,12 @@ mod test {
 
     #[test]
     fn simple_test_owned_data() {
-        let data = [String::from("a"),
+        let data = [
+            String::from("a"),
             String::from("b"),
             String::from("c"),
-            String::from("d")];
+            String::from("d"),
+        ];
         let selections: Vec<Vec<&String>> = data[..].iter_selections(2).collect();
         assert_eq!(
             selections,

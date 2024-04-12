@@ -238,7 +238,9 @@ pub fn read<R: std::io::Read>(
         }
 
         // Filter out registrations without choices
-        if participant_course_data.choices.is_empty() && participant_course_data.instructed_course_index.is_none() {
+        if participant_course_data.choices.is_empty()
+            && participant_course_data.instructed_course_index.is_none()
+        {
             warn!(
                 "Ignoring participant '{}', who has no (valid) course choices.",
                 reg_name
