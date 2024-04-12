@@ -115,18 +115,11 @@ fn main() {
         );
         info!("Solution quality info:\n{}", quality_info);
 
-        let possible_rooms = if room_kinds.is_some() {
-            Some(get_course_room_kind_names(
-                &assignment,
-                &courses,
-                &room_kinds.unwrap(),
-            ))
-        } else if rooms.is_some() {
-            Some(get_course_room_size_list(
-                &assignment,
-                &courses,
-                &rooms.unwrap(),
-            ))
+        #[allow(clippy::manual_map)] // allow writing an if-let-else-if-let ladder
+        let possible_rooms = if let Some(rk) = room_kinds {
+            Some(get_course_room_kind_names(&assignment, &courses, &rk))
+        } else if let Some(rs) = rooms {
+            Some(get_course_room_size_list(&assignment, &courses, &rs))
         } else {
             None
         };

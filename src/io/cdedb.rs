@@ -754,6 +754,7 @@ fn adapt_course_for_invisible_participants(
 
 /// Write the calculated course assignment as a CdE Datenbank partial import JSON string to a Writer
 /// (e.g. an output file).
+#[allow(clippy::too_many_arguments)]
 pub fn write<W: std::io::Write>(
     writer: W,
     assignment: &Assignment,

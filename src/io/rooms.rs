@@ -122,8 +122,7 @@ fn calculate_possible_course_room_sizes(
         // As a result, the rooms vector of each course is monotonic decreasing.
         rooms.dedup();
     }
-    let result = result.into_iter().map(|(_c, r)| r).collect();
-    result
+    result.into_iter().map(|(_c, r)| r).collect()
 }
 
 #[cfg(test)]
