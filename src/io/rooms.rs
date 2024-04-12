@@ -6,8 +6,7 @@ use serde::Deserialize;
 use crate::{Assignment, Course};
 
 /// representation of a named course room kind in the rooms JSON file
-#[derive(Deserialize)]
-#[derive(Debug, PartialEq)]
+#[derive(Deserialize, Debug, PartialEq)]
 pub struct CourseRoomKind {
     /// Name for this kind of course room
     name: String,
@@ -98,7 +97,10 @@ fn calculate_possible_course_room_sizes(
     course_sizes.sort_unstable_by_key(|(_c, s)| std::cmp::Reverse(*s));
     let num = courses.len();
     rooms.sort_unstable_by_key(|v| std::cmp::Reverse(*v));
-    let mut result: Vec<(&Course, Vec<usize>)> = courses.iter().map(|c| (c, Vec::new())).collect();
+    let mut result: Vec<(&Course, Vec<usize>)> = course_sizes
+        .iter()
+        .map(|(c, _s)| (*c, Vec::new()))
+        .collect();
 
     for i in 0..num {
         for j in i..rooms.len() {
@@ -118,7 +120,7 @@ fn calculate_possible_course_room_sizes(
         // are "mapped" to larger courses (beginning with the largest room). Afterwards we add the
         // "mapped" room of the course and all smaller rooms, again beginning with the largest room.
         // As a result, the rooms vector of each course is monotonic decreasing.
-        rooms.dedup()
+        rooms.dedup();
     }
     let result = result.into_iter().map(|(_c, r)| r).collect();
     result
@@ -152,17 +154,17 @@ mod tests {
     #[test]
     fn simple_test_get_course_room_sizes() {
         let courses =
-            create_courses_with_room_offset_factor(&[(10.0, 1.0), (0.0, 2.0), (0.0, 1.5)]);
-        let assignment = [0, 0, 1, 1, 1, 2, 2, 2].iter().map(|v| Some(*v)).collect();
+            create_courses_with_room_offset_factor(&[(0.0, 2.0), (10.0, 1.0), (0.0, 1.5)]);
+        let assignment = [0, 0, 0, 1, 1, 2, 2, 2].iter().map(|v| Some(*v)).collect();
         // effective room sizes:
-        // course 0: 10+2     = 12
-        // course 1:    3*2   =  6
+        // course 0:    3*2   =  6
+        // course 1: 10+2     = 12
         // course 2:    3*1.5 =  5
         let rooms = vec![15, 7, 7, 6, 3];
 
         let assigned_course_rooms =
             super::calculate_possible_course_room_sizes(&assignment, &courses, rooms);
-        let expected_course_rooms: Vec<Vec<usize>> = vec![vec![15], vec![7, 6], vec![7, 6]];
+        let expected_course_rooms: Vec<Vec<usize>> = vec![vec![7, 6], vec![15], vec![7, 6]];
         assert_eq!(assigned_course_rooms, expected_course_rooms);
     }
 
@@ -242,7 +244,7 @@ mod tests {
     fn test_read() {
         let data = include_bytes!("test_ressources/rooms_example.json");
         let (rooms, room_kinds) = super::read(&data[..]).unwrap();
-        
+
         let expected_rooms = [15, 6, 6, 1];
         let expected_room_kinds = vec![
             CourseRoomKind {
