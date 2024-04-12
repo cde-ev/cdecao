@@ -208,7 +208,8 @@ fn test_precompute_problem() {
         for y in 0..m {
             let choice = p
                 .choices
-                .iter().find(|c| c.course_index == problem.course_map[y]);
+                .iter()
+                .find(|c| c.course_index == problem.course_map[y]);
             assert_eq!(
                 problem.adjacency_matrix[(x, y)],
                 match choice {
