@@ -489,17 +489,7 @@ fn check_room_feasibility(
     node: &BABNode,
 ) -> (bool, Option<Vec<RoomConstraintSet>>) {
     // Calculate course sizes (incl. instructors and room_offset)
-    let mut course_size: Vec<(&Course, usize)> = courses.iter().map(|c| (c, 0)).collect();
-    for course in assignment.iter().flatten() {
-        course_size[*course].1 += 1;
-    }
-    for (c, ref mut s) in course_size.iter_mut() {
-        *s = if *s == 0 && !c.fixed_course {
-            0
-        } else {
-            (c.room_offset + c.room_factor * (*s as f32)).ceil() as usize
-        };
-    }
+    let mut course_size = room_effective_course_sizes(assignment, courses);
 
     // Note: The courses are ordered by (effective) size in ascending order.
     // Only for finding the largest conflicting course, we reverse the iteration order.
@@ -600,6 +590,34 @@ fn check_room_feasibility(
 
     debug!("Actually created {} room constraint sets", result.len());
     (false, Some(result))
+}
+
+/// Public helper function (also used by [check_room_feasibility]) for calculating the
+/// room-effective size of a course in the given assignment.
+///
+/// This function counts the assigned participants of each course and considers the `room_offset`
+/// and `room_factor` of the courses, as long as a course is not cancelled (according to the
+/// assignment and the `fixed_course` flag).
+///
+/// # Result
+///
+/// A vector of pairs of Course object reference and the course's room-effective size
+pub fn room_effective_course_sizes<'a>(
+    assignment: &Assignment,
+    courses: &'a [Course],
+) -> Vec<(&'a Course, usize)> {
+    let mut course_sizes: Vec<(&Course, usize)> = courses.iter().map(|c| (c, 0)).collect();
+    for course in assignment.iter().flatten() {
+        course_sizes[*course].1 += 1;
+    }
+    for (c, ref mut s) in course_sizes.iter_mut() {
+        *s = if *s == 0 && !c.fixed_course {
+            0
+        } else {
+            (c.room_offset + c.room_factor * (*s as f32)).ceil() as usize
+        };
+    }
+    course_sizes
 }
 
 /// Helper function of [check_room_feasibility] for generating a valid constraints set which shrinks

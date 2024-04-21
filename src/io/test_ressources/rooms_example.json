@@ -1,0 +1,17 @@
+[
+    {
+        "name": "Seminar Room",
+        "capacity": 15,
+        "quantity": 1
+    },
+    {
+        "name": "Meeting Room",
+        "capacity": 6,
+        "quantity": 2
+    },
+    {
+        "name": "Office",
+        "capacity": 1,
+        "quantity": 1
+    }
+]

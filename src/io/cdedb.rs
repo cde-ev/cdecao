@@ -754,6 +754,7 @@ fn adapt_course_for_invisible_participants(
 
 /// Write the calculated course assignment as a CdE Datenbank partial import JSON string to a Writer
 /// (e.g. an output file).
+#[allow(clippy::too_many_arguments)]
 pub fn write<W: std::io::Write>(
     writer: W,
     assignment: &Assignment,
@@ -761,6 +762,8 @@ pub fn write<W: std::io::Write>(
     courses: &[Course],
     ambience_data: ImportAmbienceData,
     quality_info: &caobab::solution_score::QualityInfo,
+    possible_rooms_field: Option<&str>,
+    possible_rooms: Option<&[String]>,
 ) -> Result<(), String> {
     // Calculate course sizes
     let mut course_size = vec![0usize; courses.len()];
@@ -789,13 +792,22 @@ pub fn write<W: std::io::Write>(
         .iter()
         .enumerate()
         .map(|(cid, size)| {
-            (
-                format!("{}", courses[cid].dbid),
-                json!({
-                "segments": {
-                    format!("{}", ambience_data.track_id): *size > 0 || courses[cid].fixed_course
-                }}),
-            )
+            let mut value = json!({
+            "segments": {
+                format!("{}", ambience_data.track_id): *size > 0 || courses[cid].fixed_course
+            }});
+            if let Some(rooms_field) = possible_rooms_field {
+                if let Some(rooms) = possible_rooms {
+                    // serde_json::Map::from_iter([(rooms_field.to_owned(), rooms[cid])].into_iter())
+                    value.as_object_mut().unwrap().insert(
+                        "fields".into(),
+                        json!({
+                            rooms_field: rooms[cid]
+                        }),
+                    );
+                }
+            }
+            (format!("{}", courses[cid].dbid), value)
         })
         .collect::<serde_json::Map<String, serde_json::Value>>();
 
@@ -1347,6 +1359,8 @@ mod tests {
             &courses,
             ambience_data,
             &quality_info,
+            None,
+            None,
         );
         assert!(result.is_ok());
 
