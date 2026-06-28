@@ -1,4 +1,4 @@
-// Copyright 2019 by Michael Thies <mail@mhthies.de>
+// Copyright 2019-2026 by Michael Thies <mail@mhthies.de>
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
 // the License. You may obtain a copy of the License at
@@ -10,7 +10,7 @@
 // specific language governing permissions and limitations under the License.
 
 use log::trace;
-use ndarray::{Array1, Array2, Axis, Zip};
+use ndarray::{Array1, ArrayRef1, ArrayRef2, Axis, Zip};
 
 /// Return type of the hungarian algorithm. Represents a mapping of columns to rows (i.e. course places to participants)
 /// by storing the matched column index for each row.
@@ -74,11 +74,11 @@ const LARGE_LABEL: Label = std::i32::MAX;
 /// The same holds for mandatory_y, skip_y and the adjacency matrix' second Axis' dimension. These conditions are
 /// checked in with assertions in debug builds.
 pub fn hungarian_algorithm(
-    adjacency_matrix: &Array2<EdgeWeight>,
-    dummy_x: &Array1<bool>,
-    mandatory_y: &Array1<bool>,
-    skip_x: &Array1<bool>,
-    skip_y: &Array1<bool>,
+    adjacency_matrix: &ArrayRef2<EdgeWeight>,
+    dummy_x: &ArrayRef1<bool>,
+    mandatory_y: &ArrayRef1<bool>,
+    skip_x: &ArrayRef1<bool>,
+    skip_y: &ArrayRef1<bool>,
 ) -> (Matching, Score) {
     let nx = adjacency_matrix.dim().0;
     let ny = adjacency_matrix.dim().1;
