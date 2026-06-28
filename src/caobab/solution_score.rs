@@ -12,7 +12,7 @@ use std::fmt::Display;
 
 use serde::Serialize;
 
-use super::{edge_weight, Score, INSTRUCTOR_SCORE, WEIGHT_OFFSET};
+use super::{INSTRUCTOR_SCORE, Score, WEIGHT_OFFSET, edge_weight};
 use crate::{Assignment, Course, Participant};
 
 /// Calculate a simple upper bound for the solution score of the given problem, assuming all course

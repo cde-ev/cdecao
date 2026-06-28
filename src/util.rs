@@ -114,8 +114,8 @@ pub fn binom(n: usize, k: usize) -> usize {
 
 #[cfg(test)]
 mod test {
-    use super::binom;
     use super::IterSelections;
+    use super::binom;
 
     #[test]
     fn simple_test() {

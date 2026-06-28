@@ -17,9 +17,9 @@
 
 use crate::bab::NodeResult::{Feasible, Infeasible, NoSolution};
 use crate::hungarian::{EdgeWeight, Score};
-use crate::util::{binom, IterSelections};
-use crate::{bab, Choice};
+use crate::util::{IterSelections, binom};
 use crate::{Assignment, Course, Participant};
+use crate::{Choice, bab};
 use log::{debug, info};
 use std::cmp::min;
 use std::fmt::Debug;
@@ -293,7 +293,10 @@ fn run_bab_node(
             if report_no_solution {
                 info!(
                     "Cannot cancel courses {:?}, since {:?}'s course choices cannot be fulfilled anymore.",
-                    node.cancelled_courses.iter().map(|x| courses[*x].name.as_str()).collect::<Vec<&str>>(),
+                    node.cancelled_courses
+                        .iter()
+                        .map(|x| courses[*x].name.as_str())
+                        .collect::<Vec<&str>>(),
                     p.name,
                 );
             }
@@ -320,7 +323,8 @@ fn run_bab_node(
         n,
         num_skip_x,
         m,
-        num_skip_y);
+        num_skip_y
+    );
     for i in 0..(n - m + num_skip_y - num_skip_x) {
         skip_x[participants.len() + i] = true;
     }
@@ -550,7 +554,12 @@ fn check_room_feasibility(
     debug!(
         "Creating room constraint sets from all k-selections from course_size[{}..{}] (effective course size {}-{}) \
         with k={} for room of size {}",
-        lower_bound, upper_bound, course_size[lower_bound].1, course_size[upper_bound-1].1, k, conflicting_room_size
+        lower_bound,
+        upper_bound,
+        course_size[lower_bound].1,
+        course_size[upper_bound - 1].1,
+        k,
+        conflicting_room_size
     );
     let always_constraints = create_room_constraint_set(
         node,

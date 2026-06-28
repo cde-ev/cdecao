@@ -140,7 +140,7 @@ fn calculate_possible_course_room_sizes(
 mod tests {
     use std::vec;
 
-    use crate::{io::rooms::CourseRoomKind, Course};
+    use crate::{Course, io::rooms::CourseRoomKind};
 
     fn create_courses_with_room_offset_factor(offset_factor: &[(f32, f32)]) -> Vec<Course> {
         offset_factor

@@ -245,7 +245,7 @@ pub fn hungarian_algorithm(
 // Tests
 #[cfg(test)]
 mod tests {
-    use super::{hungarian_algorithm, EdgeWeight};
+    use super::{EdgeWeight, hungarian_algorithm};
     use ndarray::{Array1, Array2};
 
     #[test]

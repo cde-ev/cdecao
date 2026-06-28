@@ -9,7 +9,7 @@
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-use crate::{caobab::solution_score::QualityInfo, Assignment, Course, Participant};
+use crate::{Assignment, Course, Participant, caobab::solution_score::QualityInfo};
 use serde_json::json;
 
 /// Read the list of participants and courses from the simple JSON representation (canonical

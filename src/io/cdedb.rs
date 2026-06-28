@@ -12,8 +12,8 @@
 //! IO functionality for use of this program with the CdE Datenbank export and import file formats.
 
 use crate::{
-    caobab::{self, solution_score::AssignmentQualityInfo},
     Assignment, Choice, Course, Participant,
+    caobab::{self, solution_score::AssignmentQualityInfo},
 };
 use std::collections::HashMap;
 
@@ -477,7 +477,10 @@ fn extract_room_factor_fields(
         match fields.get(field_name).and_then(|v| v.as_f64()) {
             Some(v) => v,
             None => {
-                warn!("No numeric field '{}' as room_factor field found in course '{}'. Using the default value 1.0.", field_name, course_name);
+                warn!(
+                    "No numeric field '{}' as room_factor field found in course '{}'. Using the default value 1.0.",
+                    field_name, course_name
+                );
                 1.0
             }
         }
@@ -488,7 +491,10 @@ fn extract_room_factor_fields(
         match fields.get(field_name).and_then(|v| v.as_f64()) {
             Some(v) => v,
             None => {
-                warn!("No numeric field '{}' as room_offset field found in course '{}'. Using the default value 0.0.", field_name, course_name);
+                warn!(
+                    "No numeric field '{}' as room_offset field found in course '{}'. Using the default value 0.0.",
+                    field_name, course_name
+                );
                 0.0
             }
         }
@@ -982,7 +988,7 @@ fn track_summary(
 
 #[cfg(test)]
 mod tests {
-    use crate::{choices_from_list, Assignment, Choice, Course, Participant};
+    use crate::{Assignment, Choice, Course, Participant, choices_from_list};
 
     #[test]
     fn parse_testaka_sitzung() {

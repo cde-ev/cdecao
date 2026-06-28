@@ -272,8 +272,7 @@ fn worker<SubProblem: Ord + Send + fmt::Debug, Solution: Send, Score: Ord + Copy
                 shared_state.statistics.num_bound_subproblems += 1;
                 debug!(
                     "Bounding this branch, since score {} is already worse then best known feasible solution: {:?}",
-                    parent_score,
-                    subproblem,
+                    parent_score, subproblem,
                 );
             }
 
