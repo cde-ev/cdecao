@@ -38,7 +38,7 @@ pub fn read<R: std::io::Read>(reader: R) -> Result<(Vec<usize>, Vec<CourseRoomKi
 
     let rooms = room_kinds
         .iter()
-        .flat_map(|room_kind| std::iter::repeat(room_kind.capacity).take(room_kind.quantity))
+        .flat_map(|room_kind| std::iter::repeat_n(room_kind.capacity, room_kind.quantity))
         .collect();
 
     Ok((rooms, room_kinds))
@@ -53,7 +53,7 @@ pub fn get_course_room_kind_names(
 ) -> Vec<String> {
     let rooms: Vec<usize> = room_kinds
         .iter()
-        .flat_map(|room_kind| std::iter::repeat(room_kind.capacity).take(room_kind.quantity))
+        .flat_map(|room_kind| std::iter::repeat_n(room_kind.capacity, room_kind.quantity))
         .collect();
 
     let course_rooms = calculate_possible_course_room_sizes(assignment, courses, rooms);
