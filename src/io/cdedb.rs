@@ -738,16 +738,8 @@ fn adapt_course_for_invisible_participants(
     invisible_attendees: usize,
 ) {
     let total_invisible_course_participants = invisible_instructors + invisible_attendees;
-    course.num_min = if invisible_attendees > course.num_min {
-        0
-    } else {
-        course.num_min - invisible_attendees
-    };
-    course.num_max = if invisible_attendees > course.num_max {
-        0
-    } else {
-        course.num_max - invisible_attendees
-    };
+    course.num_min = course.num_min.saturating_sub(invisible_attendees);
+    course.num_max = course.num_max.saturating_sub(invisible_attendees);
     course.fixed_course = total_invisible_course_participants != 0;
     course.room_offset += total_invisible_course_participants as f32 * course.room_factor;
 }
