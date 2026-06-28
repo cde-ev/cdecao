@@ -139,14 +139,14 @@ pub fn solve<
     SubProblem: 'static + Ord + Send + fmt::Debug,
     Solution: 'static + Send,
     Score: 'static + Ord + Bounded + Send + Copy + fmt::Display,
-    F: 'static,
+    F,
 >(
     node_solver: F,
     base_problem: SubProblem,
     num_threads: u32,
 ) -> (Option<(Solution, Score)>, Statistics)
 where
-    F: (Fn(SubProblem) -> NodeResult<SubProblem, Solution, Score>) + Send + Sync,
+    F: (Fn(SubProblem) -> NodeResult<SubProblem, Solution, Score>) + Send + Sync + 'static,
 {
     // Create shared data structure with base problem
     let mut pending_nodes = BinaryHeap::new();
