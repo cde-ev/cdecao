@@ -43,12 +43,13 @@ pub fn format_assignment(
     let mut result = String::new();
     for c in courses.iter() {
         write!(result, "\n===== {} =====\n", c.name).unwrap();
-        let assigned: Vec<&Participant> = assignment
+        let mut assigned: Vec<&Participant> = assignment
             .iter()
             .enumerate()
             .filter(|(_, course_index)| **course_index == Some(c.index))
             .map(|(participant_index, _)| &participants[participant_index])
             .collect();
+        assigned.sort_by_key(|participant| &participant.name);
         let num = assigned.len() + c.hidden_participant_names.len();
         writeln!(result, "({} participants incl. instructors)", num).unwrap();
         if let Some(rooms) = possible_rooms {
