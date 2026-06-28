@@ -610,7 +610,7 @@ pub fn room_effective_course_sizes<'a>(
     for course in assignment.iter().flatten() {
         course_sizes[*course].1 += 1;
     }
-    for (c, ref mut s) in course_sizes.iter_mut() {
+    for (c, s) in course_sizes.iter_mut() {
         *s = if *s == 0 && !c.fixed_course {
             0
         } else {
