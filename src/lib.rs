@@ -79,8 +79,8 @@ pub struct Course {
     /// Indexes of course instructor's indexes in the list of participants
     instructors: Vec<usize>,
     /// Scaling factor for room size check: The room of this course must have
-    /// >= room_offset + room_factor * num_participants (incl. instructors) places. E.g. for dancing
-    /// courses this might be somewhere around 2.5
+    /// `>= room_offset + room_factor * num_participants` (incl. instructors) places. E.g. for
+    /// dancing courses this might be somewhere around 2.5
     #[serde(default = "default_room_factor")]
     room_factor: f32,
     /// Offset to add to the number of assigned participants to check if the course fits a room of a

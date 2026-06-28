@@ -60,15 +60,15 @@ const LARGE_LABEL: Label = std::i32::MAX;
 /// # Arguments
 ///
 /// * `adjacency_matrix` - The adjacency matrix of the matching graph. Contains the weights of the edges between X and
-///     Y nodes
+///   Y nodes
 /// * `dummy_x` - A vector that tags certain X nodes as "dummy" nodes. Rows with `dummy_x[x] == true` must not be
-///     matched with `mandatory_y` nodes
+///   matched with `mandatory_y` nodes
 /// * `mandatory_y` - A vector that tags certain Y nodes as "mandatory" nodes. Those Y nodes/columns with
-///     `dummy_y[y] == true` will not be matched with `dummy_x` nodes
+///   `dummy_y[y] == true` will not be matched with `dummy_x` nodes
 /// * `skip_x` - A vector that marks rows to be skipped. Rows in the adjacency matrix with `skip_x[x] == true` are
-///     completely ignored by the algorithm.
+///   completely ignored by the algorithm.
 /// * `skip_y` - A vector that marks columns to be skipped. Columns in the adjacency matrix with `skip_y[x] == true`
-///     are completely ignored by the algorithm.
+///   are completely ignored by the algorithm.
 ///
 /// The dummy_x and skip_x vectors' dimension must match the adjacency matrix' first Axis' dimension (number of rows).
 /// The same holds for mandatory_y, skip_y and the adjacency matrix' second Axis' dimension. These conditions are

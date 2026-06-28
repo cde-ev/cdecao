@@ -381,7 +381,7 @@ enum CourseStatus {
  * Returns a tuple (course_name, status, num_min, num_max).
  *
  * - The `course_name` is meant for stdout output and error messages. Thus, it is composed from the
- * course number and short name.
+ *   course number and short name.
  * - `status` is determined with regard to the given `track_id`.
  * - `num_min` and `num_max` are -- according to the CdEDB convention -- counted excl. instructors
  * - A `sort_key` (based on the course number) for a simple sorting of the courses

@@ -474,9 +474,9 @@ struct RoomConstraintSet {
 /// * `courses` - The list of all courses (as referenced by `node` and `assignment`)
 /// * `assignment` - The assignment to be checked (must include course instructors)
 /// * `rooms` - An ordered list of course rooms in **descending** order, filled with zero entries to
-///     length of course list
+///   length of course list
 /// * `node` – The current BaB node, used to avoid conflicting restrictions (cancelled vs. enforced)
-///            and redundant restrictions.
+///   and redundant restrictions.
 ///
 /// # Result
 ///
@@ -633,11 +633,11 @@ pub fn room_effective_course_sizes<'a>(
 /// # Arguments
 ///
 /// * `current_node` - The current branch-and-bound node, i.e. constraint set, to check for enforced
-///     and already shrinked courses
+///   and already shrinked courses
 /// * `courses` - The courses to create room constraints for
 /// * `to_size` - The room size to shrink the `courses` to
 /// * `all_required` – If true, a (new) constraint is expected to be applied to all given `courses`.
-///     If this cannot be fulfilled due to existing constraints, the function returns `None`.
+///   If this cannot be fulfilled due to existing constraints, the function returns `None`.
 ///
 /// # Result
 ///
