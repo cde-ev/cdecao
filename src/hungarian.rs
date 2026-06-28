@@ -38,7 +38,7 @@ pub type Score = u32;
 pub type EdgeWeight = i32;
 
 pub type Label = i32;
-const LARGE_LABEL: Label = std::i32::MAX;
+const LARGE_LABEL: Label = i32::MAX;
 
 /// Execute the hungarian algorithm
 ///
