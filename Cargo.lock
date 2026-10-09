@@ -106,7 +106,7 @@ dependencies = [
 
 [[package]]
 name = "cdecao"
-version = "0.7.2"
+version = "0.8.0"
 dependencies = [
  "assert_float_eq",
  "chrono",
